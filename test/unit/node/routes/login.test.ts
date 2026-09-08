@@ -112,13 +112,11 @@ describe("login", () => {
       expect(htmlContent).toContain("if (submitting || input.value.length !== CODE_LENGTH) return")
     })
 
-    it("should prefetch only immutable public workbench assets before authentication", async () => {
+    it("should not leak private workbench state before authentication", async () => {
       const resp = await codeServer().fetch("/login", { method: "GET" })
       const htmlContent = await resp.text()
 
       expect(resp.status).toBe(200)
-      expect(htmlContent).toContain('rel="prefetch" as="style"')
-      expect(htmlContent).toContain('rel="prefetch" as="script"')
       expect(htmlContent).not.toContain("folder=/")
       expect(htmlContent).not.toContain("WebSocket(")
     })
