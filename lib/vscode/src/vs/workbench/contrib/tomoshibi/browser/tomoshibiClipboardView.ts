@@ -229,6 +229,13 @@ export class TomoshibiClipboardView extends ViewPane {
 		copyButton.textContent = '⧉';
 		copyButton.title = '复制';
 
+		// Without this the only way to get rid of one line is "clear", which takes the whole
+		// history with it. Anything the sensitive-text filter does not catch (a bare password, a
+		// ghp_ token) otherwise just sits in the sidebar, visible in any screen share.
+		const removeButton = append(row, $<HTMLButtonElement>('button.b'));
+		removeButton.textContent = '✕';
+		removeButton.title = '从历史里删掉这一条';
+
 		// Tapping the row inserts, which is the action users reach for on the iPad; the small
 		// button is the rarer "put it back on the system clipboard".
 		this._rowDisposables.add(addDisposableListener(row, EventType.CLICK, () => {
@@ -237,6 +244,10 @@ export class TomoshibiClipboardView extends ViewPane {
 		this._rowDisposables.add(addDisposableListener(copyButton, EventType.CLICK, e => {
 			e.stopPropagation();
 			void this._clipboardService.writeText(entry.text);
+		}));
+		this._rowDisposables.add(addDisposableListener(removeButton, EventType.CLICK, e => {
+			e.stopPropagation();
+			this._historyService.remove(entry.id);
 		}));
 	}
 }

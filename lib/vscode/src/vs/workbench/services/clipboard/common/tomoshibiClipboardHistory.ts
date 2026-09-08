@@ -54,6 +54,10 @@ export interface ITomoshibiClipboardHistoryService {
 	 */
 	pauseRecording(): IDisposable;
 
+	/**
+	 * Drops one entry. Every row in the view carries a button for this, so a single line that
+	 * should not have been kept can go without taking the rest of the history with it.
+	 */
 	remove(id: string): void;
 
 	clear(): void;

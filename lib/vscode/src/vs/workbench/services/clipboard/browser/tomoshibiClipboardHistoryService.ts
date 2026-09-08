@@ -54,7 +54,14 @@ const MIN_COLLAPSE_LENGTH = 2;
 const SENSITIVE_PATTERNS: readonly RegExp[] = [
 	/-----BEGIN [A-Z ]*PRIVATE KEY-----/,
 	/\b(password|passwd|secret|api[_-]?key|access[_-]?token)\b\s*[:=]/i,
-	/\bsk-[A-Za-z0-9]{12,}/
+	/\bsk-[A-Za-z0-9]{12,}/,
+	// The rules above only catch a secret that is copied together with its name. A token copied on
+	// its own out of a .env file matches none of them, so the common shapes get their own line.
+	/\b(ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9]{20,}/,
+	/\bgithub_pat_[A-Za-z0-9_]{20,}/,
+	/\bAKIA[0-9A-Z]{16}\b/,
+	// A JWT: the first segment always starts with the base64url of `{"`.
+	/\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\./
 ];
 
 interface IStoredClipboardHistory {
