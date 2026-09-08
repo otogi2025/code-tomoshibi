@@ -195,6 +195,8 @@ export class TomoshibiSettingsOverlay extends Disposable {
 
 		this._register(this._layoutService.onDidLayoutActiveContainer(() => this._updateNarrow()));
 
+		// 只把导航的选中态摆好，不渲染任何分区：唯一的构造点紧接着就会调 show()，那一次才知道
+		// 目标分区是哪一个。这里先渲一遍「外观」的话，从状态栏端口条目进来时它会被整段建完再丢掉。
 		this._updateSelection();
 	}
 
@@ -288,8 +290,14 @@ export class TomoshibiSettingsOverlay extends Disposable {
 	}
 
 	private _select(section: SettingsSection): void {
+		// 点已经选中的那个导航标签（或再一次 show 到同一分区）不该把这段 DOM 拆了重搭：没提交的
+		// 手动端口号、正在改的字号都会被清掉。分区还没建过时 hasChildNodes() 为假，照旧渲染。
+		if (section === this._current && this._sectionElements.get(section)?.hasChildNodes()) {
+			return;
+		}
 		this._current = section;
 		this._updateSelection();
+		this._renderSection(section);
 	}
 
 	private _updateSelection(): void {
@@ -299,7 +307,6 @@ export class TomoshibiSettingsOverlay extends Disposable {
 			this._navButtons.get(section)?.setAttribute('aria-pressed', String(selected));
 			this._sectionElements.get(section)?.classList.toggle('on', selected);
 		}
-		this._renderSection(this._current);
 	}
 
 	private _write(key: string, value: unknown): void {
