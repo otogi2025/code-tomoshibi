@@ -1622,9 +1622,14 @@ class TomoshibiSessionTreeActionViewItem extends ActionViewItem {
 		const activeInstanceId = this._terminalGroupService.activeInstance?.instanceId;
 
 		const ungrouped = instances.filter(instance => !this._sessionService.getGroupOf(instance));
-		this._appendHeader(root, store, nls.localize('tomoshibi.session.tree.ungrouped', "未分组"), ungrouped.length, undefined);
-		for (const instance of ungrouped) {
-			this._appendRow(root, store, instance, activeInstanceId);
+		// 空的分组下面本来就有 `members.length === 0` 跳过，未分组这一段必须同一个规矩：
+		// 全部 Session 都归了组（或一个可见 Session 都没有）时，一条「未分组 0」的空标题占满
+		// 约 29px 高，浮层在 iPad 上只有 70vh 可用，白挂一行还像是有内容没渲染出来。
+		if (ungrouped.length > 0) {
+			this._appendHeader(root, store, nls.localize('tomoshibi.session.tree.ungrouped', "未分组"), ungrouped.length, undefined);
+			for (const instance of ungrouped) {
+				this._appendRow(root, store, instance, activeInstanceId);
+			}
 		}
 		for (const group of this._sessionService.groups) {
 			const members = instances.filter(instance => this._sessionService.getGroupOf(instance)?.id === group.id);
