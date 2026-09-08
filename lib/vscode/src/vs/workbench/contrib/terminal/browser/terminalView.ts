@@ -1336,7 +1336,13 @@ class SwitchTerminalActionViewItem extends BaseActionViewItem {
 
 	private _sync(): void {
 		const switcher = this._switcher;
-		if (!switcher || this._suppressSync) {
+		// ⛔ 拖拽进行中一次都不许重画。落点是靠 _placeGhost 把真实胶囊直接搬到目标位置来表达的，
+		// _endDrag 又用 _placementsFromDom 从 DOM 反读顺序；而挂在 _sync 上的那批事件里，标题变化、
+		// 主状态变化、活动变化、子进程变化都由后台终端自己触发，跟手指无关。中途跑一次 reconcile 就
+		// 会把拖着的胶囊按模型顺序搬回原位，松手时读到的是回滚后的 DOM，排序静默丢失。
+		// 被跳过的那次刷新由 _endDrag 兜住：它先把 _drag 清空，再走 _applyPlacements，末尾必有一次
+		// _sync()。setTitle 之类的写入不受影响，挡住的只是重画。
+		if (!switcher || this._suppressSync || this._drag) {
 			return;
 		}
 		// During staged reconnection the active Session is created first. Keep that first useful
