@@ -8,7 +8,7 @@ import * as dom from '../../../../base/browser/dom.js';
 import { RunOnceScheduler } from '../../../../base/common/async.js';
 import { VSBuffer } from '../../../../base/common/buffer.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
-import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
+import { Disposable, DisposableMap, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { joinPath } from '../../../../base/common/resources.js';
 import { URI } from '../../../../base/common/uri.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
@@ -18,6 +18,7 @@ import { createDecorator } from '../../../../platform/instantiation/common/insta
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
+import { TerminalExitReason } from '../../../../platform/terminal/common/terminal.js';
 import { IUserDataProfileService } from '../../../services/userDataProfile/common/userDataProfile.js';
 import { ITerminalInstance, ITerminalService } from './terminal.js';
 
@@ -38,6 +39,11 @@ export interface ITomoshibiSessionEntry {
 	/** User supplied Session name, overriding the process/OSC title. */
 	title?: string;
 	pinned?: boolean;
+	/**
+	 * 最后一次确认「这个键属于某个活着的实例」的时刻（epoch ms）。对账时用它判死条目，
+	 * 见 {@link SESSION_ENTRY_TTL_MS}。缺省表示这条是老文件里的，第一次对账时补上当前时间。
+	 */
+	lastSeen?: number;
 }
 
 export interface ITomoshibiSessionModel {
@@ -131,6 +137,20 @@ const SESSION_KEY_LOCAL_PREFIX = 'local:';
 const TOMOSHIBI_RECONNECTION_OWNER = 'tomoshibi';
 
 /**
+ * 元数据的保留期。超过这么久既不属于任何活实例、又没被改过的条目会在对账时清掉。
+ * 定 30 天的理由：`s:` 键是 uuid，永不重号，留着旧条目最多是文件变大，不会串到别人身上，所以宁可
+ * 宽一点 —— 一个命过名的 Session 搁置几周再回来，名字还在。真正危险的是会被复用的 `pty:` 键，那个
+ * 靠「实例真终止就立刻回收」兜，不靠保留期。
+ */
+const SESSION_ENTRY_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+/**
+ * `_load()` 之后隔多久做一次对账。要等终端恢复完才能知道哪些键还活着：终端是分批恢复的
+ * （terminalService.ts 的分批 revive 中间还插着 350ms 等待），20 秒是留足余量的一刀。
+ * 就算真的没等到，被误判成「不属于活实例」的条目也只是不刷新 lastSeen，不会被删（还差 30 天）。
+ */
+const SESSION_RECONCILE_DELAY_MS = 20000;
+
+/**
  * 老版本的键是裸数字（`String(persistentProcessId ?? instanceId)`），既可能是 pty id 也可能是
  * instanceId，无法分辨、也不能信：部署这次改动本身就要重启 code-server，重启后 pty id 从头再发，
  * 留着这些键只会让新 Session 顶上别人的名字。所以读到就丢弃，⛔ 不迁移 —— 代价是一次性丢掉旧的
@@ -191,6 +211,10 @@ function reviveModel(raw: string | undefined): ITomoshibiSessionModel | undefine
 		if (source.pinned === true) {
 			entry.pinned = true;
 		}
+		if (typeof source.lastSeen === 'number' && Number.isFinite(source.lastSeen) && source.lastSeen > 0) {
+			entry.lastSeen = source.lastSeen;
+		}
+		// 只有 lastSeen 的条目没有任何内容，跟着一起丢。
 		if (entry.group || entry.title || entry.pinned) {
 			model.sessions[key] = entry;
 		}
@@ -219,6 +243,11 @@ export class TomoshibiSessionService extends Disposable implements ITomoshibiSes
 	private _localChangeBeforeLoad = false;
 
 	private readonly _sessionKeysByInstanceId = new Map<number, string>();
+	/** 每个实例的 onWillDispose/onDisposed 订阅，实例一走就跟着扔。 */
+	private readonly _instanceListeners = this._register(new DisposableMap<number>());
+	/** onWillDispose 那一刻的快照：元数据键 + 进程还在不在，见 `_watchInstance`。 */
+	private readonly _disposeSnapshots = new Map<number, { key: string; hadLiveProcess: boolean }>();
+	private readonly _reconcileScheduler: RunOnceScheduler;
 	private readonly _activityStates = new Map<number, { running: boolean; agentIdle: boolean; tail: string }>();
 	private readonly _activityTimers = new Map<number, ReturnType<typeof setTimeout>>();
 	/** Session keys whose agent is currently asking the user something. */
@@ -245,6 +274,7 @@ export class TomoshibiSessionService extends Disposable implements ITomoshibiSes
 		this._model = reviveModel(this._lastMirrorValue) ?? createEmptyModel();
 
 		this._saveScheduler = this._register(new RunOnceScheduler(() => void this._writeFile(), SAVE_DEBOUNCE_MS));
+		this._reconcileScheduler = this._register(new RunOnceScheduler(() => this._reconcile(), SESSION_RECONCILE_DELAY_MS));
 
 		this._storageListeners.add(this._storageService.onDidChangeValue(StorageScope.PROFILE, MIRROR_STORAGE_KEY, this._storageListeners)(() => {
 			const raw = this._storageService.get(MIRROR_STORAGE_KEY, StorageScope.PROFILE);
@@ -262,7 +292,15 @@ export class TomoshibiSessionService extends Disposable implements ITomoshibiSes
 		// 时机成立的依据：`onDidCreateInstance` 是 terminalInstanceService.ts:52 在构造函数返回后同步 fire
 		// 的，而 `_createProcess()` 挂在 `_xtermReadyPromise.then()` 里（terminalInstance.ts:615-641），
 		// 最快也要等一个微任务，一定在我们之后。
-		this._register(this._terminalService.onDidCreateInstance(instance => this._stampSessionId(instance)));
+		this._register(this._terminalService.onDidCreateInstance(instance => {
+			this._stampSessionId(instance);
+			this._watchInstance(instance);
+		}));
+		// 服务是 Delayed 单例，正常情况下第一个 TerminalInstance 的构造函数（初始化 tomoshibiActivity
+		// 贡献时）就把它拉起来了，所以上面那个事件一个都不会漏；这里再补扫一遍纯属保险。
+		for (const instance of this._terminalService.instances) {
+			this._watchInstance(instance);
+		}
 		this._register(this._terminalService.onAnyInstanceData(({ instance, data }) => this._queueActivity(instance, data)));
 		this._register(this._terminalService.onDidChangeInstances(() => this._pruneDeadInstances()));
 		this._register({
@@ -280,7 +318,12 @@ export class TomoshibiSessionService extends Disposable implements ITomoshibiSes
 			}
 		});
 
-		void this._load();
+		void this._load().then(() => {
+			// 读不到文件时不对账：那种状态下写回去只会把内存模型当真值盖到磁盘上。
+			if (this._fileWritable) {
+				this._reconcileScheduler.schedule();
+			}
+		});
 	}
 
 	//#region persistence
@@ -321,6 +364,44 @@ export class TomoshibiSessionService extends Disposable implements ITomoshibiSes
 			this._model = loaded;
 			this._writeMirror();
 			this._onDidChange.fire();
+		}
+	}
+
+	/**
+	 * 对账：`_load()` 之后（等终端恢复完）走一遍磁盘上的条目，把还活着的盖上时间戳、把过了保留期的
+	 * 死条目删掉。没有这一步，sessions.json 只增不减 —— 而 `pty:` 键在 pty 宿主重启后会被重新发出去，
+	 * 一条死条目就是一颗将来会被误命中的雷。
+	 *
+	 * ⛔ 没有 lastSeen 的条目（老文件写的）一律补时间戳而不是删：我们不知道它多老，保留期从升级这一刻
+	 * 开始算。
+	 */
+	private _reconcile(): void {
+		const now = Date.now();
+		const liveKeys = new Set<string>();
+		for (const instance of this._terminalService.instances) {
+			// ⛔ 用 `_computeSessionKey` 不用 `sessionKey`：后者带搬键的副作用，对账不该改任何键。
+			liveKeys.add(this._computeSessionKey(instance));
+		}
+		let changed = false;
+		for (const [key, entry] of Object.entries(this._model.sessions)) {
+			if (liveKeys.has(key)) {
+				entry.lastSeen = now;
+				changed = true;
+				continue;
+			}
+			if (entry.lastSeen === undefined) {
+				entry.lastSeen = now;
+				changed = true;
+				continue;
+			}
+			if (now - entry.lastSeen > SESSION_ENTRY_TTL_MS) {
+				delete this._model.sessions[key];
+				this._waitingKeys.delete(key);
+				changed = true;
+			}
+		}
+		if (changed) {
+			this._save();
 		}
 	}
 
@@ -517,6 +598,7 @@ export class TomoshibiSessionService extends Disposable implements ITomoshibiSes
 		if (entry.group === undefined && entry.title === undefined && !entry.pinned) {
 			delete this._model.sessions[key];
 		} else {
+			entry.lastSeen = Date.now();
 			this._model.sessions[key] = entry;
 		}
 		this._save();
@@ -571,7 +653,11 @@ export class TomoshibiSessionService extends Disposable implements ITomoshibiSes
 	}
 
 	forget(instance: ITerminalInstance): void {
-		const key = this.sessionKey(instance);
+		this._forgetKey(this.sessionKey(instance));
+	}
+
+	private _forgetKey(key: string): void {
+		this._waitingKeys.delete(key);
 		if (!this._model.sessions[key]) {
 			return;
 		}
@@ -614,7 +700,7 @@ export class TomoshibiSessionService extends Disposable implements ITomoshibiSes
 			if (entry.title === undefined && !entry.pinned) {
 				delete this._model.sessions[key];
 			} else {
-				this._model.sessions[key] = { title: entry.title, pinned: entry.pinned };
+				this._model.sessions[key] = { title: entry.title, pinned: entry.pinned, lastSeen: entry.lastSeen };
 			}
 		}
 		this._save();
@@ -762,12 +848,63 @@ export class TomoshibiSessionService extends Disposable implements ITomoshibiSes
 		}
 	}
 
+	/**
+	 * 盯住一个实例的死亡。⛔ 不能只靠「关闭 Session」菜单调 `forget()`：shell 里敲 exit、进程崩掉、
+	 * KillAll、KillViewOrEditor 都不经过那条路，元数据就永远留在文件里了。
+	 */
+	private _watchInstance(instance: ITerminalInstance): void {
+		const instanceId = instance.instanceId;
+		if (this._instanceListeners.has(instanceId)) {
+			return;
+		}
+		const store = new DisposableStore();
+		// onWillDispose 早于 `_processManager.dispose()`（terminalInstance.ts:1515 vs :1547），是唯一
+		// 还能分辨「被杀」和「被 detach」的时刻：detach 走的 `detachProcessAndDispose` 会先 await
+		// `detachFromProcess()`，那个函数把 `_process` 置 null（terminalProcessManager.ts:238-241），
+		// 于是 `persistentProcessId`（同文件 :133 读 `_process?.id`）在这一刻已经是 undefined；
+		// 真被杀的实例这时进程还挂着。等到 onDisposed 两边就都是 undefined 了，分不出来。
+		// 键也要在这一刻抓：`onDisposed` 时 `_pruneDeadInstances` 可能已经把缓存的键抹了，而
+		// 那时 `persistentProcessId` 也没了，重算只会退回 `local:`。
+		store.add(instance.onWillDispose(() => this._disposeSnapshots.set(instanceId, {
+			key: this._sessionKeysByInstanceId.get(instanceId) ?? this._computeSessionKey(instance),
+			hadLiveProcess: instance.persistentProcessId !== undefined,
+		})));
+		store.add(instance.onDisposed(() => this._onInstanceDisposed(instance)));
+		this._instanceListeners.set(instanceId, store);
+	}
+
+	private _onInstanceDisposed(instance: ITerminalInstance): void {
+		const instanceId = instance.instanceId;
+		const snapshot = this._disposeSnapshots.get(instanceId);
+		this._disposeSnapshots.delete(instanceId);
+		this._instanceListeners.deleteAndDispose(instanceId);
+		if (!snapshot) {
+			return;
+		}
+		if (!snapshot.hadLiveProcess) {
+			// detach（「从 Session 分离」、关页面时的持久化路径）——进程还在 pty 宿主那边，会回来。
+			return;
+		}
+		// Shutdown = 关页面/重载。持久化开着时走的是上面那条 detach 分支，走到这里说明这台机器上
+		// 压根没开持久化，那种情况下留不留元数据都无所谓，交给保留期。Unknown 来源不明，一律保守。
+		const reason = instance.exitReason;
+		if (reason !== TerminalExitReason.Process && reason !== TerminalExitReason.User && reason !== TerminalExitReason.Extension) {
+			return;
+		}
+		this._forgetKey(snapshot.key);
+	}
+
 	private _pruneDeadInstances(): void {
 		const live = new Set(this._terminalService.instances.map(instance => instance.instanceId));
 		for (const instanceId of [...this._sessionKeysByInstanceId.keys()]) {
 			if (live.has(instanceId)) {
 				continue;
 			}
+			// ⛔ 这里不许动 `_instanceListeners` / `_disposeSnapshots`：本函数挂在
+			// `onDidChangeInstances` 上，而实例是先 fire `onDisposed`、由 terminalService 摘掉之后才
+			// 触发这个事件的，两个监听器在同一次 fire 里谁先谁后取决于注册顺序。要是这里先跑并把
+			// 订阅扔了，`_onInstanceDisposed` 就再也不会被调用，死条目也就回收不掉了。
+			// 那两个 map 由 `_onInstanceDisposed` 自己清。
 			this._sessionKeysByInstanceId.delete(instanceId);
 			const timer = this._activityTimers.get(instanceId);
 			if (timer) {
