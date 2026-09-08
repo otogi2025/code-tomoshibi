@@ -361,11 +361,12 @@
 	flex: 0 0 min(150px, 100%);
 	min-width: min(96px, 100%);
 	/*
-	 * Wide enough to read a name, narrow enough that the strip still holds several tabs: the
-	 * inactive cap is 120px and only the active tab opens up to 190px. The strip scrolls
-	 * horizontally, so a uniform 190px would push everything else off screen.
+	 * A constant 150px, active or not. Wide enough to read a Session name, narrow enough that the
+	 * strip still holds several tabs before it has to scroll horizontally. The active tab used to
+	 * widen to 190px, but by the time a Session is active the user already knows which one it is,
+	 * so the extra width bought nothing and only shifted its neighbours around under the finger.
 	 */
-	max-width: 120px;
+	max-width: 150px;
 	height: 29px;
 	padding: 0 8px;
 	overflow: hidden;
@@ -431,8 +432,8 @@
 	background: var(--vscode-tab-activeBackground, var(--vscode-editor-background));
 	color: var(--vscode-tab-activeForeground, inherit);
 	border-color: color-mix(in srgb, var(--vscode-focusBorder, currentColor) 45%, transparent);
-	flex-basis: min(190px, 100%);
-	max-width: 190px;
+	flex-basis: min(150px, 100%);
+	max-width: 150px;
 }
 
 /* Gated on the workbench motion class like every other animation in this file. */
@@ -484,7 +485,7 @@
 	gap: 5px;
 	flex: none;
 	height: 26px;
-	max-width: 190px;
+	max-width: 150px;
 	padding: 0 11px;
 	overflow: hidden;
 	border: 0;

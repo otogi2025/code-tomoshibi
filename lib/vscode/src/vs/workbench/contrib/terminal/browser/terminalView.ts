@@ -1275,13 +1275,6 @@ class SwitchTerminalActionViewItem extends BaseActionViewItem {
 				this._openManagement(pill.instanceId);
 			}
 		}));
-		// 激活的标签会从 120px 展宽到 190px，而 _sync 里那次 scrollIntoView 发生在展宽动画之前，
-		// 于是刚点中的 Session 名字反而会被右侧渐隐遮掉一截。宽度定下来之后再补滚一次。
-		disposables.add(dom.addDisposableListener(element, 'transitionend', event => {
-			if (event.propertyName === 'max-width' && element.classList.contains('is-active')) {
-				element.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-			}
-		}));
 		disposables.add(dom.addDisposableListener(element, dom.EventType.KEY_DOWN, event => {
 			if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') {
 				return;
