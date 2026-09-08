@@ -122,6 +122,9 @@ export class TomoshibiSettingsOverlay extends Disposable {
 		this._root.setAttribute('role', 'dialog');
 		this._root.setAttribute('aria-modal', 'true');
 		this._root.setAttribute('aria-label', localize('tomoshibi.settings.dialogLabel', "设置"));
+		// 浮层自己要可聚焦：戳到 h3、行标签、端口表格这些不可聚焦的东西时浏览器会把焦点打回
+		// <body>，那之后键盘事件不再经过浮层。有了这个 tabIndex 才有地方把焦点收回来。
+		this._root.tabIndex = -1;
 
 		// 点遮罩空白处关闭；点到弹窗里的任何东西都不算。
 		this._register(addDisposableListener(this._scrim, EventType.CLICK, event => {
@@ -129,7 +132,10 @@ export class TomoshibiSettingsOverlay extends Disposable {
 				this.close();
 			}
 		}));
-		this._register(addDisposableListener(this._scrim, EventType.KEY_DOWN, event => this._onKeyDown(event)));
+		// 监听挂在整个工作台容器上而不是遮罩上：焦点掉回 <body> 时 keydown 根本不经过遮罩，
+		// 挂在遮罩上的话 Escape 关不掉浮层、Tab 会走进遮罩背后的工作台。浮层开着时它是模态的，
+		// 所以这里无条件处理。
+		this._register(addDisposableListener(this._layoutService.activeContainer, EventType.KEY_DOWN, event => this._onKeyDown(event)));
 
 		const header = append(this._root, $('.tomoshibi-settings-hd'));
 		append(header, $('h2', undefined, localize('tomoshibi.settings.header', "设置")));
@@ -234,6 +240,12 @@ export class TomoshibiSettingsOverlay extends Disposable {
 		const first = focusable[0];
 		const last = focusable[focusable.length - 1];
 		const active = getActiveElement();
+		if (!active || !this._root.contains(active)) {
+			// 焦点已经掉到浮层外面（多半是 <body>）：默认的 Tab 会走进遮罩背后的工作台，先拉回来。
+			event.preventDefault();
+			(keyboardEvent.shiftKey ? last : first).focus();
+			return;
+		}
 		if (keyboardEvent.shiftKey && active === first) {
 			event.preventDefault();
 			last.focus();
@@ -313,6 +325,10 @@ export class TomoshibiSettingsOverlay extends Disposable {
 			return;
 		}
 		const scrollTop = this._pages.scrollTop;
+		// 重建会把正持有焦点的那个控件从文档里删掉（按空格切一个开关、换一次主题都会走到这里），
+		// 不还焦点的话它就落到 <body>，Escape 和 Tab 从此都不再经过浮层。
+		const activeBefore = getActiveElement();
+		const restoreFocus = !!activeBefore && this._root.contains(activeBefore);
 		store.clear();
 		clearNode(container);
 		append(container, $('h3', undefined, sectionTitles[section]));
@@ -342,6 +358,10 @@ export class TomoshibiSettingsOverlay extends Disposable {
 		}
 
 		this._pages.scrollTop = scrollTop;
+
+		if (restoreFocus && activeBefore && !activeBefore.isConnected) {
+			(this._navButtons.get(section) ?? this._root).focus();
+		}
 	}
 
 	private _renderUi(container: HTMLElement, store: DisposableStore): void {
