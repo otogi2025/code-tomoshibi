@@ -65,6 +65,12 @@ interface IBackgroundTerminal {
 	terminalLocationOptions?: ITerminalLocationOptions;
 }
 
+/**
+ * 单个恢复实例最多等这么久的「重放完成」。pty 已经死掉（iPad 长时间挂后台、孤儿宽限期已过）时后端
+ * 根本不会重放，事件永不 fire —— 没有这个上限，`whenConnected` 就会因为一个死 Session 永远 pending。
+ */
+const REPLAY_COMPLETE_TIMEOUT_MS = 5000;
+
 export class TerminalService extends Disposable implements ITerminalService {
 	declare _serviceBrand: undefined;
 
@@ -109,6 +115,13 @@ export class TerminalService extends Disposable implements ITerminalService {
 
 	private _reconnectedTerminalGroups: Promise<ITerminalGroup[]> | undefined;
 	private _firstReconnectedTerminalGroup: Promise<void> = Promise.resolve();
+	/**
+	 * 每个恢复出来的实例一个「重放完成」等待器，⛔ 必须在实例刚建出来的那一刻就挂上，不能等全部
+	 * 恢复完再回头挂：`onProcessReplayComplete` 是普通 Emitter（common/basePty.ts），已经 fire 过再
+	 * 挂 `Event.once` 永远不会被触发。分批恢复在组之间插了 350ms（见 `_recreateTerminalGroups`），
+	 * 第 0 组的重放在那段等待里就跑完了，所以事后挂必然挂空。
+	 */
+	private readonly _replayCompletePromises: Promise<void>[] = [];
 
 	private _reconnectedTerminals: Map<string, ITerminalInstance[]> = new Map();
 	getReconnectedTerminals(reconnectionOwner: string): ITerminalInstance[] | undefined {
@@ -323,8 +336,10 @@ export class TerminalService extends Disposable implements ITerminalService {
 			this._setConnected();
 			mark('code/terminal/didReconnect');
 			mark('code/terminal/willReplay');
-			const instances = await this._reconnectedTerminalGroups?.then(groups => groups.map(e => e.terminalInstances).flat()) ?? [];
-			await Promise.all(instances.map(e => new Promise<void>(r => Event.once(e.onProcessReplayComplete)(r))));
+			// 只等「全部组都建出来了」，等待器本身在 `_recreateTerminalGroup` 里已经逐个挂好了。
+			// 恢复失败不该把整条链带走：`_whenConnected` 一旦不 complete，产品就打不开终端。
+			await this._reconnectedTerminalGroups?.catch(error => this._logService.error('Failed to restore terminal layout', error));
+			await Promise.all(this._replayCompletePromises);
 			mark('code/terminal/didReplay');
 			mark('code/terminal/willGetPerformanceMarks');
 			await Promise.all(Array.from(this._terminalInstanceService.getRegisteredBackends()).map(async backend => {
@@ -332,8 +347,33 @@ export class TerminalService extends Disposable implements ITerminalService {
 				backend.setReady();
 			}));
 			mark('code/terminal/didGetPerformanceMarks');
-			this._whenConnected.complete();
+		}).catch(error => {
+			this._logService.error('Failed to finish terminal reconnection', error);
+		}).finally(() => {
+			// ⛔ 兜底：无论上面哪一步炸了，`whenConnected` 都必须落地一次。它 pending 着的时候
+			// `tomoshibiTerminalStatus._restoreTerminalFirstLayout` 会永远挂在 await 上。
+			if (!this._whenConnected.isSettled) {
+				if (this._connectionState !== TerminalConnectionState.Connected) {
+					this._setConnected();
+				}
+				this._whenConnected.complete();
+			}
 		});
+	}
+
+	/**
+	 * 恢复出来的实例的「重放完成」等待器。⛔ 一定要在实例存在的第一时间调用（见
+	 * {@link _replayCompletePromises}）。超时兜底是给「pty 已经死了、后端根本不会重放」这种情况的：
+	 * `onProcessReplayComplete` 只在后端真的重放时 fire（terminalProcessManager 的 replay 分支），
+	 * 一个都不 fire 就会让 `Promise.all` 永远挂住。
+	 */
+	private _armReplayCompleteWaiter(instance: ITerminalInstance): void {
+		const store = new DisposableStore();
+		this._replayCompletePromises.push(new Promise<void>(resolve => {
+			store.add(Event.once(instance.onProcessReplayComplete)(() => resolve()));
+			const timer = setTimeout(() => resolve(), REPLAY_COMPLETE_TIMEOUT_MS);
+			store.add(toDisposable(() => clearTimeout(timer)));
+		}).finally(() => store.dispose()));
 	}
 
 	getPrimaryBackend(): ITerminalBackend | undefined {
@@ -632,7 +672,10 @@ export class TerminalService extends Disposable implements ITerminalService {
 				config: { attachPersistentProcess },
 				location: lastInstance ? { parentTerminal: lastInstance } : TerminalLocation.Panel
 			});
-			lastInstance.then(() => mark(`code/terminal/didRecreateTerminal/${attachPersistentProcess.id}-${attachPersistentProcess.pid}`));
+			lastInstance.then(instance => {
+				mark(`code/terminal/didRecreateTerminal/${attachPersistentProcess.id}-${attachPersistentProcess.pid}`);
+				this._armReplayCompleteWaiter(instance);
+			});
 		}
 		const group = lastInstance?.then(instance => {
 			const g = this._terminalGroupService.getGroupForInstance(instance);
