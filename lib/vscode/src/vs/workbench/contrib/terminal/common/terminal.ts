@@ -24,6 +24,16 @@ import type { SingleOrMany } from '../../../../base/common/types.js';
 
 export const TERMINAL_VIEW_ID = 'terminal';
 
+/**
+ * 我们给自己建的 Session 打在 `shellLaunchConfig.reconnectionProperties.ownerId` 上的标记，
+ * `data.sessionId` 是那条 Session 元数据的稳定主键（发号与读回见
+ * `contrib/terminal/browser/tomoshibiSessionService.ts`）。
+ *
+ * ⛔ 常量放在 common 里是为了让 `terminalInstance.ts` 和 `tomoshibiSessionService.ts` 都能引用而
+ * 不互相 import（后者依赖前者的 ITerminalInstance，反向 import 会成环）。
+ */
+export const TOMOSHIBI_RECONNECTION_OWNER = 'tomoshibi';
+
 export const TERMINAL_CREATION_COMMANDS = ['workbench.action.terminal.toggleTerminal', 'workbench.action.terminal.new', 'workbench.action.togglePanel', 'workbench.action.terminal.focus'];
 
 export const TERMINAL_CONFIG_SECTION = 'terminal.integrated';

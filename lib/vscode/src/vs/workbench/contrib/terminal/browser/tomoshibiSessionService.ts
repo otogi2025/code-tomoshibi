@@ -20,6 +20,7 @@ import { INotificationService, Severity } from '../../../../platform/notificatio
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { TerminalExitReason } from '../../../../platform/terminal/common/terminal.js';
 import { IUserDataProfileService } from '../../../services/userDataProfile/common/userDataProfile.js';
+import { TOMOSHIBI_RECONNECTION_OWNER } from '../common/terminal.js';
 import { ITerminalInstance, ITerminalService } from './terminal.js';
 
 /**
@@ -133,8 +134,6 @@ const ACTIVITY_COALESCE_MS = 150;
 const SESSION_KEY_UUID_PREFIX = 's:';
 const SESSION_KEY_PTY_PREFIX = 'pty:';
 const SESSION_KEY_LOCAL_PREFIX = 'local:';
-/** `reconnectionProperties.ownerId`，用来认出「这个号是我们发的」。任务系统用的是 'Task'。 */
-const TOMOSHIBI_RECONNECTION_OWNER = 'tomoshibi';
 
 /**
  * 元数据的保留期。超过这么久既不属于任何活实例、又没被改过的条目会在对账时清掉。
@@ -543,10 +542,9 @@ export class TomoshibiSessionService extends Disposable implements ITomoshibiSes
 	 * （ownerId 'Task'），feature/transient/自带 pty 的终端根本不进 Session 列表，给它们加
 	 * reconnectionProperties 反而会改掉上游算 shouldPersist 的口径
 	 * （terminalProcessManager.ts:290/530）。
-	 * ⚠️ 已知副作用：`TerminalInstance.shouldPersist`（terminalInstance.ts:854）对带
-	 * reconnectionProperties 的实例会额外要求 `task.reconnection === true`（默认就是 true，见
-	 * tasks/browser/task.contribution.ts:550-553）。也就是说谁把 `task.reconnection` 关掉，
-	 * Session 就不再跨刷新存活了。
+	 * `TerminalInstance.shouldPersist` 对带 reconnectionProperties 的实例本来会额外要求
+	 * `task.reconnection === true`，那条已经改成「ownerId 是我们自己就跳过」，所以这里打号不会
+	 * 影响 Session 的持久化，也不怕以后整包删掉 contrib/tasks。
 	 */
 	private _stampSessionId(instance: ITerminalInstance): void {
 		const slc = instance.shellLaunchConfig;
