@@ -14,7 +14,7 @@ import { ITomoshibiSessionService } from '../../../terminal/browser/tomoshibiSes
 const EVALUATE_DEBOUNCE_MS = 1200;
 /** A bare `?`/`:` line only counts as a question once the screen has been this quiet. */
 const QUIET_EVALUATE_MS = 5000;
-/** How many rows up from the cursor row are inspected. */
+/** How many rows up from the last non-blank row are inspected; see `_readTail`. */
 const TAIL_LINE_COUNT = 14;
 
 /** Numbered choice lines, as Claude Code and Codex render their permission prompts. */
@@ -114,8 +114,21 @@ class TomoshibiActivityContribution extends Disposable implements ITerminalContr
 		const lines: string[] = [];
 		// `buffer.length` counts every viewport row, including the blank ones below the cursor,
 		// so on a tall screen the last N rows are empty while the prompt sits higher up. The
-		// tail therefore ends at the cursor row, which is where the process last wrote.
-		const end = buffer.baseY + buffer.cursorY + 1;
+		// tail therefore ends at the last row that has anything on it, starting from the cursor.
+		//
+		// ⛔ 不能就把尾巴截在光标行：codex 的登录页（光标在第 15 行、「1. Sign in with ChatGPT」在第
+		// 19 行、「Press enter to continue」在第 31 行）和 Claude Code 的信任目录确认框（光标停在
+		// 「❯ No, exit」，「Enter to confirm · Esc to cancel」在它下面）都把提问画在光标下方，
+		// 截在光标行就一个 needle 都命中不了。备用屏幕的全屏 TUI 只是这件事的一个特例。
+		const cursorRow = buffer.baseY + buffer.cursorY;
+		let end = cursorRow + 1;
+		for (let y = buffer.baseY + raw.rows - 1; y > cursorRow; y--) {
+			const line = buffer.getLine(y);
+			if (line && line.translateToString(true).trim()) {
+				end = y + 1;
+				break;
+			}
+		}
 		for (let y = Math.max(0, end - TAIL_LINE_COUNT); y < end; y++) {
 			const line = buffer.getLine(y);
 			if (line) {
