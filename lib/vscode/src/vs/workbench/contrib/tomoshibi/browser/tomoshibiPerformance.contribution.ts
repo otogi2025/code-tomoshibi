@@ -173,6 +173,7 @@ export class TomoshibiPerformanceContribution extends Disposable implements IWor
 	private _lastActivation = 0;
 
 	private _snapshot: IPerformanceSnapshot | undefined;
+	private _unauthorized = false;
 	private _latencySamples: number[] = [];
 	private _requestRunning = false;
 	private _detailRequestRunning = false;
@@ -268,19 +269,22 @@ export class TomoshibiPerformanceContribution extends Disposable implements IWor
 
 	// 标签页在后台时一律不发请求：间隔缩短之后这一条比原来更要紧，别让后台标签页烧电。
 	private _refresh(): void {
-		if (this._enabled() && !mainWindow.document.hidden) {
+		if (this._enabled() && !this._unauthorized && !mainWindow.document.hidden) {
 			void this._update(false);
 		}
 	}
 
 	private _refreshDetail(): void {
-		if (this._enabled() && this._detailOpen && !mainWindow.document.hidden) {
+		if (this._enabled() && !this._unauthorized && this._detailOpen && !mainWindow.document.hidden) {
 			void this._update(true);
 		}
 	}
 
 	private _startTimer(): void {
 		this._stopTimer();
+		if (this._unauthorized) {
+			return;
+		}
 		this._refresh();
 		this._timer = mainWindow.setInterval(() => this._refresh(), this._pollInterval());
 		if (this._detailOpen) {
@@ -291,6 +295,9 @@ export class TomoshibiPerformanceContribution extends Disposable implements IWor
 	/** Only runs while the popover is open, and never at the basic interval. */
 	private _startDetailTimer(): void {
 		this._stopDetailTimer();
+		if (this._unauthorized) {
+			return;
+		}
 		this._detailTimer = mainWindow.setInterval(() => this._refreshDetail(), detailPollInterval);
 	}
 
@@ -323,6 +330,9 @@ export class TomoshibiPerformanceContribution extends Disposable implements IWor
 			const url = detail ? `${performanceUrl}?detail=1` : performanceUrl;
 			const response = await mainWindow.fetch(url, { cache: 'no-store', credentials: 'same-origin' });
 			if (!response.ok) {
+				if (response.status === 401) {
+					this._handleUnauthorized();
+				}
 				return;
 			}
 			const value = await response.json() as Partial<IPerformanceSnapshot>;
@@ -360,6 +370,21 @@ export class TomoshibiPerformanceContribution extends Disposable implements IWor
 				this._requestRunning = false;
 			}
 		}
+	}
+
+	/**
+	 * 会话 cookie 已经失效：这个标签页再也拿不到数据，而服务端每一发都要跑一次口令校验。
+	 * 停表并把状态栏打成 —，等用户重新登录（页面会重新加载）之后自然恢复。
+	 */
+	private _handleUnauthorized(): void {
+		if (this._unauthorized) {
+			return;
+		}
+		this._unauthorized = true;
+		this._stopTimer();
+		this._snapshot = undefined;
+		this._latencySamples = [];
+		this._render();
 	}
 
 	private _pushLatency(value: number): void {
