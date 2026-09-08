@@ -31,7 +31,8 @@ main() {
   bundle_code_server
   bundle_vscode
 
-  rsync ./docs/README.md "$RELEASE_PATH"
+  rsync README.md "$RELEASE_PATH"
+  rsync TOMOSHIBI-NOTICE.md "$RELEASE_PATH"
   rsync LICENSE "$RELEASE_PATH"
   rsync ./lib/vscode/ThirdPartyNotices.txt "$RELEASE_PATH"
 
