@@ -53,6 +53,8 @@ export class TerminalViewPane extends ViewPane {
 	private readonly _activeSessionPinned: IContextKey<boolean>;
 	private readonly _disposableStore = this._register(new DisposableStore());
 	private readonly _actionDisposables: DisposableMap<string> = this._register(new DisposableMap());
+	/** 上一次用来搭新建下拉的分组签名，见 _updateTabActionBar。 */
+	private _tabActionBarGroups: string | undefined;
 
 	constructor(
 		options: IViewPaneOptions,
@@ -291,6 +293,7 @@ export class TerminalViewPane extends ViewPane {
 			case TerminalCommandId.New: {
 				if (action instanceof MenuItemAction) {
 					this._disposableStore.clear();
+					this._tabActionBarGroups = this._sessionGroupSignature();
 					const actions = getTerminalActionBarArgs(TerminalLocation.Panel, this._terminalService, this._sessionService, undefined, this._disposableStore, () => this._newDropdown.value?.element);
 					this._newDropdown.value = this._instantiationService.createInstance(DropdownWithPrimaryActionViewItem, action, actions.dropdownAction, actions.dropdownMenuActions, actions.className, {
 						hoverDelegate: options.hoverDelegate,
@@ -308,7 +311,21 @@ export class TerminalViewPane extends ViewPane {
 		return this._keybindingService.lookupKeybinding(action.id)?.getLabel() ?? undefined;
 	}
 
+	/** 新建下拉的全部内容只取决于分组的 id 和名字（terminalMenus.ts 的 getTerminalActionBarArgs）。 */
+	private _sessionGroupSignature(): string {
+		return this._sessionService.groups.map(group => `${group.id}:${group.name}`).join('\n');
+	}
+
 	private _updateTabActionBar(): void {
+		// onDidChange 是 sessionService._save() 统一 fire 的：改标题、置顶、换分组、折叠/展开都会来一次，
+		// 而这个下拉只列分组。重建一次要 clear 掉 3+N 个 Action 再 new，DropdownWithPrimaryActionViewItem
+		// .update() 还会把当前那个 DropdownMenuActionViewItem 连同已经张开的菜单一起 dispose 掉重建
+		// （本文件 _registerDropdownTapGuard 的注释里记过这个后果）。分组的 id 和名字没变就什么都不做。
+		const signature = this._sessionGroupSignature();
+		if (signature === this._tabActionBarGroups) {
+			return;
+		}
+		this._tabActionBarGroups = signature;
 		this._disposableStore.clear();
 		const actions = getTerminalActionBarArgs(TerminalLocation.Panel, this._terminalService, this._sessionService, undefined, this._disposableStore, () => this._newDropdown.value?.element);
 		this._newDropdown.value?.update(actions.dropdownAction, actions.dropdownMenuActions);
