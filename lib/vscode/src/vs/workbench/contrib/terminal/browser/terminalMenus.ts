@@ -10,7 +10,6 @@ import { Schemas } from '../../../../base/common/network.js';
 import { localize, localize2 } from '../../../../nls.js';
 import { MenuId, MenuRegistry } from '../../../../platform/actions/common/actions.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
-import { TerminalSettingId } from '../../../../platform/terminal/common/terminal.js';
 import { ResourceContextKey } from '../../../common/contextkeys.js';
 import { ITerminalLocationOptions, ITerminalService } from './terminal.js';
 import { TerminalCommandId, TERMINAL_VIEW_ID } from '../common/terminal.js';
@@ -315,10 +314,10 @@ export function setupTerminalMenus(): void {
 					},
 					group: 'navigation',
 					order: 0,
-					when: ContextKeyExpr.and(
-						ContextKeyExpr.equals('view', TERMINAL_VIEW_ID),
-						ContextKeyExpr.not(`config.${TerminalSettingId.TabsEnabled}`)
-					),
+					// 只看是不是终端视图。上游还要求 tabs.enabled 为假（因为那时标题栏的位置留给侧边
+					// 列表），但本 fork 源码层删掉了侧边列表，胶囊条是唯一的 Session 导航，不能再让
+					// 一个默认值为 true 的设置把它挡掉。
+					when: ContextKeyExpr.equals('view', TERMINAL_VIEW_ID),
 				}
 			},
 			// Code-Tomoshibi's horizontal Session bar already identifies and focuses the active

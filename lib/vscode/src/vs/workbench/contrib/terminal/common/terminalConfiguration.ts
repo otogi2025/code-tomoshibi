@@ -62,9 +62,9 @@ const terminalConfiguration: IStringDictionary<IConfigurationPropertySchema> = {
 		scope: ConfigurationScope.RESOURCE
 	},
 	[TerminalSettingId.TabsEnabled]: {
-		description: localize('terminal.integrated.tabs.enabled', '控制终端选项卡是否以列表的形式显示在终端的一侧。如果禁用此功能，将改为显示下拉列表。'),
+		description: localize('terminal.integrated.tabs.enabled', '本 fork 没有上游那份显示在终端一侧的选项卡列表（源码层已删）。Session 一律走标题栏上的横向胶囊条，这个设置留着只是不破坏旧的 settings.json，打开也不会长出侧边列表。'),
 		type: 'boolean',
-		default: true,
+		default: false,
 	},
 	[TerminalSettingId.TabsEnableAnimation]: {
 		description: localize('terminal.integrated.tabs.enableAnimation', '控制终端选项卡状态是否支持动画(例如正在进行的任务)。'),

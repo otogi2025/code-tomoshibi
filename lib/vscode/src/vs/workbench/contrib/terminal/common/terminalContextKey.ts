@@ -148,27 +148,18 @@ export namespace TerminalContextKeys {
 	/** Whether a speech to text (dictation) session is in progress. */
 	export const terminalDictationInProgress = new RawContextKey<boolean>(TerminalContextKeyStrings.DictationInProgress, false);
 
+	/*
+	 * 分屏 / 关闭 Session 这两个内联按钮的门。上游在这里还挂着一整串 or：tabs.enabled 为假，
+	 * 或者 tabs.showActions 跟分组数量凑成某个组合。那串条件全是为侧边选项卡列表服务的，而本
+	 * fork 在源码层删掉了那个列表（terminalTabbedView.ts），按钮该一直在。
+	 *
+	 * ⛔ 不能只删 not(tabs.enabled) 那一支：剩下的 or 里 tabs.showActions 默认是
+	 * singleTerminalOrNarrow，而 isTerminalTabsNarrow 这个上下文键在本 fork 里没有任何写入点，
+	 * 于是一旦开到两个以上 Session，两个按钮就会一起消失。整串 or 一起去掉，才跟今天线上
+	 * （tabs.enabled 手写成 false）的行为等价。
+	 */
 	export const shouldShowViewInlineActions = ContextKeyExpr.and(
 		ContextKeyExpr.equals('view', TERMINAL_VIEW_ID),
-		ContextKeyExpr.notEquals(`config.${TerminalSettingId.TabsHideCondition}`, 'never'),
-		ContextKeyExpr.or(
-			ContextKeyExpr.not(`config.${TerminalSettingId.TabsEnabled}`),
-			ContextKeyExpr.and(
-				ContextKeyExpr.equals(`config.${TerminalSettingId.TabsShowActions}`, 'singleTerminal'),
-				ContextKeyExpr.equals(TerminalContextKeyStrings.GroupCount, 1)
-			),
-			ContextKeyExpr.and(
-				ContextKeyExpr.equals(`config.${TerminalSettingId.TabsShowActions}`, 'singleTerminalOrNarrow'),
-				ContextKeyExpr.or(
-					ContextKeyExpr.equals(TerminalContextKeyStrings.GroupCount, 1),
-					ContextKeyExpr.has(TerminalContextKeyStrings.TabsNarrow)
-				)
-			),
-			ContextKeyExpr.and(
-				ContextKeyExpr.equals(`config.${TerminalSettingId.TabsShowActions}`, 'singleGroup'),
-				ContextKeyExpr.equals(TerminalContextKeyStrings.GroupCount, 1)
-			),
-			ContextKeyExpr.equals(`config.${TerminalSettingId.TabsShowActions}`, 'always')
-		)
+		ContextKeyExpr.notEquals(`config.${TerminalSettingId.TabsHideCondition}`, 'never')
 	);
 }
