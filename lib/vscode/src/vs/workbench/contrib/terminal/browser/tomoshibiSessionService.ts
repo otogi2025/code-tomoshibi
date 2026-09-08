@@ -68,6 +68,9 @@ export interface ITomoshibiSessionService {
 	/**
 	 * The stable key a Session's metadata is filed under. Also performs the pty-reconnect key
 	 * migration, so it must be called with a live instance rather than recomputed by callers.
+	 *
+	 * ⛔ 键是不透明的，调用方只许拿它当字典键用，不许解析、不许自己拼（格式见文件里的
+	 * `SESSION_KEY_*` 注释）。
 	 */
 	sessionKey(instance: ITerminalInstance): string;
 
@@ -111,6 +114,32 @@ const ACTIVITY_IDLE_MS = 12000;
  * window instead of once per data chunk. This is a throttle, not a debounce — see `_queueActivity`. */
 const ACTIVITY_COALESCE_MS = 150;
 
+/**
+ * 元数据键的三个命名空间。⛔ 三者绝不可以互相解析成对方 —— 把 pty id 和 instanceId 塞进同一个命名
+ * 空间正是「两个不同 Session 撞到同一条元数据」的成因（两个计数器都从 1 开始、毫不相干）。
+ * - `s:<uuid>`  建 Session 时自己发的号，写进 `shellLaunchConfig.reconnectionProperties` 交给 pty
+ *   宿主保管。页面刷新（attach）和服务端重启（revive）都会原样带回来，所以它跨刷新、跨重启稳定，
+ *   而且永不重号。这是正常终端唯一会用到的键。
+ * - `pty:<id>`  拿不到 uuid 时的退路：改动之前就已经跑着的老进程、任务终端、扩展终端。pty 宿主一
+ *   重启就从 0 重新发号，所以这类键会被复用，只能靠回收 + 保留期兜住。
+ * - `local:<n>` 连 pty id 都还没有时的临时键，只允许往 `pty:` 搬一次。
+ */
+const SESSION_KEY_UUID_PREFIX = 's:';
+const SESSION_KEY_PTY_PREFIX = 'pty:';
+const SESSION_KEY_LOCAL_PREFIX = 'local:';
+/** `reconnectionProperties.ownerId`，用来认出「这个号是我们发的」。任务系统用的是 'Task'。 */
+const TOMOSHIBI_RECONNECTION_OWNER = 'tomoshibi';
+
+/**
+ * 老版本的键是裸数字（`String(persistentProcessId ?? instanceId)`），既可能是 pty id 也可能是
+ * instanceId，无法分辨、也不能信：部署这次改动本身就要重启 code-server，重启后 pty id 从头再发，
+ * 留着这些键只会让新 Session 顶上别人的名字。所以读到就丢弃，⛔ 不迁移 —— 代价是一次性丢掉旧的
+ * Session 名称/固定/分组归属，分组本身（id 是 uuid）不受影响。
+ */
+function isNamespacedSessionKey(key: string): boolean {
+	return key.startsWith(SESSION_KEY_UUID_PREFIX) || key.startsWith(SESSION_KEY_PTY_PREFIX) || key.startsWith(SESSION_KEY_LOCAL_PREFIX);
+}
+
 function createEmptyModel(): ITomoshibiSessionModel {
 	return { version: 2, groups: [], sessions: {} };
 }
@@ -148,7 +177,7 @@ function reviveModel(raw: string | undefined): ITomoshibiSessionModel | undefine
 	}
 	const sessions = candidate.sessions && typeof candidate.sessions === 'object' ? candidate.sessions : {};
 	for (const [key, value] of Object.entries(sessions)) {
-		if (!value || typeof value !== 'object') {
+		if (!value || typeof value !== 'object' || !isNamespacedSessionKey(key)) {
 			continue;
 		}
 		const entry: ITomoshibiSessionEntry = {};
@@ -227,6 +256,13 @@ export class TomoshibiSessionService extends Disposable implements ITomoshibiSes
 			this._onDidChange.fire();
 		}));
 
+		// ⛔ 只在实例刚被 new 出来的这一刻打号，不去补扫 `_terminalService.instances`：进程一旦建好，
+		// 再往 shellLaunchConfig 里写东西也送不到 pty 宿主，刷新之后 uuid 就没了，键会从 `s:` 悄悄变回
+		// `pty:`，元数据反而被甩掉。补不上号的实例老老实实走 `pty:` 那条退路。
+		// 时机成立的依据：`onDidCreateInstance` 是 terminalInstanceService.ts:52 在构造函数返回后同步 fire
+		// 的，而 `_createProcess()` 挂在 `_xtermReadyPromise.then()` 里（terminalInstance.ts:615-641），
+		// 最快也要等一个微任务，一定在我们之后。
+		this._register(this._terminalService.onDidCreateInstance(instance => this._stampSessionId(instance)));
 		this._register(this._terminalService.onAnyInstanceData(({ instance, data }) => this._queueActivity(instance, data)));
 		this._register(this._terminalService.onDidChangeInstances(() => this._pruneDeadInstances()));
 		this._register({
@@ -311,6 +347,11 @@ export class TomoshibiSessionService extends Disposable implements ITomoshibiSes
 			model.groups.push(group);
 		}
 		for (const key of new Set([...groupNames.keys(), ...titles.keys(), ...pinned])) {
+			// v1 的键也是裸数字，同样不可信（理由见 `isNamespacedSessionKey`）。分组定义留下，
+			// 「哪个 Session 属于哪个分组」丢掉。
+			if (!isNamespacedSessionKey(key)) {
+				continue;
+			}
 			const entry: ITomoshibiSessionEntry = {};
 			const name = groupNames.get(key);
 			const group = name ? groupsByName.get(name) : undefined;
@@ -379,23 +420,81 @@ export class TomoshibiSessionService extends Disposable implements ITomoshibiSes
 	//#region session keys
 
 	sessionKey(instance: ITerminalInstance): string {
-		const key = String(instance.persistentProcessId ?? instance.instanceId);
+		const key = this._computeSessionKey(instance);
 		const previousKey = this._sessionKeysByInstanceId.get(instance.instanceId);
 		this._sessionKeysByInstanceId.set(instance.instanceId, key);
 		if (previousKey && previousKey !== key) {
-			this._migrateSessionKey(previousKey, key);
+			this._migrateSessionKey(instance.instanceId, previousKey, key);
 		}
 		return key;
 	}
 
+	private _computeSessionKey(instance: ITerminalInstance): string {
+		const sessionId = this._readSessionId(instance);
+		if (sessionId) {
+			return SESSION_KEY_UUID_PREFIX + sessionId;
+		}
+		if (instance.persistentProcessId !== undefined) {
+			return SESSION_KEY_PTY_PREFIX + instance.persistentProcessId;
+		}
+		return SESSION_KEY_LOCAL_PREFIX + instance.instanceId;
+	}
+
 	/**
-	 * A freshly created Session has no persistent process id yet, so it is filed under its
-	 * instance id and re-filed once the pty reports back. Metadata must follow.
+	 * 读回我们发的号。`instance.reconnectionProperties`（terminalInstance.ts:351）优先取
+	 * `attachPersistentProcess` 上的那份，也就是 pty 宿主经 `_buildProcessDetails`
+	 * （ptyService.ts:657）送回来的，所以刷新页面重新 attach、以及服务端重启后 revive
+	 * （ptyService.ts:287 把整个 shellLaunchConfig 原样展开重建进程）都能读到同一个 uuid。
 	 */
-	private _migrateSessionKey(previousKey: string, key: string): void {
+	private _readSessionId(instance: ITerminalInstance): string | undefined {
+		const properties = instance.reconnectionProperties;
+		if (!properties || properties.ownerId !== TOMOSHIBI_RECONNECTION_OWNER) {
+			return undefined;
+		}
+		const sessionId = (properties.data as { sessionId?: unknown } | undefined)?.sessionId;
+		return typeof sessionId === 'string' && sessionId ? sessionId : undefined;
+	}
+
+	/**
+	 * 给刚建出来的 Session 发一个 uuid 并塞进 shellLaunchConfig，让它跟着进程走到 pty 宿主去。
+	 *
+	 * ⛔ 只碰「普通的、我们自己的」终端：任务终端和扩展终端已经有自己的 reconnectionProperties
+	 * （ownerId 'Task'），feature/transient/自带 pty 的终端根本不进 Session 列表，给它们加
+	 * reconnectionProperties 反而会改掉上游算 shouldPersist 的口径
+	 * （terminalProcessManager.ts:290/530）。
+	 * ⚠️ 已知副作用：`TerminalInstance.shouldPersist`（terminalInstance.ts:854）对带
+	 * reconnectionProperties 的实例会额外要求 `task.reconnection === true`（默认就是 true，见
+	 * tasks/browser/task.contribution.ts:550-553）。也就是说谁把 `task.reconnection` 关掉，
+	 * Session 就不再跨刷新存活了。
+	 */
+	private _stampSessionId(instance: ITerminalInstance): void {
+		const slc = instance.shellLaunchConfig;
+		if (slc.attachPersistentProcess || slc.reconnectionProperties || slc.isFeatureTerminal || slc.isTransient || slc.isExtensionOwnedTerminal || slc.customPtyImplementation) {
+			return;
+		}
+		slc.reconnectionProperties = { ownerId: TOMOSHIBI_RECONNECTION_OWNER, data: { sessionId: generateUuid() } };
+	}
+
+	/**
+	 * 只为没拿到 uuid 的老进程服务：它们出生时连 pty id 都没有，先落在 `local:<instanceId>` 上，
+	 * pty 报到之后要把元数据搬到 `pty:<id>`。
+	 *
+	 * ⛔ 只许 `local:* → pty:*` 这一个方向。`s:` 键从生到死不变，`pty:` 之间互搬只可能是撞号，
+	 * 一律不搬 —— 老代码在这里无条件 `delete` 源键，正是「刷新一次就把别人的名字删掉」的元凶。
+	 */
+	private _migrateSessionKey(instanceId: number, previousKey: string, key: string): void {
+		if (!previousKey.startsWith(SESSION_KEY_LOCAL_PREFIX) || !key.startsWith(SESSION_KEY_PTY_PREFIX)) {
+			return;
+		}
 		const previous = this._model.sessions[previousKey];
 		if (!previous) {
 			return;
+		}
+		// 目标键被别的活实例占着就不搬 —— 那条元数据是人家的。
+		for (const [otherInstanceId, otherKey] of this._sessionKeysByInstanceId) {
+			if (otherInstanceId !== instanceId && otherKey === key) {
+				return;
+			}
 		}
 		delete this._model.sessions[previousKey];
 		const existing = this._model.sessions[key];
