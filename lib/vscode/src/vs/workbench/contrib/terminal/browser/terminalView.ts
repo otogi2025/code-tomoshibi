@@ -563,7 +563,6 @@ interface ITomoshibiGroupWrap {
 interface ITomoshibiSlot {
 	readonly key: string;
 	readonly instance: ITerminalInstance;
-	readonly index: number;
 	readonly group: ITomoshibiSessionGroup | undefined;
 }
 
@@ -717,13 +716,13 @@ function tomoshibiVisibleInstances(groupService: ITerminalGroupService): ITermin
 async function openTomoshibiSessionManager(host: ITomoshibiSessionActionHost): Promise<void> {
 	const activeInstance = host.groupService.activeInstance;
 	const instances = tomoshibiVisibleInstances(host.groupService);
-	const choices: ITomoshibiPopoverChoice[] = instances.map((instance, index) => {
+	const choices: ITomoshibiPopoverChoice[] = instances.map(instance => {
 		const title = host.sessionService.getTitle(instance) || instance.title;
 		const sessionGroup = host.sessionService.getGroupOf(instance)?.name;
 		return {
 			id: String(instance.instanceId),
 			icon: instance === activeInstance ? 'check' : 'terminal',
-			label: `${index + 1} · ${title}`,
+			label: title,
 			description: sessionGroup ? nls.localize('tomoshibi.session.manager.group', "分组：{0}", sessionGroup) : nls.localize('tomoshibi.session.manager.ungrouped', "未分组"),
 			current: instance === activeInstance,
 		};
@@ -1319,8 +1318,7 @@ class SwitchTerminalActionViewItem extends BaseActionViewItem {
 	private _updatePill(pill: ITomoshibiPill, slot: ITomoshibiSlot, activeInstanceId: number | undefined): void {
 		const instance = slot.instance;
 		pill.instanceId = instance.instanceId;
-		const name = this._sessionService.getTitle(instance) || instance.title;
-		const title = `${slot.index + 1} · ${name}`;
+		const title = this._sessionService.getTitle(instance) || instance.title;
 		pill.label.textContent = stripTomoshibiPictographs(title);
 		const state = tomoshibiSessionStatusClass(instance, this._sessionService);
 		const stateText = tomoshibiSessionStatusText(instance, state);
@@ -1349,10 +1347,9 @@ class SwitchTerminalActionViewItem extends BaseActionViewItem {
 			return;
 		}
 		const scrollLeft = switcher.scrollLeft;
-		const slots: ITomoshibiSlot[] = tomoshibiVisibleInstances(this._terminalGroupService).map((instance, index) => ({
+		const slots: ITomoshibiSlot[] = tomoshibiVisibleInstances(this._terminalGroupService).map(instance => ({
 			key: this._sessionService.sessionKey(instance),
 			instance,
-			index,
 			group: this._sessionService.getGroupOf(instance),
 		}));
 
@@ -1605,12 +1602,11 @@ class TomoshibiSessionTreeActionViewItem extends ActionViewItem {
 	private _fill(root: HTMLElement, store: DisposableStore): void {
 		const instances = tomoshibiVisibleInstances(this._terminalGroupService);
 		const activeInstanceId = this._terminalGroupService.activeInstance?.instanceId;
-		const indexOf = new Map<ITerminalInstance, number>(instances.map((instance, index): [ITerminalInstance, number] => [instance, index]));
 
 		const ungrouped = instances.filter(instance => !this._sessionService.getGroupOf(instance));
 		this._appendHeader(root, store, nls.localize('tomoshibi.session.tree.ungrouped', "未分组"), ungrouped.length, undefined);
 		for (const instance of ungrouped) {
-			this._appendRow(root, store, instance, indexOf.get(instance) ?? 0, activeInstanceId);
+			this._appendRow(root, store, instance, activeInstanceId);
 		}
 		for (const group of this._sessionService.groups) {
 			const members = instances.filter(instance => this._sessionService.getGroupOf(instance)?.id === group.id);
@@ -1619,7 +1615,7 @@ class TomoshibiSessionTreeActionViewItem extends ActionViewItem {
 			}
 			this._appendHeader(root, store, group.name, members.length, group);
 			for (const instance of members) {
-				this._appendRow(root, store, instance, indexOf.get(instance) ?? 0, activeInstanceId);
+				this._appendRow(root, store, instance, activeInstanceId);
 			}
 		}
 
@@ -1673,7 +1669,7 @@ class TomoshibiSessionTreeActionViewItem extends ActionViewItem {
 		});
 	}
 
-	private _appendRow(root: HTMLElement, store: DisposableStore, instance: ITerminalInstance, index: number, activeInstanceId: number | undefined): void {
+	private _appendRow(root: HTMLElement, store: DisposableStore, instance: ITerminalInstance, activeInstanceId: number | undefined): void {
 		const row = dom.append(root, dom.$('button.tomoshibi-session-tree-item')) as HTMLButtonElement;
 		row.type = 'button';
 		const state = tomoshibiSessionStatusClass(instance, this._sessionService);
@@ -1681,7 +1677,7 @@ class TomoshibiSessionTreeActionViewItem extends ActionViewItem {
 		rowStatus.className = tomoshibiSessionStatusClassName(state);
 		const label = dom.append(row, dom.$('span.tomoshibi-session-tree-label'));
 		// The whole point of the tree is that a Session name is never clipped here.
-		label.textContent = `${index + 1} · ${this._sessionService.getTitle(instance) || instance.title}`;
+		label.textContent = this._sessionService.getTitle(instance) || instance.title;
 		const active = instance.instanceId === activeInstanceId;
 		row.classList.toggle('is-active', active);
 		row.title = `${label.textContent} · ${tomoshibiSessionStatusText(instance, state)}`;
