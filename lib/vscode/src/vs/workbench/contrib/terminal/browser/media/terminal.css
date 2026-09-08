@@ -175,6 +175,21 @@
 	right: 10px;
 }
 
+/* Coarse pointers give the panel sash a 10px dead zone on the right of the scroll bar column, so
+ * the whole column shifts left by 10px and this inset has to widen by the same amount. Same
+ * predicate as the coarse block in xterm.css and as scrollbarReservedWidth in xtermTerminal.ts. */
+@media (any-pointer: coarse) {
+	.monaco-workbench .terminal-editor .terminal-wrapper:not(.fixed-dims) .xterm-viewport,
+	.monaco-workbench .pane-body.integrated-terminal .terminal-wrapper:not(.fixed-dims) .xterm-viewport {
+		right: 30px;
+	}
+
+	.monaco-workbench .terminal-editor .terminal-wrapper:not(.fixed-dims) .xterm.tomoshibi-thin-scrollbar .xterm-viewport,
+	.monaco-workbench .pane-body.integrated-terminal .terminal-wrapper:not(.fixed-dims) .xterm.tomoshibi-thin-scrollbar .xterm-viewport {
+		right: 20px;
+	}
+}
+
 .monaco-workbench .pane-body.integrated-terminal .split-view-view {
 	box-sizing: border-box;
 	overflow: hidden;

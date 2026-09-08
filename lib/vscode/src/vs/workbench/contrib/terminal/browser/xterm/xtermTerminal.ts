@@ -71,6 +71,14 @@ const TOMOSHIBI_SCROLLBAR_THICK = 'tomoshibi.scrollbar.thick';
  */
 const TOMOSHIBI_THIN_SCROLLBAR_CLASS = 'tomoshibi-thin-scrollbar';
 
+/**
+ * 粗指针下额外留给面板分隔条的死区宽度。`workbench.sash.size` 在 iOS 上默认 20
+ * （sash/browser/sash.contribution.ts），`.monaco-sash` 居中骑在两个区块的边界上、z-index 35，
+ * 于是面板右边界那根的左半 10px 正好压在滚动条列上，手指按在滑块右半边会变成拖面板宽度。
+ * 解法是整列往左让这 10px：滑块自己仍是 scrollbarWidth 那么宽，只是右边空出一条死区给 sash。
+ */
+const TOMOSHIBI_SASH_DEAD_ZONE_WIDTH = 10;
+
 const enum TextBlinkConstants {
 	IntervalDuration = 600
 }
@@ -603,6 +611,20 @@ export class XtermTerminal extends Disposable implements IXtermTerminal, IDetach
 		const thin = this._configurationService.getValue<boolean>(TOMOSHIBI_SCROLLBAR_THICK) === false
 			|| this._configurationService.getValue<boolean>(LayoutSettings.MODERN_UI) === true;
 		return thin ? TerminalScrollbarWidth.ModernUI : TerminalScrollbarWidth.Default;
+	}
+
+	/**
+	 * 算字符网格时右边要整体让出的宽度。粗指针下比滑块本身宽 {@link TOMOSHIBI_SASH_DEAD_ZONE_WIDTH}：
+	 * 滑块左移了这么多让开面板分隔条，让出的这一条也得从可用宽度里扣掉，否则最右一列字符会被滑块压住。
+	 * ⛔ 判据必须跟 xterm.css / terminal.css 里那两段 `@media (any-pointer: coarse)` 完全同口径，
+	 * 错开一边就会「算的列数」和「画的滑块」对不上。
+	 */
+	get scrollbarReservedWidth(): number {
+		return this.scrollbarWidth + (this._isCoarsePointer() ? TOMOSHIBI_SASH_DEAD_ZONE_WIDTH : 0);
+	}
+
+	private _isCoarsePointer(): boolean {
+		return dom.getWindow(this.raw.element).matchMedia('(any-pointer: coarse)').matches;
 	}
 
 	/** 让 terminal.css 的视口内缩跟着滚动条宽度走，⛔ 别再让两处各写死一个 20。 */

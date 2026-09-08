@@ -337,6 +337,35 @@
 	}
 }
 
+/* Code-Tomoshibi: 常显之后还得「按得着」—— 粗指针下把滚动条整列往左让 10px，别跟面板分隔条抢手指。
+ *
+ * `workbench.sash.size` 在 iOS 上默认 20（contrib/sash/browser/sash.contribution.ts），每根
+ * `.monaco-sash`（z-index 35）都是 20px 宽、居中骑在两个区块的边界上。终端在面板里时，面板右边界那根
+ * 的左半 10px 正好压在 20px 宽的滚动条列右半上：手指按在滑块右半边变成拖面板宽度，按左半边才是滚动，
+ * 实测从滑块正中往上拖 300px 全部指针事件落在 sash 上、滑块纹丝不动。终端在编辑器区而右边有侧栏时同理。
+ *
+ * ⛔ 不动 sash 尺寸：20px 是上游专门为手指放大的，缩了拖面板会变难，而且只要 sash 还居中就仍有一半压在
+ * 滚动条上。也不给滚动条抬 z-index：从 .part.panel 到滚动条之间有没有 stacking context 没法保证，而且
+ * 会反过来把 sash 的左半盖掉。
+ *
+ * 滑块本身仍是 scrollbar.width 那么宽（粗 20 / 细 10），只是整体左移 10px，右边空出的这一条留给 sash。
+ * 字符网格由 xtermTerminal.ts 的 scrollbarReservedWidth（宽度 + 10）多让出这 10px，terminal.css 里
+ * `.xterm-viewport` 的内缩同步加宽，⛔ 三处的判据都得是 `(any-pointer: coarse)`，错开一边就会「算的
+ * 列数」和「画的滑块」对不上。
+ *
+ * 必须 !important：这个元素的 right / width 是 xterm 的 ScrollableElement 用行内样式写的
+ * （scrollable/verticalScrollbar.ts 的 _renderDomNode 里 setRight(0)），不带 !important 压不过。
+ * overview ruler（node_modules 的 xterm.css 里 `right: 0`）画在同一列，一起左移才不会错位。
+ */
+@media (any-pointer: coarse) {
+	.monaco-workbench .terminal-editor .xterm .xterm-scrollable-element > .xterm-scrollbar.xterm-vertical,
+	.monaco-workbench .pane-body.integrated-terminal .xterm .xterm-scrollable-element > .xterm-scrollbar.xterm-vertical,
+	.monaco-workbench .terminal-editor .xterm .xterm-decoration-overview-ruler,
+	.monaco-workbench .pane-body.integrated-terminal .xterm .xterm-decoration-overview-ruler {
+		right: 10px !important;
+	}
+}
+
 /* Scrollable Content Inset Shadow */
 .xterm .xterm-scrollable-element > .xterm-shadow {
 	position: absolute;
