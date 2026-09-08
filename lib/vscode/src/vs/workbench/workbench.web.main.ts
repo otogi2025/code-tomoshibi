@@ -130,7 +130,8 @@ import './contrib/terminal/browser/terminal.web.contribution.js';
 import './contrib/externalTerminal/browser/externalTerminal.contribution.js';
 import './contrib/terminal/browser/terminalInstanceService.js';
 
-// Code-Tomoshibi watchdog / performance / settings
+// Code-Tomoshibi defaults / watchdog / performance / settings
+import './contrib/tomoshibi/browser/tomoshibiDefaults.contribution.js';
 import './contrib/tomoshibi/browser/tomoshibiWatchdog.contribution.js';
 import './contrib/tomoshibi/browser/tomoshibiPerformance.contribution.js';
 import './contrib/tomoshibi/browser/settings/tomoshibiSettings.contribution.js';
