@@ -1192,26 +1192,38 @@ class SwitchTerminalActionViewItem extends BaseActionViewItem {
 	}
 
 	private _applyPlacements(placements: readonly ITomoshibiPlacement[]): void {
-		const instances = new Map<string, ITerminalInstance>();
-		for (const instance of tomoshibiVisibleInstances(this._terminalGroupService)) {
-			instances.set(this._sessionService.sessionKey(instance), instance);
-		}
-		for (const placement of placements) {
-			const instance = instances.get(placement.key);
-			if (instance && this._sessionService.getGroupOf(instance)?.id !== placement.groupId) {
-				this._sessionService.setGroupOf(instance, placement.groupId);
-			}
-		}
-		// moveGroupToEnd fires onDidChangeInstances on every call. Re-rendering the strip in the
-		// middle of the sequence would tear down the very pills the loop is still ordering, so the
-		// whole rewrite is one silent transaction followed by a single sync.
+		// ⛔ 整个写回过程从第一行起就静默，不只是后半段。setGroupOf 的 _save() 会 fire onDidChange、
+		// moveGroupToEnd 每次都 fire onDidChangeInstances，两者都会同步打回 _sync()，而中途重画会
+		// 拆掉这个循环正在排序的那批胶囊。原来 _suppressSync 只包住 moveGroupToEnd 那一段，前面每改
+		// 一个分组归属就白重画一次。
 		this._suppressSync = true;
 		try {
+			const instances = new Map<string, ITerminalInstance>();
+			for (const instance of tomoshibiVisibleInstances(this._terminalGroupService)) {
+				instances.set(this._sessionService.sessionKey(instance), instance);
+			}
 			for (const placement of placements) {
 				const instance = instances.get(placement.key);
-				if (instance) {
-					this._terminalGroupService.moveGroupToEnd(instance);
+				if (instance && this._sessionService.getGroupOf(instance)?.id !== placement.groupId) {
+					this._sessionService.setGroupOf(instance, placement.groupId);
 				}
+			}
+			// ⛔ 只挪真正需要挪的那几个。每一次 moveGroupToEnd 都会 fire onDidChangeInstances，连锁
+			// 两轮全分组 relayout（TerminalTabbedView._layoutGroups 与 TerminalViewPane 那次带强制
+			// 回流的 layoutBody）外加一次未去抖的 setTerminalLayoutInfo 远端往返；8 个 Session 无条件
+			// 挪 8 次，松手时要顿挫几十毫秒。
+			// moveGroupToEnd 只能把一个 Session 挪到末尾，所以「不用挪的」必然是目标顺序的一段前缀，
+			// 且这段前缀要在当前顺序里按序出现。贪心取最长的这样的前缀，其余的按目标顺序依次挪到末尾，
+			// 结果与逐个 moveGroupToEnd 完全一致，调用次数降到最少（顺序没变时降到 0 次）。
+			const target = placements.map(placement => placement.key).filter(key => instances.has(key));
+			let settled = 0;
+			for (const key of this._orderedKeys) {
+				if (key === target[settled]) {
+					settled++;
+				}
+			}
+			for (let index = settled; index < target.length; index++) {
+				this._terminalGroupService.moveGroupToEnd(instances.get(target[index])!);
 			}
 		} finally {
 			this._suppressSync = false;
