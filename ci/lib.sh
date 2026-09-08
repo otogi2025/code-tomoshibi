@@ -19,7 +19,7 @@ os() {
     linux)
       # Alpine's ldd doesn't have a version flag but if you use an invalid flag
       # (like --version) it outputs the version to stderr and exits with 1.
-      # TODO: Better to check /etc/os-release; see ../install.sh.
+      # TODO: Better to check /etc/os-release.
       ldd_output=$(ldd --version 2>&1 || true)
       if echo "$ldd_output" | grep -iq musl; then
         osname="alpine"
