@@ -891,6 +891,11 @@ export class SearchView extends ViewPane {
 	}
 
 	private async refreshAndUpdateCount(event?: IChangeEvent): Promise<void> {
+		if (this.terminalMode) {
+			// 终端查找模式下消息区归 runTerminalFind 独占，「全部替换」也由 applyTerminalMode 负责。
+			// 树本身是隐藏的，但仍要跟着模型刷新，否则退出终端模式后会留着进入前的旧节点。
+			return this.refreshTreeController.queue(event);
+		}
 		this.searchWidget.setReplaceAllActionState(!this.viewModel.searchResult.isEmpty());
 		this.updateSearchResultCount(this.viewModel.searchResult.query!.userDisabledExcludesAndIgnoreFiles, this.viewModel.searchResult.query?.onlyOpenEditors, event?.clearingAll);
 		return this.refreshTreeController.queue(event);
@@ -1044,6 +1049,13 @@ export class SearchView extends ViewPane {
 		this.storageService.store(TERMINAL_MODE_STORAGE_KEY, enabled, StorageScope.WORKSPACE, StorageTarget.MACHINE);
 
 		if (enabled) {
+			// 终端查找接管消息区之前，先把文件搜索彻底停下并清空结果模型：
+			// 否则残留的 searchResult 会让「全部替换」保持可用，且晚到的搜索回调会盖掉终端计数。
+			this.cancelSearch(false);
+			this.clearSearchResults(false);
+			// clear 触发的 refreshAndUpdateCount 已被它自己的终端模式守卫挡住，所以
+			// 「全部替换」要在这里显式熄灭，否则它会带着进入终端模式之前的状态一直亮着。
+			this.searchWidget.setReplaceAllActionState(false);
 			this.runTerminalFind(true, false);
 		} else {
 			this.terminalFindResultsListener.clear();
@@ -2220,6 +2232,10 @@ export class SearchView extends ViewPane {
 	}
 
 	private updateSearchResultCount(disregardExcludesAndIgnores?: boolean, onlyOpenEditors?: boolean, clear: boolean = false): void {
+		if (this.terminalMode) {
+			// 终端查找模式下别把「N 个文件中有 M 个结果」写进消息区，那里显示的是终端命中计数。
+			return;
+		}
 		if (this._cachedKeywords.length > 0) {
 			return;
 		}
