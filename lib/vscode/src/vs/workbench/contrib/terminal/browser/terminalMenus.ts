@@ -13,7 +13,7 @@ import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextke
 import { ResourceContextKey } from '../../../common/contextkeys.js';
 import { ITerminalLocationOptions, ITerminalService } from './terminal.js';
 import { TerminalCommandId, TERMINAL_VIEW_ID } from '../common/terminal.js';
-import { TerminalContextKeys, TerminalContextKeyStrings } from '../common/terminalContextKey.js';
+import { TerminalContextKeys } from '../common/terminalContextKey.js';
 import { terminalStrings } from '../common/terminalStrings.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { HasSpeechProvider } from '../../speech/common/speechService.js';
@@ -37,73 +37,13 @@ export const enum TerminalMenuBarGroup {
 	Configure = '7_configure'
 }
 
+/**
+ * ⛔ 这里曾经往 MenuId.MenubarTerminalMenu 注册「新建终端 / 新建终端窗口 / 拆分终端 / 运行活动文件 /
+ * 运行所选文本」五项，2026-09 删掉：菜单栏早就只剩一个 MenubarTomoshibiMenu 子菜单
+ * （browser/parts/titlebar/menubar.contribution.ts），全仓再没有第二处 `submenu: MenuId.MenubarTerminalMenu`，
+ * 这个 MenuId 永远不会被任何 UI 取出来渲染。要往菜单栏加终端相关的项，加到 MenubarTomoshibiMenu 上。
+ */
 export function setupTerminalMenus(): void {
-	MenuRegistry.appendMenuItems(
-		[
-			{
-				id: MenuId.MenubarTerminalMenu,
-				item: {
-					group: TerminalMenuBarGroup.Create,
-					command: {
-						id: TerminalCommandId.New,
-						title: localize({ key: 'miNewTerminal', comment: ['&& denotes a mnemonic'] }, "新建终端(&&N)")
-					},
-					order: 1
-				}
-			},
-			{
-				id: MenuId.MenubarTerminalMenu,
-				item: {
-					group: TerminalMenuBarGroup.Create,
-					command: {
-						id: TerminalCommandId.NewInNewWindow,
-						title: localize({ key: 'miNewInNewWindow', comment: ['&& denotes a mnemonic'] }, "新建终端窗口(&&W)"),
-						precondition: ContextKeyExpr.has(TerminalContextKeyStrings.IsOpen)
-					},
-					order: 2,
-					when: TerminalContextKeys.processSupported
-				}
-			},
-			{
-				id: MenuId.MenubarTerminalMenu,
-				item: {
-					group: TerminalMenuBarGroup.Create,
-					command: {
-						id: TerminalCommandId.Split,
-						title: localize({ key: 'miSplitTerminal', comment: ['&& denotes a mnemonic'] }, "拆分终端(&&S)"),
-						precondition: ContextKeyExpr.has(TerminalContextKeyStrings.IsOpen)
-					},
-					order: 2,
-					when: TerminalContextKeys.processSupported
-				}
-			},
-			{
-				id: MenuId.MenubarTerminalMenu,
-				item: {
-					group: TerminalMenuBarGroup.Run,
-					command: {
-						id: TerminalCommandId.RunActiveFile,
-						title: localize({ key: 'miRunActiveFile', comment: ['&& denotes a mnemonic'] }, "运行活动文件(&&A)")
-					},
-					order: 3,
-					when: TerminalContextKeys.processSupported
-				}
-			},
-			{
-				id: MenuId.MenubarTerminalMenu,
-				item: {
-					group: TerminalMenuBarGroup.Run,
-					command: {
-						id: TerminalCommandId.RunSelectedText,
-						title: localize({ key: 'miRunSelectedText', comment: ['&& denotes a mnemonic'] }, "运行所选文本(&&S)")
-					},
-					order: 4,
-					when: TerminalContextKeys.processSupported
-				}
-			},
-		]
-	);
-
 	MenuRegistry.appendMenuItems(
 		[
 			{
