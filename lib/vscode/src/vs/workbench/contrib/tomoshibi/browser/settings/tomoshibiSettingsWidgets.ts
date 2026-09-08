@@ -98,6 +98,12 @@ export function numberControl(store: DisposableStore, min: number, max: number, 
 			input.value = String(get());
 			return;
 		}
+		if (parsed === get()) {
+			// change 和 blur 各来一次，值没变的那次不该写配置：光是点进「字号」框再点出去（iPad 上
+			// 很常见的误触）就会白跑一整遍写配置管线，而字号那一行一次 set 写两个键，这两个键第一
+			// 次落进 settings.json 时还会连着重建两遍分区。越界回填之后的那次 blur 也走这里。
+			return;
+		}
 		set(parsed);
 	};
 	store.add(addDisposableListener(input, EventType.CHANGE, commit));
