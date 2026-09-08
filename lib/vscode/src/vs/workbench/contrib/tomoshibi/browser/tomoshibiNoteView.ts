@@ -91,7 +91,13 @@ export class TomoshibiNoteView extends ViewPane {
 		const addButton = append(this._buttonRow, $<HTMLButtonElement>('button'));
 		addButton.textContent = '+ 新便签';
 		this._register(addDisposableListener(addButton, EventType.CLICK, () => {
-			this._focusAfterRender = this._noteService.add('');
+			// 求值顺序：add() 内部同步 fire onDidChange，那一遍 _render() 在 add() 返回之前就跑完了，
+			// 所以写在赋值右边的 id 永远赶不上它 —— 新便签从来不聚焦（iPad 上软键盘不弹），而这个
+			// id 留在字段里，被「下一次」渲染（第二次点「+」、或者点 ✕ 删一条）误消费，把光标和键盘
+			// 拽到上一条便签上。先拿 id，再自己渲染一次。
+			const id = this._noteService.add('');
+			this._focusAfterRender = id;
+			this._render();
 		}));
 
 		const pasteButton = append(this._buttonRow, $<HTMLButtonElement>('button'));
