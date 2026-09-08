@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 // allow-any-unicode-file
 
-import { $, addDisposableListener, append, clearNode, EventType } from '../../../../base/browser/dom.js';
+import { $, addDisposableListener, append, clearNode, EventType, getWindow } from '../../../../base/browser/dom.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { IClipboardService } from '../../../../platform/clipboard/common/clipboardService.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
@@ -27,6 +27,13 @@ const CLEAR_ARM_MS = 3000;
 
 const MINUTE = 60 * 1000;
 
+/**
+ * How often the "N minutes ago" column is recomputed while the view is on screen. The labels are
+ * only otherwise written at render time, so with nothing new being copied every row keeps saying
+ * whatever it said an hour ago. A minute is fine: the labels themselves have minute resolution.
+ */
+const TIME_REFRESH_MS = MINUTE;
+
 export class TomoshibiClipboardView extends ViewPane {
 
 	static readonly ID = 'workbench.view.tomoshibiClipboard.list';
@@ -39,6 +46,10 @@ export class TomoshibiClipboardView extends ViewPane {
 
 	private _clearArmed = false;
 	private _clearTimer: ReturnType<typeof setTimeout> | undefined;
+
+	/** The `.m` cell of every rendered row, so the timer can rewrite them without a full rebuild. */
+	private readonly _timeCells: { readonly element: HTMLElement; readonly createdAt: number }[] = [];
+	private _timeTimer: number | undefined;
 
 	constructor(
 		options: IViewletViewOptions,
@@ -58,6 +69,8 @@ export class TomoshibiClipboardView extends ViewPane {
 		super(options, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, hoverService);
 
 		this._register(this._historyService.onDidChange(() => this._render()));
+		// Nothing needs to be accurate while the sidebar is showing something else.
+		this._register(this.onDidChangeBodyVisibility(visible => this._updateTimeTimer(visible)));
 	}
 
 	protected override renderBody(container: HTMLElement): void {
@@ -83,10 +96,12 @@ export class TomoshibiClipboardView extends ViewPane {
 					clearTimeout(this._clearTimer);
 					this._clearTimer = undefined;
 				}
+				this._stopTimeTimer();
 			}
 		});
 
 		this._render();
+		this._updateTimeTimer(this.isBodyVisible());
 	}
 
 	protected override layoutBody(height: number, width: number): void {
@@ -143,6 +158,33 @@ export class TomoshibiClipboardView extends ViewPane {
 		}
 	}
 
+	private _updateTimeTimer(visible: boolean): void {
+		if (!visible) {
+			this._stopTimeTimer();
+			return;
+		}
+		// Coming back into view is exactly when the labels are most stale, so catch up first.
+		this._refreshTimes();
+		if (this._timeTimer === undefined) {
+			// getWindow rather than the global: the view can live in an auxiliary window.
+			this._timeTimer = getWindow(this._list).setInterval(() => this._refreshTimes(), TIME_REFRESH_MS);
+		}
+	}
+
+	private _stopTimeTimer(): void {
+		if (this._timeTimer !== undefined) {
+			getWindow(this._list).clearInterval(this._timeTimer);
+			this._timeTimer = undefined;
+		}
+	}
+
+	private _refreshTimes(): void {
+		const now = Date.now();
+		for (const cell of this._timeCells) {
+			cell.element.textContent = relativeTime(cell.createdAt, now);
+		}
+	}
+
 	private _render(): void {
 		const list = this._list;
 		if (!list) {
@@ -153,6 +195,7 @@ export class TomoshibiClipboardView extends ViewPane {
 
 		const scrollTop = list.scrollTop;
 		this._rowDisposables.clear();
+		this._timeCells.length = 0;
 		clearNode(list);
 
 		const entries = this._historyService.history;
@@ -178,6 +221,9 @@ export class TomoshibiClipboardView extends ViewPane {
 
 		const time = append(row, $('.m'));
 		time.textContent = relativeTime(entry.createdAt, Date.now());
+		// The relative label cannot tell yesterday 14:30 from today 14:30; the tooltip can.
+		time.title = new Date(entry.createdAt).toLocaleString();
+		this._timeCells.push({ element: time, createdAt: entry.createdAt });
 
 		const copyButton = append(row, $<HTMLButtonElement>('button.b'));
 		copyButton.textContent = '⧉';
