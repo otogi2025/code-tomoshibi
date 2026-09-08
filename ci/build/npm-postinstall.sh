@@ -93,7 +93,7 @@ main() {
 
   if ! vscode_install; then
     echo "You may not have the required dependencies to build the native modules."
-    echo "Please see https://github.com/coder/code-server/blob/main/docs/npm.md"
+    echo "Please see the README.md at the root of this repository."
     exit 1
   fi
 
