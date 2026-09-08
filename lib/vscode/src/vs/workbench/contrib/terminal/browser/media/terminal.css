@@ -436,11 +436,6 @@
 	max-width: 150px;
 }
 
-/* Gated on the workbench motion class like every other animation in this file. */
-.monaco-workbench.monaco-enable-motion .tomoshibi-terminal-session-tab {
-	transition: max-width 150ms ease, flex-basis 150ms ease;
-}
-
 .tomoshibi-terminal-session-tab.is-active::after {
 	content: '';
 	position: absolute;
