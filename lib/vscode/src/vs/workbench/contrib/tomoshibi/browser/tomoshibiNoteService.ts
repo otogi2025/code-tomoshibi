@@ -48,6 +48,19 @@ export interface ITomoshibiNoteService {
 	readonly syncedToServer: boolean;
 
 	/**
+	 * The message of the most recent failed write, cleared by the next write that succeeds. A read
+	 * failure has `readOnlyReason` and shows up in the view; a write failure used to be a line in
+	 * the log and nothing else, while the title kept claiming the notes were on the server.
+	 */
+	readonly syncError: string | undefined;
+
+	/**
+	 * Fires when `syncError` changes. It is separate from `onDidChange` on purpose: that one makes
+	 * the view rebuild every textarea, which would drop the caret in the middle of a sentence.
+	 */
+	readonly onDidChangeSyncState: Event<void>;
+
+	/**
 	 * Set when the notes could not be read for any reason other than "the file is not there yet".
 	 * While it is set the service refuses to write, so a transient read failure can never blank
 	 * the file out.
@@ -79,9 +92,13 @@ export class TomoshibiNoteService extends Disposable implements ITomoshibiNoteSe
 	private readonly _onDidChange = this._register(new Emitter<void>());
 	readonly onDidChange = this._onDidChange.event;
 
+	private readonly _onDidChangeSyncState = this._register(new Emitter<void>());
+	readonly onDidChangeSyncState = this._onDidChangeSyncState.event;
+
 	private _notes: INote[] = [];
 	private _resource: URI | undefined;
 	private _readOnlyReason: string | undefined;
+	private _syncError: string | undefined;
 	private readonly _saveScheduler: RunOnceScheduler;
 	private readonly _whenReady: Promise<void>;
 
@@ -150,6 +167,10 @@ export class TomoshibiNoteService extends Disposable implements ITomoshibiNoteSe
 		return this._readOnlyReason;
 	}
 
+	get syncError(): string | undefined {
+		return this._syncError;
+	}
+
 	private async _initialize(): Promise<void> {
 		const generation = ++this._generation;
 		const previous = this._notes;
@@ -181,6 +202,8 @@ export class TomoshibiNoteService extends Disposable implements ITomoshibiNoteSe
 		this._resource = resource;
 		this._readOnlyReason = loaded.readOnlyReason;
 		this._notes = loaded.notes;
+		// A failure against the old target says nothing about the new one.
+		this._setSyncError(undefined);
 
 		// The two tiers are separate stores, so switching between them would otherwise look like
 		// "my notes are gone". Carry them across when the new side is still empty; when it already
@@ -253,13 +276,27 @@ export class TomoshibiNoteService extends Disposable implements ITomoshibiNoteSe
 		const serialized = JSON.stringify(stored, undefined, '\t');
 		if (!this._resource) {
 			this._storageService.store(STORAGE_KEY, serialized, StorageScope.PROFILE, StorageTarget.USER);
+			this._setSyncError(undefined);
 			return;
 		}
 		try {
 			await this._fileService.writeFile(this._resource, VSBuffer.fromString(serialized));
+			this._setSyncError(undefined);
 		} catch (error) {
+			// Every write carries the whole list, so a one off failure heals itself on the next
+			// edit. A failure that persists (disk full, permissions, a broken provider) does not,
+			// and the view has to stop claiming everything is on the server.
 			this._logService.error('[tomoshibi] failed to persist notes', error);
+			this._setSyncError(error instanceof Error ? error.message : String(error));
 		}
+	}
+
+	private _setSyncError(message: string | undefined): void {
+		if (this._syncError === message) {
+			return;
+		}
+		this._syncError = message;
+		this._onDidChangeSyncState.fire();
 	}
 
 	private _reviveNotes(raw: string | undefined): INote[] {

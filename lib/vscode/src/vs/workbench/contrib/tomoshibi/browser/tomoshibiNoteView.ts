@@ -69,6 +69,8 @@ export class TomoshibiNoteView extends ViewPane {
 		super(options, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, hoverService);
 
 		this._register(this._noteService.onDidChange(() => this._render()));
+		// Only the title line depends on this, and rebuilding the notes would drop the caret.
+		this._register(this._noteService.onDidChangeSyncState(() => this._updateTitle()));
 		void this._noteService.whenReady.then(() => {
 			if (this._disposed) {
 				return;
@@ -144,6 +146,7 @@ export class TomoshibiNoteView extends ViewPane {
 
 		const readOnlyReason = this._noteService.readOnlyReason;
 		const notes = this._noteService.notes;
+		this._updateTitle();
 
 		// The button row is hidden in both non-editable states, so a read failure can never look
 		// like "your notes are gone, here is a fresh one".
@@ -153,18 +156,14 @@ export class TomoshibiNoteView extends ViewPane {
 		}
 
 		if (!this._ready) {
-			this.updateTitleDescription(undefined);
 			append(list, $('.tomoshibi-placeholder')).textContent = '正在读取…';
 			return;
 		}
 
 		if (readOnlyReason) {
-			this.updateTitleDescription('读取失败');
 			append(list, $('.tomoshibi-placeholder')).textContent = `读取失败：${readOnlyReason}`;
 			return;
 		}
-
-		this.updateTitleDescription(`${notes.length} 条 · ${this._noteService.syncedToServer ? '已同步到服务器' : '本设备'}`);
 
 		for (const note of notes) {
 			this._renderNote(list, note);
@@ -181,6 +180,27 @@ export class TomoshibiNoteView extends ViewPane {
 				textArea.focus();
 			}
 		}
+	}
+
+	/**
+	 * 「已同步到服务器」以前只看配置里开没开同步，写盘一直失败也照样这么写。写失败现在会把它
+	 * 换成「未同步」，用户至少知道现在敲的东西没进服务器。
+	 */
+	private _updateTitle(): void {
+		if (!this._ready) {
+			this.updateTitleDescription(undefined);
+			return;
+		}
+		if (this._noteService.readOnlyReason) {
+			this.updateTitleDescription('读取失败');
+			return;
+		}
+		const count = this._noteService.notes.length;
+		if (!this._noteService.syncedToServer) {
+			this.updateTitleDescription(`${count} 条 · 本设备`);
+			return;
+		}
+		this.updateTitleDescription(`${count} 条 · ${this._noteService.syncError ? '未同步' : '已同步到服务器'}`);
 	}
 
 	private _renderNote(list: HTMLElement, note: INote): void {
