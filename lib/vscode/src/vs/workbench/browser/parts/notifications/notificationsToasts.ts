@@ -183,10 +183,13 @@ export class NotificationsToasts extends Themable implements INotificationsToast
 	}
 
 	private addToast(item: INotificationViewItem): void {
-		// Code-Tomoshibi is terminal-first and intentionally never interrupts the
-		// active session with toast popups. Notifications remain in the shared
-		// model and are still available from the notification center.
-		if (!NotificationsToasts.SHOW_TOASTS) {
+		// Code-Tomoshibi is terminal-first and intentionally does not interrupt the
+		// active session with toast popups. Errors and notifications that offer a
+		// primary action are the exception: without a toast they would only be
+		// reachable through the notification center bell, which is easy to miss on
+		// a touch device. Everything else stays silent and is still available from
+		// the notification center.
+		if (!NotificationsToasts.SHOW_TOASTS && item.severity !== Severity.Error && !item.actions?.primary?.length) {
 			return;
 		}
 

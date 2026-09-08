@@ -280,7 +280,12 @@ class StatusbarPart extends Part implements IStatusbarEntryContainer {
 	}
 
 	private isTomoshibiStatusbarEntry(id: string): boolean {
-		return id.startsWith('status.tomoshibi.') || id.startsWith('status.scm.');
+		// `status.notifications` is the notification center bell: it is the only
+		// always-available entry point into the notification center in this fork
+		// (the title bar bell needs `workbench.notifications.position` to be
+		// `top-right`), so it must not be filtered out. It renders as a single
+		// codicon that turns into `bell-dot` once there is something to read.
+		return id.startsWith('status.tomoshibi.') || id.startsWith('status.scm.') || id === 'status.notifications';
 	}
 
 	private doAddPendingEntry(entry: IStatusbarEntry, id: string, alignment: StatusbarAlignment, priority: IStatusbarEntryPriority): IStatusbarEntryAccessor {
