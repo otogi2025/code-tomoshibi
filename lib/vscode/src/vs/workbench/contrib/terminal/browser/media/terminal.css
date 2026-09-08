@@ -160,10 +160,19 @@
 .monaco-workbench .terminal-editor .terminal-wrapper:not(.fixed-dims) .xterm-viewport,
 .monaco-workbench .pane-body.integrated-terminal .terminal-wrapper:not(.fixed-dims) .xterm-viewport {
 	/* Override xterm.js' position so the area that accepts mouse events extends to the edge of the
-	 * scroll bar. This inset follows the scroll bar width, so it must stay equal to
-	 * TerminalScrollbarWidth.Default in xtermTerminal.ts (20). If it is smaller, the viewport
-	 * swallows touches on the outer edge of the scroll bar and the thumb cannot be dragged. */
+	 * scroll bar. This inset must equal the scroll bar width: if it is smaller, the viewport
+	 * swallows touches on the outer edge of the scroll bar and the thumb cannot be dragged.
+	 * This is TerminalScrollbarWidth.Default in xtermTerminal.ts (20); the thin variant below
+	 * follows the same getter, so the two can no longer drift apart. */
 	right: 20px;
+}
+
+/* The thin scroll bar: xtermTerminal.ts puts .tomoshibi-thin-scrollbar on .xterm whenever
+ * scrollbarWidth resolves to TerminalScrollbarWidth.ModernUI (10) - either the Modern UI
+ * experiment or the Session settings page's thin/thick scroll bar switch. */
+.monaco-workbench .terminal-editor .terminal-wrapper:not(.fixed-dims) .xterm.tomoshibi-thin-scrollbar .xterm-viewport,
+.monaco-workbench .pane-body.integrated-terminal .terminal-wrapper:not(.fixed-dims) .xterm.tomoshibi-thin-scrollbar .xterm-viewport {
+	right: 10px;
 }
 
 .monaco-workbench .pane-body.integrated-terminal .split-view-view {

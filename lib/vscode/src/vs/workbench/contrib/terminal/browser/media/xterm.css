@@ -321,8 +321,8 @@
  * 防止以后谁在别处补一条带 !important 的 opacity 又把它盖回去。
  *
  * 滑块不会压住最右一列字符：字符网格的宽度在 terminalInstance.ts 的 _getDimension 里已经扣掉了
- * xterm.scrollbarWidth（TerminalScrollbarWidth.Default = 20），terminal.css 里 .xterm-viewport 的
- * `right: 20px` 又把同样宽的一条让给了滚动条，两边都给它留着位置。
+ * xterm.scrollbarWidth（粗 20 / 细 10，跟设置页的滚动条开关走），terminal.css 里 .xterm-viewport 的
+ * right 内缩（20 / 细条时 10）又把同样宽的一条让给了滚动条，两边都给它留着位置。
  *
  * .tomoshibi-has-scrollback 这道门是必须的：xterm 在「内容没超出一屏」时用的也是 .xterm-invisible，
  * 而那种情况下滑块是满高的（不需要滚动就把 sliderSize 摊成整条可用高度），无条件常显会在空终端

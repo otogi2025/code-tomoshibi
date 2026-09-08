@@ -58,9 +58,18 @@ const enum RenderConstants {
 const enum TerminalScrollbarWidth {
 	/** Widened from the xterm.js default of 14 to match the workbench scrollbars, which are 20px wide for touch. */
 	Default = 20,
-	/** Narrower scrollbar used when the Modern UI Update experiment is enabled. */
+	/** Narrower scrollbar used when the Modern UI Update experiment is enabled, and by the thin Session setting. */
 	ModernUI = 10
 }
+
+/** 设置页 UI 组里的「粗 / 细滚动条」开关。true（默认）＝粗，false＝细。 */
+const TOMOSHIBI_SCROLLBAR_THICK = 'tomoshibi.scrollbar.thick';
+/**
+ * 打在 `.xterm` 上表示「这根滚动条是细的」。terminal.css 里 `.xterm-viewport` 的 right 内缩必须跟
+ * 滚动条一样宽，否则视口会吃掉滚动条外沿的触摸、滑块拖不动，所以宽度一变就得让 CSS 知道。
+ * ⛔ 用 class 不用 CSS 变量：新的变量名还得登记进 build/lib/stylelint/vscode-known-variables.json。
+ */
+const TOMOSHIBI_THIN_SCROLLBAR_CLASS = 'tomoshibi-thin-scrollbar';
 
 const enum TextBlinkConstants {
 	IntervalDuration = 600
@@ -294,7 +303,7 @@ export class XtermTerminal extends Disposable implements IXtermTerminal, IDetach
 				if (e.affectsConfiguration(TerminalSettingId.GpuAcceleration)) {
 					XtermTerminal._suggestedRendererType = undefined;
 				}
-				if (e.affectsConfiguration('terminal.integrated') || e.affectsConfiguration('editor.fastScrollSensitivity') || e.affectsConfiguration('editor.mouseWheelScrollSensitivity') || e.affectsConfiguration('editor.multiCursorModifier') || e.affectsConfiguration(LayoutSettings.MODERN_UI)) {
+				if (e.affectsConfiguration('terminal.integrated') || e.affectsConfiguration('editor.fastScrollSensitivity') || e.affectsConfiguration('editor.mouseWheelScrollSensitivity') || e.affectsConfiguration('editor.multiCursorModifier') || e.affectsConfiguration(LayoutSettings.MODERN_UI) || e.affectsConfiguration(TOMOSHIBI_SCROLLBAR_THICK)) {
 					this.updateConfig();
 				}
 				if (e.affectsConfiguration(TerminalSettingId.UnicodeVersion)) {
@@ -511,6 +520,8 @@ export class XtermTerminal extends Disposable implements IXtermTerminal, IDetach
 			throw new Error('xterm elements not set after open');
 		}
 
+		this._updateScrollbarInset();
+
 		const ad = this._attachedDisposables;
 		ad.clear();
 		ad.add(dom.addDisposableListener(this.raw.textarea, 'focus', () => this._setFocused(true)));
@@ -583,11 +594,20 @@ export class XtermTerminal extends Disposable implements IXtermTerminal, IDetach
 	/**
 	 * The width, in pixels, of the vertical scrollbar. Narrower under the Modern
 	 * UI Update experiment so it matches the modernized workbench scrollbars.
+	 *
+	 * 设置页的「细滚动条」（`tomoshibi.scrollbar.thick` = false）同样收窄这里。⛔ 这是这个开关唯一
+	 * 够得着终端的地方：xterm 6.1 的 Viewport 用 SmoothScrollableElement 自绘滚动条、宽度只认
+	 * `options.scrollbar.width`，`.xterm-viewport::-webkit-scrollbar` 那类原生伪元素规则一条都不生效。
 	 */
 	get scrollbarWidth(): number {
-		return this._configurationService.getValue<boolean>(LayoutSettings.MODERN_UI) === true
-			? TerminalScrollbarWidth.ModernUI
-			: TerminalScrollbarWidth.Default;
+		const thin = this._configurationService.getValue<boolean>(TOMOSHIBI_SCROLLBAR_THICK) === false
+			|| this._configurationService.getValue<boolean>(LayoutSettings.MODERN_UI) === true;
+		return thin ? TerminalScrollbarWidth.ModernUI : TerminalScrollbarWidth.Default;
+	}
+
+	/** 让 terminal.css 的视口内缩跟着滚动条宽度走，⛔ 别再让两处各写死一个 20。 */
+	private _updateScrollbarInset(): void {
+		this.raw.element?.classList.toggle(TOMOSHIBI_THIN_SCROLLBAR_CLASS, this.scrollbarWidth === TerminalScrollbarWidth.ModernUI);
 	}
 
 	/**
@@ -627,6 +647,7 @@ export class XtermTerminal extends Disposable implements IXtermTerminal, IDetach
 		this.raw.options.rightClickSelectsWord = config.rightClickBehavior === 'selectWord';
 		this.raw.options.wordSeparator = config.wordSeparators;
 		this.raw.options.scrollbar = this._getScrollbarOptions();
+		this._updateScrollbarInset();
 		this.raw.options.ignoreBracketedPasteMode = config.ignoreBracketedPasteMode;
 		this.raw.options.rescaleOverlappingGlyphs = config.rescaleOverlappingGlyphs;
 		this.raw.options.allowTransparency = config.enableImages;
