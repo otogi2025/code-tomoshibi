@@ -4,8 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 // allow-any-unicode-file
 
-import { $, addDisposableListener, append, EventType } from '../../../../../base/browser/dom.js';
+import { $, addDisposableListener, append, EventType, prepend } from '../../../../../base/browser/dom.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
+import { localize } from '../../../../../nls.js';
 
 export interface ISelectOption {
 	readonly value: string;
@@ -57,13 +58,25 @@ export function switchControl(store: DisposableStore, get: () => boolean, set: (
 export function selectControl(store: DisposableStore, options: readonly ISelectOption[], get: () => string, set: (value: string) => void): HTMLElement {
 	const select = $<HTMLSelectElement>('select.tomoshibi-settings-select');
 	const current = get();
+	let matched = false;
 	for (const option of options) {
 		const element = append(select, $<HTMLOptionElement>('option'));
 		element.value = option.value;
 		element.textContent = option.label;
 		if (option.value === current) {
 			element.selected = true;
+			matched = true;
 		}
+	}
+	if (!matched && current) {
+		// 存的值不在候选里时一个 option 都不 selected，浏览器按规范显示第一项 —— 这一行就谎报了
+		// 真实配置（主题设成 Monokai 时显示「Dark 2026」），而且再点一次那一项不触发 change，
+		// 用它自己也改不回来。插一个禁用的占位项顶在最前面并选中，至少让人看见现在生效的是什么。
+		const placeholder = prepend(select, $<HTMLOptionElement>('option'));
+		placeholder.value = current;
+		placeholder.textContent = localize('tomoshibi.settings.selectCurrent', "当前：{0}", current);
+		placeholder.disabled = true;
+		placeholder.selected = true;
 	}
 	store.add(addDisposableListener(select, EventType.CHANGE, () => set(select.value)));
 	return select;
