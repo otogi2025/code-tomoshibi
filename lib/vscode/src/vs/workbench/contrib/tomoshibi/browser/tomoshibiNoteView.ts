@@ -123,9 +123,7 @@ export class TomoshibiNoteView extends ViewPane {
 		}
 		// A textarea measures as zero while it is not laid out, so the first real sizing pass
 		// has to happen here rather than at render time.
-		for (const textArea of this._textAreas.values()) {
-			autoSize(textArea);
-		}
+		autoSizeAll(this._textAreas.values());
 	}
 
 	private _insertCurrentNote(): void {
@@ -174,6 +172,9 @@ export class TomoshibiNoteView extends ViewPane {
 		for (const note of notes) {
 			this._renderNote(list, note);
 		}
+		// After the whole list is in the document, not once per note: interleaving append with a
+		// scrollHeight read forces a synchronous layout on every single note.
+		autoSizeAll(this._textAreas.values());
 
 		list.scrollTop = scrollTop;
 
@@ -248,8 +249,6 @@ export class TomoshibiNoteView extends ViewPane {
 			}
 			this._noteService.remove(note.id);
 		}));
-
-		autoSize(textArea);
 	}
 
 	private _armRemove(id: string): void {
@@ -289,8 +288,31 @@ export class TomoshibiNoteView extends ViewPane {
 
 function autoSize(textArea: HTMLTextAreaElement): void {
 	textArea.style.height = 'auto';
-	if (textArea.scrollHeight) {
-		textArea.style.height = `${textArea.scrollHeight}px`;
+	applyAutoSize(textArea, textArea.scrollHeight);
+}
+
+/**
+ * The same thing for a whole list, with the writes and the reads batched.
+ *
+ * Done one textarea at a time it is a write ("height: auto") followed immediately by a read
+ * (scrollHeight), which forces the browser into a synchronous layout, once per note. Every drag of
+ * the sidebar sash runs this for all of them. Setting every height first and only then reading
+ * them all back collapses those N layouts into one.
+ */
+function autoSizeAll(textAreas: Iterable<HTMLTextAreaElement>): void {
+	const all = Array.from(textAreas);
+	for (const textArea of all) {
+		textArea.style.height = 'auto';
+	}
+	const heights = all.map(textArea => textArea.scrollHeight);
+	for (let index = 0; index < all.length; index++) {
+		applyAutoSize(all[index], heights[index]);
+	}
+}
+
+function applyAutoSize(textArea: HTMLTextAreaElement, scrollHeight: number): void {
+	if (scrollHeight) {
+		textArea.style.height = `${scrollHeight}px`;
 	} else {
 		// Not laid out yet; the CSS min-height carries it until layoutBody runs.
 		textArea.style.height = '';
