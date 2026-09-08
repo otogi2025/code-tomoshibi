@@ -49,6 +49,12 @@ export interface ITomoshibiSessionEntry {
 
 export interface ITomoshibiSessionModel {
 	version: 2;
+	/**
+	 * 最后一次改动的时刻（epoch ms）。用来在「服务端文件」和「设备本地镜像」之间判谁新 —— 没有它
+	 * 的话，一次瞬时读失败之后本地改动会在下一次读成功时被旧文件静默盖回去（见 `_load`）。
+	 * 老文件没有这个字段，按 0 算，也就是文件继续赢，跟改动前的行为一致。
+	 */
+	updatedAt?: number;
 	/** Ordered; the strip and the tree render groups in this order. */
 	groups: ITomoshibiSessionGroup[];
 	sessions: { [sessionKey: string]: ITomoshibiSessionEntry };
@@ -148,6 +154,12 @@ const SESSION_ENTRY_TTL_MS = 30 * 24 * 60 * 60 * 1000;
  * 就算真的没等到，被误判成「不属于活实例」的条目也只是不刷新 lastSeen，不会被删（还差 30 天）。
  */
 const SESSION_RECONCILE_DELAY_MS = 20000;
+/**
+ * 读 sessions.json 失败之后的重试退避（ms），最后一档一直重复用，直到读通为止。
+ * ⛔ 不许「失败一次就永久停写」：`_fileWritable` 一旦锁死，这整次会话里所有重命名/分组改动都只活在
+ * 设备本地镜像里，下一次读成功时被服务端旧文件静默盖回去，用户全程看不到任何提示。
+ */
+const LOAD_RETRY_DELAYS_MS = [2000, 5000, 15000, 60000];
 
 /**
  * 老版本的键是裸数字（`String(persistentProcessId ?? instanceId)`），既可能是 pty id 也可能是
@@ -181,6 +193,9 @@ function reviveModel(raw: string | undefined): ITomoshibiSessionModel | undefine
 		return undefined;
 	}
 	const model = createEmptyModel();
+	if (typeof candidate.updatedAt === 'number' && Number.isFinite(candidate.updatedAt) && candidate.updatedAt > 0) {
+		model.updatedAt = candidate.updatedAt;
+	}
 	const seenIds = new Set<string>();
 	for (const group of Array.isArray(candidate.groups) ? candidate.groups : []) {
 		if (!group || typeof group.id !== 'string' || !group.id || seenIds.has(group.id)) {
@@ -240,6 +255,12 @@ export class TomoshibiSessionService extends Disposable implements ITomoshibiSes
 	/** Cleared once the server file has been read (or created); blocks writes on a read failure. */
 	private _fileWritable = false;
 	private _localChangeBeforeLoad = false;
+	/** 一次只允许一个 `_load()` 在跑，退避重试和「改动时顺手重试」都要过这道闸。 */
+	private _loadInFlight = false;
+	private _loadRetryAttempt = 0;
+	private _loadRetryTimer: ReturnType<typeof setTimeout> | undefined;
+	/** 只在第一次进入「写不了」状态时提示一次；读通之后复位，下一次真出问题还会再提示。 */
+	private _notifiedReadOnly = false;
 
 	private readonly _sessionKeysByInstanceId = new Map<number, string>();
 	/** 每个实例的 onWillDispose/onDisposed 订阅，实例一走就跟着扔。 */
@@ -308,6 +329,10 @@ export class TomoshibiSessionService extends Disposable implements ITomoshibiSes
 		this._register(this._terminalService.onDidChangeInstances(() => this._pruneDeadInstances()));
 		this._register({
 			dispose: () => {
+				if (this._loadRetryTimer !== undefined) {
+					clearTimeout(this._loadRetryTimer);
+					this._loadRetryTimer = undefined;
+				}
 				for (const timer of this._activityTimers.values()) {
 					clearTimeout(timer);
 				}
@@ -321,7 +346,18 @@ export class TomoshibiSessionService extends Disposable implements ITomoshibiSes
 			}
 		});
 
-		void this._load().then(() => {
+		this._loadAndReconcile();
+	}
+
+	//#region persistence
+
+	private _loadAndReconcile(): void {
+		if (this._loadInFlight) {
+			return;
+		}
+		this._loadInFlight = true;
+		void this._load().finally(() => {
+			this._loadInFlight = false;
 			// 读不到文件时不对账：那种状态下写回去只会把内存模型当真值盖到磁盘上。
 			if (this._fileWritable) {
 				this._reconcileScheduler.schedule();
@@ -329,7 +365,42 @@ export class TomoshibiSessionService extends Disposable implements ITomoshibiSes
 		});
 	}
 
-	//#region persistence
+	/**
+	 * 读失败后带退避重排一次 `_load()`。⛔ 只要还没读通就一直重排（最后一档 60 秒重复），别再出现
+	 * 「失败一次就永久只读」。重排成功那一刻 `_load()` 会看到 `_localChangeBeforeLoad`，把这段只读期
+	 * 里攒下的改动推回文件。
+	 */
+	private _scheduleLoadRetry(): void {
+		if (this._loadRetryTimer !== undefined || this._store.isDisposed) {
+			return;
+		}
+		const delay = LOAD_RETRY_DELAYS_MS[Math.min(this._loadRetryAttempt, LOAD_RETRY_DELAYS_MS.length - 1)];
+		this._loadRetryAttempt++;
+		this._loadRetryTimer = setTimeout(() => {
+			this._loadRetryTimer = undefined;
+			this._loadAndReconcile();
+		}, delay);
+	}
+
+	/** 用户刚改了东西但文件还写不了：立刻试一次读，别让他干等退避。 */
+	private _retryLoadNow(): void {
+		if (this._loadRetryTimer !== undefined) {
+			clearTimeout(this._loadRetryTimer);
+			this._loadRetryTimer = undefined;
+		}
+		this._loadAndReconcile();
+	}
+
+	private _notifyReadOnly(): void {
+		if (this._notifiedReadOnly) {
+			return;
+		}
+		this._notifiedReadOnly = true;
+		this._notificationService.warn(nls.localize(
+			'tomoshibi.session.readOnly',
+			"读不到 Session 记录文件，这次改的名称和分组暂时只存在这台设备的浏览器里，还没写回服务器。正在自动重试。"
+		));
+	}
 
 	private async _load(): Promise<void> {
 		let loaded: ITomoshibiSessionModel | undefined;
@@ -337,13 +408,19 @@ export class TomoshibiSessionService extends Disposable implements ITomoshibiSes
 			const content = await this._fileService.readFile(this._resource);
 			loaded = reviveModel(content.value.toString());
 			this._fileWritable = true;
+			this._loadRetryAttempt = 0;
+			this._notifiedReadOnly = false;
 		} catch (error) {
 			if (error instanceof FileOperationError && error.fileOperationResult === FileOperationResult.FILE_NOT_FOUND) {
 				// First run on this server: fold the three v1 keys into the v2 model, persist it,
 				// and only then retire the v1 keys.
 				const migrated = this._localChangeBeforeLoad ? undefined : this._migrateFromV1();
 				this._model = migrated ?? this._model;
+				this._localChangeBeforeLoad = false;
 				this._fileWritable = true;
+				this._loadRetryAttempt = 0;
+				this._notifiedReadOnly = false;
+				this._model.updatedAt = Date.now();
 				await this._writeFile();
 				for (const key of [V1_GROUPS_STORAGE_KEY, V1_TITLES_STORAGE_KEY, V1_PINNED_STORAGE_KEY]) {
 					this._storageService.remove(key, StorageScope.PROFILE);
@@ -356,18 +433,30 @@ export class TomoshibiSessionService extends Disposable implements ITomoshibiSes
 			// never write back over a file we failed to understand.
 			this._logService.error('[tomoshibi] failed to read terminal session state, falling back to the storage mirror', error);
 			this._fileWritable = false;
+			this._notifyReadOnly();
+			this._scheduleLoadRetry();
 			return;
 		}
 		if (this._localChangeBeforeLoad) {
 			// A change was made before the read came back. The live model wins; push it out.
+			this._localChangeBeforeLoad = false;
 			this._saveScheduler.schedule();
 			return;
 		}
-		if (loaded) {
-			this._model = loaded;
-			this._writeMirror();
-			this._onDidChange.fire();
+		if (!loaded) {
+			return;
 		}
+		// ⛔ 不许无条件用文件盖掉内存模型：读失败重试期间的改动都在镜像里，updatedAt 更新的一方赢。
+		// 老文件没有 updatedAt（按 0 算），文件继续赢，跟改动前的行为一致。
+		if ((loaded.updatedAt ?? 0) < (this._model.updatedAt ?? 0)) {
+			this._logService.warn('[tomoshibi] terminal session file is older than the local mirror, pushing the mirror back out');
+			this._saveScheduler.schedule();
+			this._onDidChange.fire();
+			return;
+		}
+		this._model = loaded;
+		this._writeMirror();
+		this._onDidChange.fire();
 	}
 
 	/**
@@ -491,8 +580,11 @@ export class TomoshibiSessionService extends Disposable implements ITomoshibiSes
 	}
 
 	private _save(): void {
+		this._model.updatedAt = Date.now();
 		if (!this._fileWritable) {
 			this._localChangeBeforeLoad = true;
+			// 有改动却写不了文件 —— 立刻再试一次读，别让这次改动一直躺在设备本地镜像里。
+			this._retryLoadNow();
 		}
 		this._writeMirror();
 		this._saveScheduler.schedule();
