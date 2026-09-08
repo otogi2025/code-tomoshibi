@@ -29,8 +29,9 @@ export const TERMINAL_VIEW_ID = 'terminal';
  * `data.sessionId` 是那条 Session 元数据的稳定主键（发号与读回见
  * `contrib/terminal/browser/tomoshibiSessionService.ts`）。
  *
- * ⛔ 常量放在 common 里是为了让 `terminalInstance.ts` 和 `tomoshibiSessionService.ts` 都能引用而
- * 不互相 import（后者依赖前者的 ITerminalInstance，反向 import 会成环）。
+ * 放在 common 的理由：`browser/terminalInstance.ts`（`shouldPersist` 要认出自家 Session）和
+ * `browser/tomoshibiSessionService.ts`（发号、读号）两边都要用同一个字面量，而 common 不依赖
+ * browser，谁都能引；将来整包删掉 `contrib/tasks` 也牵连不到它。
  */
 export const TOMOSHIBI_RECONNECTION_OWNER = 'tomoshibi';
 
