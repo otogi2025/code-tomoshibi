@@ -1,0 +1,315 @@
+:root {
+  color-scheme: dark;
+  --canvas: #181818;
+  --panel: #1f1f1f;
+  --line: rgba(255, 255, 255, 0.12);
+  --text: #e7e7e7;
+  --accent: #19a8d1;
+  --danger: #f36c6c;
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 100%;
+  min-width: 280px;
+  height: 100%;
+  min-height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: var(--canvas);
+  color: var(--text);
+  font-family: var(--font);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* A tiny static workbench silhouette gives the password gate the requested
+   "shell over my site" depth without exposing authenticated data or running
+   the actual workbench before authentication. */
+.workbench-preview {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: #181818;
+  opacity: 0;
+  transform: scale(1.015);
+  transition:
+    opacity 280ms ease,
+    transform 520ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+body.is-ready .workbench-preview {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.preview-rail {
+  position: absolute;
+  inset: 0 auto 22px 0;
+  width: 50px;
+  border-right: 1px solid var(--line);
+  background:
+    radial-gradient(circle, rgba(230, 230, 230, 0.45) 0 7px, transparent 8px) 17px 32px / 34px 62px repeat-y,
+    #171717;
+}
+
+.preview-top {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 50px;
+  height: 42px;
+  border-bottom: 1px solid var(--line);
+  background: #191919;
+}
+
+.preview-sessions {
+  position: absolute;
+  top: 7px;
+  left: 68px;
+  display: flex;
+  gap: 8px;
+}
+
+.preview-sessions i {
+  display: block;
+  width: clamp(68px, 11vw, 116px);
+  height: 28px;
+  border: 1px solid rgba(70, 165, 202, 0.28);
+  border-radius: 6px 6px 2px 2px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.preview-terminal {
+  position: absolute;
+  inset: 64px 5vw 48px 78px;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(14px, 3.5vh, 30px);
+}
+
+.preview-terminal span {
+  display: block;
+  width: min(84%, 980px);
+  height: 10px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, rgba(157, 205, 151, 0.52), rgba(157, 205, 151, 0.15) 68%, transparent);
+}
+
+.preview-terminal span:nth-child(2n) {
+  width: min(64%, 760px);
+}
+
+.preview-terminal span:nth-child(3n) {
+  width: min(48%, 570px);
+}
+
+.preview-status {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 22px;
+  border-top: 1px solid var(--line);
+  background: #181818;
+}
+
+.privacy-blur {
+  position: fixed;
+  inset: -24px;
+  background: rgba(12, 12, 14, 0.26);
+  -webkit-backdrop-filter: blur(18px) saturate(0.72);
+  backdrop-filter: blur(18px) saturate(0.72);
+}
+
+.gate {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: max(20px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
+    max(20px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+}
+
+.gate-form {
+  display: grid;
+  justify-items: center;
+  margin: 0;
+}
+
+.user-field {
+  position: fixed;
+  left: -10000px;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.code-entry {
+  position: relative;
+  width: fit-content;
+  max-width: 100%;
+  opacity: 0;
+  transform: translateY(10px) scale(0.985);
+  transition:
+    opacity 360ms ease 80ms,
+    transform 520ms cubic-bezier(0.16, 1, 0.3, 1) 80ms;
+}
+
+body.is-ready .code-entry {
+  opacity: 1;
+  transform: none;
+}
+
+.code-input {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 12px;
+  opacity: 0;
+  background: transparent;
+  color: transparent;
+  caret-color: transparent;
+  font-size: 16px;
+  cursor: text;
+}
+
+.slots {
+  display: grid;
+  grid-template-columns: repeat(6, clamp(37px, 11vw, 54px));
+  gap: clamp(6px, 1.8vw, 11px);
+}
+
+.slot {
+  display: grid;
+  place-items: center;
+  width: clamp(37px, 11vw, 54px);
+  height: clamp(46px, 13vw, 64px);
+  border: 1px solid rgba(255, 255, 255, 0.23);
+  border-radius: 11px;
+  background: rgba(24, 24, 24, 0.58);
+  box-shadow:
+    inset 0 1px rgba(255, 255, 255, 0.035),
+    0 8px 24px rgba(0, 0, 0, 0.16);
+  color: #f3f3f3;
+  font-size: 25px;
+  line-height: 1;
+  transition:
+    border-color 120ms ease,
+    background 120ms ease,
+    transform 120ms ease;
+}
+
+.slot.is-current {
+  border-color: rgba(51, 183, 224, 0.78);
+  background: rgba(17, 57, 70, 0.48);
+}
+
+.slot.is-filled {
+  border-color: rgba(255, 255, 255, 0.34);
+}
+
+.code-entry.is-submitting .slot {
+  border-color: rgba(51, 183, 224, 0.48);
+}
+
+.code-entry.is-error {
+  animation: gate-shake 320ms ease;
+}
+
+.code-entry.is-error .slot {
+  border-color: var(--danger);
+  background: rgba(102, 28, 28, 0.38);
+}
+
+@keyframes gate-shake {
+  25% {
+    transform: translateX(-7px);
+  }
+  50% {
+    transform: translateX(6px);
+  }
+  75% {
+    transform: translateX(-3px);
+  }
+}
+
+.status,
+.error {
+  min-height: 20px;
+  margin: 12px 0 0;
+  color: var(--danger);
+  font-size: 13px;
+  line-height: 20px;
+  text-align: center;
+}
+
+.error + .error {
+  display: none;
+}
+
+.fallback-submit {
+  display: none;
+}
+
+.no-js .slots {
+  display: none;
+}
+
+.no-js .code-entry {
+  opacity: 1;
+  transform: none;
+}
+
+.no-js .code-input {
+  position: static;
+  width: min(78vw, 320px);
+  height: 52px;
+  padding: 0 16px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  opacity: 1;
+  background: rgba(24, 24, 24, 0.8);
+  color: var(--text);
+  caret-color: var(--text);
+}
+
+.no-js .fallback-submit {
+  display: block;
+  height: 44px;
+  margin-top: 10px;
+  padding: 0 20px;
+  border: 0;
+  border-radius: 8px;
+  background: #087ea4;
+  color: white;
+}
+
+body.is-opening .code-entry {
+  opacity: 0;
+  transform: scale(0.96);
+  transition-delay: 0ms;
+  transition-duration: 180ms;
+}
+
+body.is-opening .privacy-blur {
+  opacity: 0;
+  transition: opacity 240ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    transition-duration: 1ms !important;
+  }
+}

@@ -1,0 +1,396 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+// allow-any-unicode-file
+
+import { CancellationToken } from '../../../base/common/cancellation.js';
+import { getErrorMessage, isCancellationError } from '../../../base/common/errors.js';
+import { Schemas } from '../../../base/common/network.js';
+import { basename } from '../../../base/common/resources.js';
+import { gt } from '../../../base/common/semver/semver.js';
+import { URI } from '../../../base/common/uri.js';
+import { localize } from '../../../nls.js';
+import { EXTENSION_IDENTIFIER_REGEX, IExtensionGalleryService, IExtensionInfo, IExtensionManagementService, IGalleryExtension, ILocalExtension, InstallOptions, InstallExtensionInfo, InstallOperation } from './extensionManagement.js';
+import { areSameExtensions, getExtensionId, getGalleryExtensionId, getIdAndVersion } from './extensionManagementUtil.js';
+import { ExtensionType, EXTENSION_CATEGORIES, IExtensionManifest } from '../../extensions/common/extensions.js';
+import { ILogger } from '../../log/common/log.js';
+import { IProductService } from '../../product/common/productService.js';
+
+
+const notFound = (id: string) => localize('notFound', "找不到扩展“{0}”。", id);
+const useId = localize('useId', "确认使用了包括发布者在内的完整扩展 ID，例如: {0}", 'ms-dotnettools.csharp');
+
+type InstallVSIXInfo = { vsix: URI; installOptions: InstallOptions };
+type InstallGalleryExtensionInfo = { id: string; version?: string; installOptions: InstallOptions };
+
+export class ExtensionManagementCLI {
+
+	constructor(
+		private readonly extensionsForceVersionByQuality: readonly string[],
+		protected readonly logger: ILogger,
+		@IExtensionManagementService private readonly extensionManagementService: IExtensionManagementService,
+		@IExtensionGalleryService private readonly extensionGalleryService: IExtensionGalleryService,
+		@IProductService private readonly productService: IProductService,
+	) {
+		this.extensionsForceVersionByQuality = this.extensionsForceVersionByQuality.map(e => e.toLowerCase());
+	}
+
+	protected get location(): string | undefined {
+		return undefined;
+	}
+
+	public async listExtensions(showVersions: boolean, category?: string, profileLocation?: URI): Promise<void> {
+		let extensions = await this.extensionManagementService.getInstalled(ExtensionType.User, profileLocation);
+		const categories = EXTENSION_CATEGORIES.map(c => c.toLowerCase());
+		if (category && category !== '') {
+			if (categories.indexOf(category.toLowerCase()) < 0) {
+				this.logger.info('Invalid category please enter a valid category. To list valid categories run --category without a category specified');
+				return;
+			}
+			extensions = extensions.filter(e => {
+				if (e.manifest.categories) {
+					const lowerCaseCategories: string[] = e.manifest.categories.map(c => c.toLowerCase());
+					return lowerCaseCategories.indexOf(category.toLowerCase()) > -1;
+				}
+				return false;
+			});
+		} else if (category === '') {
+			this.logger.info('Possible Categories: ');
+			categories.forEach(category => {
+				this.logger.info(category);
+			});
+			return;
+		}
+		if (this.location) {
+			this.logger.info(localize('listFromLocation', "{0} 上安装的扩展:", this.location));
+		}
+
+		extensions = extensions.sort((e1, e2) => e1.identifier.id.localeCompare(e2.identifier.id));
+		let lastId: string | undefined = undefined;
+		for (const extension of extensions) {
+			if (lastId !== extension.identifier.id) {
+				lastId = extension.identifier.id;
+				this.logger.info(showVersions ? `${lastId}@${extension.manifest.version}` : lastId);
+			}
+		}
+	}
+
+	public async installExtensions(extensions: (string | URI)[], builtinExtensions: (string | URI)[], installOptions: InstallOptions, force: boolean): Promise<void> {
+		const failed: string[] = [];
+
+		try {
+			if (extensions.length) {
+				this.logger.info(this.location ? localize('installingExtensionsOnLocation', "正在 {0} 上安装扩展…", this.location) : localize('installingExtensions', "正在安装扩展…"));
+			}
+
+			const installVSIXInfos: InstallVSIXInfo[] = [];
+			const installExtensionInfos: InstallGalleryExtensionInfo[] = [];
+			const addInstallExtensionInfo = (id: string, version: string | undefined, isBuiltin: boolean) => {
+				if (this.extensionsForceVersionByQuality?.some(e => e === id.toLowerCase())) {
+					version = this.productService.quality !== 'stable' ? 'prerelease' : undefined;
+				}
+				installExtensionInfos.push({ id, version: version !== 'prerelease' ? version : undefined, installOptions: { ...installOptions, isBuiltin, installPreReleaseVersion: version === 'prerelease' || installOptions.installPreReleaseVersion } });
+			};
+			for (const extension of extensions) {
+				if (extension instanceof URI) {
+					installVSIXInfos.push({ vsix: extension, installOptions });
+				} else {
+					const [id, version] = getIdAndVersion(extension);
+					addInstallExtensionInfo(id, version, false);
+				}
+			}
+			for (const extension of builtinExtensions) {
+				if (extension instanceof URI) {
+					installVSIXInfos.push({ vsix: extension, installOptions: { ...installOptions, isBuiltin: true, donotIncludePackAndDependencies: true } });
+				} else {
+					const [id, version] = getIdAndVersion(extension);
+					addInstallExtensionInfo(id, version, true);
+				}
+			}
+
+			const installed = await this.extensionManagementService.getInstalled(undefined, installOptions.profileLocation);
+
+			if (installVSIXInfos.length) {
+				await Promise.all(installVSIXInfos.map(async ({ vsix, installOptions }) => {
+					try {
+						await this.installVSIX(vsix, installOptions, force, installed);
+					} catch (err) {
+						this.logger.error(err);
+						failed.push(vsix.toString());
+					}
+				}));
+			}
+
+			if (installExtensionInfos.length) {
+				const failedGalleryExtensions = await this.installGalleryExtensions(installExtensionInfos, installed, force);
+				failed.push(...failedGalleryExtensions);
+			}
+		} catch (error) {
+			this.logger.error(localize('error while installing extensions', "安装扩展时出错: {0}", getErrorMessage(error)));
+			throw error;
+		}
+
+		if (failed.length) {
+			throw new Error(localize('installation failed', "未能安装扩展: {0}", failed.join(', ')));
+		}
+	}
+
+	public async updateExtensions(profileLocation?: URI): Promise<void> {
+		const installedExtensions = await this.extensionManagementService.getInstalled(ExtensionType.User, profileLocation);
+
+		const installedExtensionsQuery: IExtensionInfo[] = [];
+		for (const extension of installedExtensions) {
+			if (!!extension.identifier.uuid) { // No need to check new version for an unpublished extension
+				installedExtensionsQuery.push({ ...extension.identifier, preRelease: extension.preRelease });
+			}
+		}
+
+		this.logger.trace(localize({ key: 'updateExtensionsQuery', comment: ['Placeholder is for the count of extensions'] }, "正在提取 {0} 扩展的最新版本", installedExtensionsQuery.length));
+		const availableVersions = await this.extensionGalleryService.getExtensions(installedExtensionsQuery, { compatible: true }, CancellationToken.None);
+
+		const extensionsToUpdate: InstallExtensionInfo[] = [];
+		for (const newVersion of availableVersions) {
+			for (const oldVersion of installedExtensions) {
+				if (areSameExtensions(oldVersion.identifier, newVersion.identifier) && gt(newVersion.version, oldVersion.manifest.version)) {
+					extensionsToUpdate.push({
+						extension: newVersion,
+						options: { operation: InstallOperation.Update, installPreReleaseVersion: oldVersion.preRelease, profileLocation, isApplicationScoped: oldVersion.isApplicationScoped }
+					});
+				}
+			}
+		}
+
+		if (!extensionsToUpdate.length) {
+			this.logger.info(localize('updateExtensionsNoExtensions', "没有要更新的扩展"));
+			return;
+		}
+
+		this.logger.info(localize('updateExtensionsNewVersionsAvailable', "正在更新扩展：{0}", extensionsToUpdate.map(ext => ext.extension.identifier.id).join(', ')));
+		const installationResult = await this.extensionManagementService.installGalleryExtensions(extensionsToUpdate);
+
+		for (const extensionResult of installationResult) {
+			if (extensionResult.error) {
+				this.logger.error(localize('errorUpdatingExtension', "更新扩展 {0} 时出错：{1}", extensionResult.identifier.id, getErrorMessage(extensionResult.error)));
+			} else {
+				this.logger.info(localize('successUpdate', "已成功更新扩展“{0}”v{1}。", extensionResult.identifier.id, extensionResult.local?.manifest.version));
+			}
+		}
+	}
+
+	private async installGalleryExtensions(installExtensionInfos: InstallGalleryExtensionInfo[], installed: ILocalExtension[], force: boolean): Promise<string[]> {
+		installExtensionInfos = installExtensionInfos.filter(installExtensionInfo => {
+			const { id, version, installOptions } = installExtensionInfo;
+			const installedExtension = installed.find(i => areSameExtensions(i.identifier, { id }));
+			if (installedExtension) {
+				const builtinAutoUpdateMessage = this.validateBuiltinExtensionEnabledWithAutoUpdates(installedExtension);
+				if (builtinAutoUpdateMessage) {
+					this.logger.info(builtinAutoUpdateMessage);
+					return false;
+				}
+				if (!force && (!version || (version === 'prerelease' && installedExtension.preRelease))) {
+					this.logger.info(localize('alreadyInstalled-checkAndUpdate', "已安装扩展 \"{0}\" v{1}。使用 \"--force\" 选项更新到最新版本，或提供 \"@<version>\" 以安装特定版本，例如: \"{2}@1.2.3\"。", id, installedExtension.manifest.version, id));
+					return false;
+				}
+				if (version && installedExtension.manifest.version === version) {
+					this.logger.info(localize('alreadyInstalled', "已安装扩展“{0}”。", `${id}@${version}`));
+					return false;
+				}
+				if (installedExtension.preRelease && version !== 'prerelease') {
+					installOptions.preRelease = false;
+				}
+			}
+			return true;
+		});
+
+		if (!installExtensionInfos.length) {
+			return [];
+		}
+
+		const failed: string[] = [];
+		const extensionsToInstall: InstallExtensionInfo[] = [];
+		const galleryExtensions = await this.getGalleryExtensions(installExtensionInfos);
+		await Promise.all(installExtensionInfos.map(async ({ id, version, installOptions }) => {
+			const gallery = galleryExtensions.get(id.toLowerCase());
+			if (!gallery) {
+				this.logger.error(`${notFound(version ? `${id}@${version}` : id)}\n${useId}`);
+				failed.push(id);
+				return;
+			}
+			try {
+				const manifest = await this.extensionGalleryService.getManifest(gallery, CancellationToken.None);
+				if (manifest && !this.validateExtensionKind(manifest)) {
+					return;
+				}
+			} catch (err) {
+				this.logger.error(err.message || err.stack || err);
+				failed.push(id);
+				return;
+			}
+			const installedExtension = installed.find(e => areSameExtensions(e.identifier, gallery.identifier));
+			if (installedExtension) {
+				if (gallery.version === installedExtension.manifest.version) {
+					this.logger.info(localize('alreadyInstalled', "已安装扩展“{0}”。", version ? `${id}@${version}` : id));
+					return;
+				}
+				this.logger.info(localize('updateMessage', "将扩展 \"{0}\" 更新到版本 {1}", id, gallery.version));
+			}
+			if (installOptions.isBuiltin) {
+				this.logger.info(version ? localize('installing builtin with version', "正在安装内置扩展“{0}”v{1}…", id, version) : localize('installing builtin ', "正在安装内置扩展“{0}”...", id));
+			} else {
+				this.logger.info(version ? localize('installing with version', "正在安装扩展“{0}”v{1}...", id, version) : localize('installing', "正在安装扩展“{0}”...", id));
+			}
+			extensionsToInstall.push({
+				extension: gallery,
+				options: { ...installOptions, installGivenVersion: !!version, isApplicationScoped: installOptions.isApplicationScoped || installedExtension?.isApplicationScoped },
+			});
+		}));
+
+		if (extensionsToInstall.length) {
+			const installationResult = await this.extensionManagementService.installGalleryExtensions(extensionsToInstall);
+			for (const extensionResult of installationResult) {
+				if (extensionResult.error) {
+					this.logger.error(localize('errorInstallingExtension', "安装扩展 {0} 时出错: {1}", extensionResult.identifier.id, getErrorMessage(extensionResult.error)));
+					failed.push(extensionResult.identifier.id);
+				} else {
+					this.logger.info(localize('successInstall', "已成功安装扩展“{0}”v{1}。", extensionResult.identifier.id, extensionResult.local?.manifest.version));
+				}
+			}
+		}
+
+		return failed;
+	}
+
+	private async installVSIX(vsix: URI, installOptions: InstallOptions, force: boolean, installedExtensions: ILocalExtension[]): Promise<void> {
+
+		const manifest = await this.extensionManagementService.getManifest(vsix);
+		if (!manifest) {
+			throw new Error('Invalid vsix');
+		}
+
+		const valid = await this.validateVSIX(manifest, force, installOptions.profileLocation, installedExtensions);
+		if (valid) {
+			try {
+				await this.extensionManagementService.install(vsix, { ...installOptions, installGivenVersion: true });
+				this.logger.info(localize('successVsixInstall', "已成功安装扩展“{0}”。", basename(vsix)));
+			} catch (error) {
+				if (isCancellationError(error)) {
+					this.logger.info(localize('cancelVsixInstall', "已取消安装扩展“{0}”。", basename(vsix)));
+				} else {
+					throw error;
+				}
+			}
+		}
+	}
+
+	private async getGalleryExtensions(extensions: InstallGalleryExtensionInfo[]): Promise<Map<string, IGalleryExtension>> {
+		const galleryExtensions = new Map<string, IGalleryExtension>();
+		const preRelease = extensions.some(e => e.installOptions.installPreReleaseVersion);
+		const targetPlatform = await this.extensionManagementService.getTargetPlatform();
+		const extensionInfos: IExtensionInfo[] = [];
+		for (const extension of extensions) {
+			if (EXTENSION_IDENTIFIER_REGEX.test(extension.id)) {
+				extensionInfos.push({ ...extension, preRelease });
+			}
+		}
+		if (extensionInfos.length) {
+			const result = await this.extensionGalleryService.getExtensions(extensionInfos, { targetPlatform }, CancellationToken.None);
+			for (const extension of result) {
+				galleryExtensions.set(extension.identifier.id.toLowerCase(), extension);
+			}
+		}
+		return galleryExtensions;
+	}
+
+	protected validateExtensionKind(_manifest: IExtensionManifest): boolean {
+		return true;
+	}
+
+	private async validateVSIX(manifest: IExtensionManifest, force: boolean, profileLocation: URI | undefined, installedExtensions: ILocalExtension[]): Promise<boolean> {
+		const extensionIdentifier = { id: getGalleryExtensionId(manifest.publisher, manifest.name) };
+		const existingExtension = installedExtensions.find(local => areSameExtensions(extensionIdentifier, local.identifier));
+
+		if (existingExtension) {
+			const builtinAutoUpdateMessage = this.validateBuiltinExtensionEnabledWithAutoUpdates(existingExtension);
+			if (builtinAutoUpdateMessage) {
+				this.logger.info(builtinAutoUpdateMessage);
+				return false;
+			}
+
+			if (!force) {
+				if (gt(existingExtension.manifest.version, manifest.version)) {
+					this.logger.info(localize('forceDowngrade', "已安装扩展“{0}”v{1} 的较新版本。请使用 \"--force\" 选项降级到旧版本。", existingExtension.identifier.id, existingExtension.manifest.version, manifest.version));
+					return false;
+				}
+			}
+		}
+
+		return this.validateExtensionKind(manifest);
+	}
+
+	public async uninstallExtensions(extensions: (string | URI)[], force: boolean, profileLocation?: URI): Promise<void> {
+		const getId = async (extensionDescription: string | URI): Promise<string> => {
+			if (extensionDescription instanceof URI) {
+				const manifest = await this.extensionManagementService.getManifest(extensionDescription);
+				return getExtensionId(manifest.publisher, manifest.name);
+			}
+			return extensionDescription;
+		};
+
+		const uninstalledExtensions: ILocalExtension[] = [];
+		for (const extension of extensions) {
+			const id = await getId(extension);
+			const installed = await this.extensionManagementService.getInstalled(undefined, profileLocation);
+			const extensionsToUninstall = installed.filter(e => areSameExtensions(e.identifier, { id }));
+			if (!extensionsToUninstall.length) {
+				throw new Error(`${this.notInstalled(id)}\n${useId}`);
+			}
+			if (extensionsToUninstall.some(e => e.type === ExtensionType.System)) {
+				this.logger.info(localize('builtin', "扩展“{0}”是内置扩展，无法卸载", id));
+				return;
+			}
+			if (!force && extensionsToUninstall.some(e => e.isBuiltin)) {
+				this.logger.info(localize('forceUninstall', "用户已将扩展“{0}”标记为内置扩展。请使用 \"--force\" 选项将其卸载。", id));
+				return;
+			}
+			this.logger.info(localize('uninstalling', "正在卸载 {0}…", id));
+			for (const extensionToUninstall of extensionsToUninstall) {
+				await this.extensionManagementService.uninstall(extensionToUninstall, { profileLocation });
+				uninstalledExtensions.push(extensionToUninstall);
+			}
+
+			if (this.location) {
+				this.logger.info(localize('successUninstallFromLocation', "已成功从 {1} 卸载扩展“{0}”!", id, this.location));
+			} else {
+				this.logger.info(localize('successUninstall', "已成功卸载扩展“{0}”!", id));
+			}
+
+		}
+	}
+
+	public async locateExtension(extensions: string[]): Promise<void> {
+		const installed = await this.extensionManagementService.getInstalled();
+		extensions.forEach(e => {
+			installed.forEach(i => {
+				if (i.identifier.id === e) {
+					if (i.location.scheme === Schemas.file) {
+						this.logger.info(i.location.fsPath);
+						return;
+					}
+				}
+			});
+		});
+	}
+
+	private notInstalled(id: string) {
+		return this.location ? localize('notInstalleddOnLocation', "{1} 上未安装扩展“{0}”。", id, this.location) : localize('notInstalled', "未安装扩展“{0}”。", id);
+	}
+
+	private validateBuiltinExtensionEnabledWithAutoUpdates(extension: ILocalExtension): string | undefined {
+		if (extension.isBuiltin && this.productService.builtInExtensionsEnabledWithAutoUpdates.some(e => e.toLowerCase() === extension.identifier.id.toLowerCase()) && !extension.forceAutoUpdate) {
+			return localize('builtinAutoUpdate', "扩展“{0}”是内置扩展，不允许在当前产品质量“{1}”下更新。", extension.identifier.id, this.productService.quality);
+		}
+		return undefined;
+	}
+
+}

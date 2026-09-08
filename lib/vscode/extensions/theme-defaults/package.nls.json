@@ -1,0 +1,15 @@
+{
+	"displayName": "默认主题",
+	"description": "默认 Visual Studio 浅色和深色主题",
+	"light2026ThemeLabel": "2026 浅色",
+	"dark2026ThemeLabel": "2026 深色",
+	"darkPlusColorThemeLabel": "深色+",
+	"darkModernThemeLabel": "现代深色",
+	"lightPlusColorThemeLabel": "浅色+",
+	"lightModernThemeLabel": "现代浅色",
+	"darkColorThemeLabel": "深色(Visual Studio)",
+	"lightColorThemeLabel": "浅色(Visual Studio)",
+	"hcColorThemeLabel": "深色高对比度",
+	"lightHcColorThemeLabel": "浅色高对比度",
+	"minimalIconThemeLabel": "最小(Visual Studio Code)"
+}

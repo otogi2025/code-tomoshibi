@@ -1,0 +1,1390 @@
+Index: tomoshibi-code-server/lib/vscode/build/gulpfile.extensions.ts
+===================================================================
+--- tomoshibi-code-server.orig/lib/vscode/build/gulpfile.extensions.ts
++++ tomoshibi-code-server/lib/vscode/build/gulpfile.extensions.ts
+@@ -51,39 +51,27 @@ function onExtensionCompilationEnd(): vo
+ // 	ignore: ['**/out/**', '**/node_modules/**']
+ // });
+ const compilations = [
++	'extensions/tomoshibi-leftbar/tsconfig.json',
+ 	'extensions/configuration-editing/tsconfig.json',
+ 	'extensions/css-language-features/client/tsconfig.json',
+ 	'extensions/css-language-features/server/tsconfig.json',
+-	'extensions/debug-auto-launch/tsconfig.json',
+-	'extensions/debug-server-ready/tsconfig.json',
+ 	'extensions/emmet/tsconfig.json',
+ 	'extensions/extension-editing/tsconfig.json',
+-	'extensions/git/tsconfig.json',
+-	'extensions/git-base/tsconfig.json',
+-	'extensions/github/tsconfig.json',
+-	'extensions/github-authentication/tsconfig.json',
+ 	'extensions/grunt/tsconfig.json',
+ 	'extensions/gulp/tsconfig.json',
+ 	'extensions/html-language-features/client/tsconfig.json',
+ 	'extensions/html-language-features/server/tsconfig.json',
+-	'extensions/ipynb/tsconfig.json',
+ 	'extensions/jake/tsconfig.json',
+ 	'extensions/json-language-features/client/tsconfig.json',
+ 	'extensions/json-language-features/server/tsconfig.json',
+ 	'extensions/markdown-language-features/tsconfig.json',
+ 	'extensions/markdown-math/tsconfig.json',
+-	'extensions/media-preview/tsconfig.json',
+-	'extensions/merge-conflict/tsconfig.json',
+ 	'extensions/mermaid-markdown-features/tsconfig.json',
+ 	'extensions/terminal-suggest/tsconfig.json',
+-	'extensions/microsoft-authentication/tsconfig.json',
+-	'extensions/notebook-renderers/tsconfig.json',
+ 	'extensions/npm/tsconfig.json',
+ 	'extensions/php-language-features/tsconfig.json',
+ 	'extensions/references-view/tsconfig.json',
+ 	'extensions/search-result/tsconfig.json',
+-	'extensions/simple-browser/tsconfig.json',
+-	'extensions/tunnel-forwarding/tsconfig.json',
+ 	'extensions/typescript-language-features/web/tsconfig.json',
+ 	'extensions/typescript-language-features/tsconfig.json',
+ 	'extensions/vscode-api-tests/tsconfig.json',
+Index: tomoshibi-code-server/lib/vscode/extensions/tomoshibi-leftbar/esbuild.mts
+===================================================================
+--- /dev/null
++++ tomoshibi-code-server/lib/vscode/extensions/tomoshibi-leftbar/esbuild.mts
+@@ -0,0 +1,19 @@
++/*---------------------------------------------------------------------------------------------
++ *  Copyright (c) Microsoft Corporation. All rights reserved.
++ *  Licensed under the MIT License. See License.txt in the project root for license information.
++ *--------------------------------------------------------------------------------------------*/
++
++import * as path from 'node:path';
++import { run } from '../esbuild-extension-common.mts';
++
++const srcDir = path.join(import.meta.dirname, 'src');
++const outDir = path.join(import.meta.dirname, 'dist');
++
++run({
++	platform: 'node',
++	entryPoints: {
++		'extension': path.join(srcDir, 'extension.ts'),
++	},
++	srcDir,
++	outdir: outDir,
++}, process.argv);
+Index: tomoshibi-code-server/lib/vscode/extensions/tomoshibi-leftbar/package.json
+===================================================================
+--- /dev/null
++++ tomoshibi-code-server/lib/vscode/extensions/tomoshibi-leftbar/package.json
+@@ -0,0 +1,151 @@
++{
++	"name": "leftbar",
++	"displayName": "%displayName%",
++	"description": "%description%",
++	"version": "1.0.0",
++	"publisher": "tomoshibi",
++	"license": "MIT",
++	"engines": {
++		"vscode": "^1.132.0"
++	},
++	"extensionKind": [
++		"workspace"
++	],
++	"capabilities": {
++		"virtualWorkspaces": false,
++		"untrustedWorkspaces": {
++			"supported": true
++		}
++	},
++	"activationEvents": [
++		"onStartupFinished",
++		"onView:tomoshibi.terminalLauncher",
++		"onView:tomoshibi.codexLauncher",
++		"onView:tomoshibi.claudeLauncher"
++	],
++	"main": "./out/extension",
++	"scripts": {
++		"compile": "gulp compile-extension:tomoshibi-leftbar",
++		"watch": "gulp watch-extension:tomoshibi-leftbar"
++	},
++	"contributes": {
++		"commands": [
++			{
++				"command": "tomoshibi.openTerminal",
++				"title": "%command.openTerminal%"
++			},
++			{
++				"command": "tomoshibi.newTerminal",
++				"title": "%command.newTerminal%"
++			},
++			{
++				"command": "tomoshibi.codexTerm",
++				"title": "%command.codexTerm%"
++			},
++			{
++				"command": "tomoshibi.claudeTerm",
++				"title": "%command.claudeTerm%"
++			},
++			{
++				"command": "tomoshibi.claudeGui",
++				"title": "%command.claudeGui%"
++			},
++			{
++				"command": "tomoshibi.escape",
++				"title": "%command.escape%"
++			},
++			{
++				"command": "tomoshibi.enter",
++				"title": "%command.enter%"
++			},
++			{
++				"command": "tomoshibi.newline",
++				"title": "%command.newline%"
++			},
++			{
++				"command": "tomoshibi.scrollBottom",
++				"title": "%command.scrollBottom%"
++			}
++		],
++		"configuration": {
++			"title": "Code-Tomoshibi",
++			"properties": {
++				"tomoshibi.codex.executable": {
++					"type": "string",
++					"default": "codex",
++					"description": "%configuration.codexExecutable%"
++				},
++				"tomoshibi.codex.args": {
++					"type": "array",
++					"items": {
++						"type": "string"
++					},
++					"default": [
++						"--no-alt-screen"
++					],
++					"description": "%configuration.codexArgs%"
++				},
++				"tomoshibi.claude.executable": {
++					"type": "string",
++					"default": "claude",
++					"description": "%configuration.claudeExecutable%"
++				},
++				"tomoshibi.claude.args": {
++					"type": "array",
++					"items": {
++						"type": "string"
++					},
++					"default": [],
++					"description": "%configuration.claudeArgs%"
++				}
++			}
++		},
++		"configurationDefaults": {
++			"remote.autoForwardPorts": false,
++			"remote.restoreForwardedPorts": false,
++			"remote.forwardOnOpen": false,
++			"remote.otherPortsAttributes": {
++				"onAutoForward": "silent"
++			}
++		},
++		"viewsContainers": {
++			"activitybar": [
++				{
++					"id": "tomoshibi-terminal",
++					"title": "%viewContainer.terminal%",
++					"icon": "media/terminal.svg"
++				},
++				{
++					"id": "tomoshibi-codex",
++					"title": "%viewContainer.codex%",
++					"icon": "media/codex.svg"
++				},
++				{
++					"id": "tomoshibi-claude",
++					"title": "%viewContainer.claude%",
++					"icon": "media/claude.svg"
++				}
++			]
++		},
++		"views": {
++			"tomoshibi-terminal": [
++				{
++					"id": "tomoshibi.terminalLauncher",
++					"name": "%view.terminal%"
++				}
++			],
++			"tomoshibi-codex": [
++				{
++					"id": "tomoshibi.codexLauncher",
++					"name": "%view.codex%"
++				}
++			],
++			"tomoshibi-claude": [
++				{
++					"id": "tomoshibi.claudeLauncher",
++					"name": "%view.claude%"
++				}
++			]
++		}
++	}
++}
+Index: tomoshibi-code-server/lib/vscode/extensions/tomoshibi-leftbar/package.nls.json
+===================================================================
+--- /dev/null
++++ tomoshibi-code-server/lib/vscode/extensions/tomoshibi-leftbar/package.nls.json
+@@ -0,0 +1,23 @@
++{
++	"displayName": "Code-Tomoshibi 启动器",
++	"description": "终端、Codex 和 Claude Code 的独立入口",
++	"command.openTerminal": "打开默认终端",
++	"command.newTerminal": "新建终端",
++	"command.codexTerm": "打开 Codex",
++	"command.claudeTerm": "打开 Claude Code",
++	"command.claudeGui": "打开 Claude 图形界面",
++	"command.escape": "发送 Esc 到终端",
++	"command.enter": "发送回车到终端",
++	"command.newline": "在终端中插入换行",
++	"command.scrollBottom": "回到终端最新输出",
++	"configuration.codexExecutable": "Codex CLI 可执行文件",
++	"configuration.codexArgs": "启动 Codex CLI 时传入的参数",
++	"configuration.claudeExecutable": "Claude Code CLI 可执行文件",
++	"configuration.claudeArgs": "启动 Claude Code CLI 时传入的参数",
++	"viewContainer.terminal": "终端",
++	"viewContainer.codex": "Codex",
++	"viewContainer.claude": "Claude Code",
++	"view.terminal": "打开终端",
++	"view.codex": "打开 Codex",
++	"view.claude": "打开 Claude Code"
++}
+Index: tomoshibi-code-server/lib/vscode/extensions/tomoshibi-leftbar/src/commands/terminals.ts
+===================================================================
+--- /dev/null
++++ tomoshibi-code-server/lib/vscode/extensions/tomoshibi-leftbar/src/commands/terminals.ts
+@@ -0,0 +1,78 @@
++/*---------------------------------------------------------------------------------------------
++ *  Copyright (c) Microsoft Corporation. All rights reserved.
++ *  Licensed under the MIT License. See License.txt in the project root for license information.
++ *--------------------------------------------------------------------------------------------*/
++
++import * as vscode from 'vscode';
++
++function activeOrLastTerminal(): vscode.Terminal | undefined {
++	return vscode.window.activeTerminal ?? vscode.window.terminals.at(-1);
++}
++
++export function openDefaultTerminal(): void {
++	const existing = activeOrLastTerminal();
++	if (existing) {
++		existing.show();
++		return;
++	}
++
++	vscode.window.createTerminal({ name: vscode.l10n.t('命令行') }).show();
++}
++
++export function createTerminal(): void {
++	vscode.window.createTerminal({ name: vscode.l10n.t('命令行') }).show();
++}
++
++function openCliTerminal(configurationKey: 'codex' | 'claude', name: string): void {
++	const configuration = vscode.workspace.getConfiguration(`tomoshibi.${configurationKey}`);
++	const shellPath = configuration.get<string>('executable') ?? configurationKey;
++	const shellArgs = configuration.get<string[]>('args') ?? [];
++	const terminal = vscode.window.createTerminal({ name, shellPath, shellArgs });
++	terminal.show();
++}
++
++export function openCodexTerminal(): void {
++	openCliTerminal('codex', 'Codex');
++}
++
++export function openClaudeTerminal(): void {
++	openCliTerminal('claude', 'Claude Code');
++}
++
++export async function openClaudeGui(): Promise<void> {
++	const commands = await vscode.commands.getCommands(true);
++	if (!commands.includes('claude-vscode.editor.open')) {
++		const choice = await vscode.window.showWarningMessage(
++			vscode.l10n.t('Claude 图形界面不可用，要改为在终端打开 Claude Code 吗？'),
++			vscode.l10n.t('打开终端')
++		);
++		if (choice) {
++			openClaudeTerminal();
++		}
++		return;
++	}
++
++	await vscode.commands.executeCommand('claude-vscode.editor.open');
++}
++
++export function sendEscape(): void {
++	const terminal = activeOrLastTerminal();
++	if (!terminal) {
++		void vscode.window.showWarningMessage(vscode.l10n.t('现在没有打开的终端。'));
++		return;
++	}
++
++	terminal.sendText('\u001b', false);
++}
++
++export function sendEnter(): void {
++	activeOrLastTerminal()?.sendText('\r', false);
++}
++
++export function sendNewline(): void {
++	activeOrLastTerminal()?.sendText('\u001b\r', false);
++}
++
++export function scrollToBottom(): Thenable<void> {
++	return vscode.commands.executeCommand('workbench.action.terminal.scrollToBottom');
++}
+Index: tomoshibi-code-server/lib/vscode/extensions/tomoshibi-leftbar/src/extension.ts
+===================================================================
+--- /dev/null
++++ tomoshibi-code-server/lib/vscode/extensions/tomoshibi-leftbar/src/extension.ts
+@@ -0,0 +1,61 @@
++/*---------------------------------------------------------------------------------------------
++ *  Copyright (c) Microsoft Corporation. All rights reserved.
++ *  Licensed under the MIT License. See License.txt in the project root for license information.
++ *--------------------------------------------------------------------------------------------*/
++
++import * as vscode from 'vscode';
++import {
++	createTerminal,
++	openClaudeGui,
++	openClaudeTerminal,
++	openCodexTerminal,
++	openDefaultTerminal,
++	scrollToBottom,
++	sendEnter,
++	sendEscape,
++	sendNewline,
++} from './commands/terminals';
++import { registerActivityLaunchers } from './views/activityLaunchers';
++
++export function activate(context: vscode.ExtensionContext): void {
++	context.subscriptions.push(
++		vscode.commands.registerCommand('tomoshibi.openTerminal', openDefaultTerminal),
++		vscode.commands.registerCommand('tomoshibi.newTerminal', createTerminal),
++		vscode.commands.registerCommand('tomoshibi.codexTerm', openCodexTerminal),
++		vscode.commands.registerCommand('tomoshibi.claudeTerm', openClaudeTerminal),
++		vscode.commands.registerCommand('tomoshibi.claudeGui', openClaudeGui),
++		vscode.commands.registerCommand('tomoshibi.escape', sendEscape),
++		vscode.commands.registerCommand('tomoshibi.enter', sendEnter),
++		vscode.commands.registerCommand('tomoshibi.newline', sendNewline),
++		vscode.commands.registerCommand('tomoshibi.scrollBottom', scrollToBottom),
++	);
++	registerActivityLaunchers(context);
++
++	const escape = vscode.window.createStatusBarItem('tomoshibi.escape', vscode.StatusBarAlignment.Right, 930);
++	escape.name = vscode.l10n.t('终端 Esc');
++	escape.text = 'Esc';
++	escape.tooltip = vscode.l10n.t('向当前终端发送 Esc');
++	escape.command = 'tomoshibi.escape';
++	escape.show();
++	context.subscriptions.push(escape);
++
++	const latest = vscode.window.createStatusBarItem('tomoshibi.scrollBottom', vscode.StatusBarAlignment.Right, 895);
++	latest.name = vscode.l10n.t('回到终端最新输出');
++	latest.text = '$(chevron-down) ' + vscode.l10n.t('回到最新');
++	latest.tooltip = vscode.l10n.t('滚动到当前终端的最新输出');
++	latest.command = 'tomoshibi.scrollBottom';
++	latest.show();
++	context.subscriptions.push(latest);
++
++	const upload = vscode.window.createStatusBarItem('tomoshibi.upload', vscode.StatusBarAlignment.Right, 880);
++	upload.name = vscode.l10n.t('上传文件到当前命令行');
++	upload.text = '$(cloud-upload) ' + vscode.l10n.t('上传文件');
++	upload.tooltip = vscode.l10n.t('上传到当前命令行目录，并把路径插入原命令行');
++	upload.command = {
++		command: 'explorer.upload',
++		title: vscode.l10n.t('上传文件'),
++		arguments: [{ tomoshibiTarget: 'activeTerminal', insertIntoTerminal: true }],
++	};
++	upload.show();
++	context.subscriptions.push(upload);
++}
+Index: tomoshibi-code-server/lib/vscode/extensions/tomoshibi-leftbar/tsconfig.json
+===================================================================
+--- /dev/null
++++ tomoshibi-code-server/lib/vscode/extensions/tomoshibi-leftbar/tsconfig.json
+@@ -0,0 +1,11 @@
++{
++	"extends": "../tsconfig.base.json",
++	"compilerOptions": {
++		"rootDir": "./src",
++		"outDir": "./out"
++	},
++	"include": [
++		"src/**/*",
++		"../../src/vscode-dts/vscode.d.ts"
++	]
++}
+Index: tomoshibi-code-server/lib/vscode/src/vs/workbench/contrib/terminal/browser/media/xterm.css
+===================================================================
+--- tomoshibi-code-server.orig/lib/vscode/src/vs/workbench/contrib/terminal/browser/media/xterm.css
++++ tomoshibi-code-server/lib/vscode/src/vs/workbench/contrib/terminal/browser/media/xterm.css
+@@ -62,6 +62,17 @@
+ 	z-index: 5;
+ }
+ 
++.monaco-workbench.vs-dark .xterm .xterm-helper-textarea,
++.monaco-workbench.hc-black .xterm .xterm-helper-textarea {
++	/* iPadOS uses the focused textarea's text color for the first IME
++	 * candidate. The helper is transparent, so these values only affect the
++	 * system candidate UI and keep it readable in the dark workbench. */
++	color-scheme: dark !important;
++	color: #fff !important;
++	-webkit-text-fill-color: #fff !important;
++	caret-color: #fff !important;
++}
++
+ .xterm .xterm-helper-textarea {
+ 	padding: 0;
+ 	border: 0;
+Index: tomoshibi-code-server/lib/vscode/src/vs/workbench/contrib/terminal/browser/terminalInstance.ts
+===================================================================
+--- tomoshibi-code-server.orig/lib/vscode/src/vs/workbench/contrib/terminal/browser/terminalInstance.ts
++++ tomoshibi-code-server/lib/vscode/src/vs/workbench/contrib/terminal/browser/terminalInstance.ts
+@@ -20,7 +20,7 @@ import { ISeparator, normalizeDriveLette
+ import { Disposable, DisposableMap, DisposableStore, IDisposable, ImmortalReference, MutableDisposable, dispose, toDisposable, type IReference } from '../../../../base/common/lifecycle.js';
+ import { Schemas } from '../../../../base/common/network.js';
+ import * as path from '../../../../base/common/path.js';
+-import { OS, OperatingSystem, isMacintosh, isWindows } from '../../../../base/common/platform.js';
++import { OS, OperatingSystem, isIOS, isMacintosh, isWindows } from '../../../../base/common/platform.js';
+ import { ScrollbarVisibility } from '../../../../base/common/scrollable.js';
+ import { URI } from '../../../../base/common/uri.js';
+ import { TabFocus } from '../../../../editor/browser/config/tabFocus.js';
+@@ -137,6 +137,19 @@ const agentCliTitlePatterns: ReadonlyMap
+ 	[GeneralShellType.Gemini, /\bgemini\b/i],
+ ]);
+ 
++/**
++ * Returns the PTY data for an iPad hardware Return event. `null` means the
++ * event belongs to the same physical key press but must not write again, while
++ * `undefined` means xterm should handle the event normally.
++ */
++export function getIPadHardwareEnterData(event: KeyboardEvent, isiOS: boolean = isIOS): string | null | undefined {
++	const isEnter = event.key === 'Enter' || event.key === 'Return' || event.code === 'Enter' || event.code === 'NumpadEnter' || event.keyCode === 13;
++	if (!isiOS || !isEnter || event.isComposing || event.keyCode === 229 || event.ctrlKey || event.altKey || event.metaKey) {
++		return undefined;
++	}
++	return event.type === 'keydown' ? (event.shiftKey ? '\x1b\r' : '\r') : null;
++}
++
+ export class TerminalInstance extends Disposable implements ITerminalInstance {
+ 	private static _lastKnownCanvasDimensions: ICanvasDimensions | undefined;
+ 	private static _lastKnownGridDimensions: IGridDimensions | undefined;
+@@ -1143,6 +1156,20 @@ export class TerminalInstance extends Di
+ 				return false;
+ 			}
+ 
++			// iPadOS Safari can expose hardware Return as `Return`, `Enter`, or only
++			// keyCode 13. Handle it before xterm's keyboard encoder so one physical
++			// press always produces exactly one PTY write. Never consume an IME
++			// composition confirmation, as that would execute partially composed text.
++			const iPadHardwareEnterData = getIPadHardwareEnterData(event);
++			if (iPadHardwareEnterData !== undefined) {
++				event.preventDefault();
++				event.stopPropagation();
++				if (iPadHardwareEnterData !== null) {
++					void this._handleOnData(iPadHardwareEnterData);
++				}
++				return false;
++			}
++
+ 			const standardKeyboardEvent = new StandardKeyboardEvent(event);
+ 			const resolveResult = this._keybindingService.softDispatch(standardKeyboardEvent, standardKeyboardEvent.target);
+ 
+Index: tomoshibi-code-server/lib/vscode/build/gulpfile.reh.ts
+===================================================================
+--- tomoshibi-code-server.orig/lib/vscode/build/gulpfile.reh.ts
++++ tomoshibi-code-server/lib/vscode/build/gulpfile.reh.ts
+@@ -33,6 +33,7 @@ import { fetchUrls } from './lib/fetch.t
+ import { downloadFeedPackage } from './lib/azureFeed.ts';
+ import { ensureCopilotPlatformPackage, getCopilotExcludeFilter, getCopilotRuntimePrebuildFiles, getCopilotTgrepExcludeFilter, getMxcExcludeFilter, getRipgrepExcludeFilter, prepareBuiltInCopilotRipgrepShim } from './lib/copilot.ts';
+ import { readAgentSdkResults } from './agent-sdk/common.ts';
++import { isExcludedExtension } from './lib/extensions.ts';
+ 
+ 
+ const rcedit = promisify(rceditCallback);
+@@ -372,6 +373,7 @@ function packageTask(type: string, platf
+ 			}
+ 		};
+ 		const localWorkspaceExtensions = glob.sync('extensions/*/package.json')
++			.filter(extensionPath => !isExcludedExtension(path.basename(path.dirname(extensionPath))))
+ 			.filter((extensionPath) => {
+ 				if (type === 'reh-web') {
+ 					return true; // web: ship all extensions for now
+Index: tomoshibi-code-server/lib/vscode/build/lib/extensions.ts
+===================================================================
+--- tomoshibi-code-server.orig/lib/vscode/build/lib/extensions.ts
++++ tomoshibi-code-server/lib/vscode/build/lib/extensions.ts
+@@ -318,6 +318,19 @@ const nativeExtensions = [
+ 
+ const excludedExtensions = [
+ 	'copilot',
++	'debug-auto-launch',
++	'debug-server-ready',
++	'git',
++	'git-base',
++	'github',
++	'github-authentication',
++	'ipynb',
++	'media-preview',
++	'merge-conflict',
++	'microsoft-authentication',
++	'notebook-renderers',
++	'simple-browser',
++	'tunnel-forwarding',
+ 	'vscode-api-tests',
+ 	'vscode-colorize-tests',
+ 	'vscode-colorize-perf-tests',
+@@ -326,6 +339,10 @@ const excludedExtensions = [
+ 	'ms-vscode.node-debug2',
+ ];
+ 
++export function isExcludedExtension(name: string): boolean {
++	return excludedExtensions.includes(name);
++}
++
+ const marketplaceWebExtensionsExclude = new Set([
+ 	'ms-vscode.node-debug',
+ 	'ms-vscode.node-debug2',
+@@ -426,7 +443,7 @@ function doPackageLocalExtensionsStream(
+ 				return { name: extensionName, path: extensionPath, manifestPath: absoluteManifestPath };
+ 			})
+ 			.filter(({ name }) => native ? nativeExtensionsSet.has(name) : !nativeExtensionsSet.has(name))
+-			.filter(({ name }) => excludedExtensions.indexOf(name) === -1)
++			.filter(({ name }) => !isExcludedExtension(name))
+ 			.filter(({ name }) => builtInExtensions.every(b => b.name !== name))
+ 			.filter(({ manifestPath }) => (forWeb ? isWebExtension(require(manifestPath)) : true))
+ 	);
+@@ -749,12 +766,13 @@ const esbuildMediaScripts: { script: str
+ ];
+ 
+ export function buildExtensionMedia(isWatch: boolean, outputRoot?: string): Promise<void> {
+-	const esbuildTask = esbuildExtensions('esbuilding extension media', isWatch, esbuildMediaScripts.map(({ script }) => ({
++	const includedMediaScripts = esbuildMediaScripts.filter(({ script }) => !isExcludedExtension(script.split('/')[0]));
++	const esbuildTask = esbuildExtensions('esbuilding extension media', isWatch, includedMediaScripts.map(({ script }) => ({
+ 		script: path.join(extensionsPath, script),
+ 		outputRoot: outputRoot ? path.join(root, outputRoot, path.dirname(script)) : undefined
+ 	})));
+ 
+-	const typeCheckTasks = esbuildMediaScripts.map(({ tsconfig }) => {
++	const typeCheckTasks = includedMediaScripts.map(({ tsconfig }) => {
+ 		const tsconfigPath = path.join(extensionsPath, tsconfig);
+ 		const config = { taskName: 'typechecking extension media (tsgo)', noEmit: true };
+ 		if (!isWatch) {
+Index: tomoshibi-code-server/lib/vscode/src/vs/workbench/contrib/terminal/test/browser/terminalInstance.test.ts
+===================================================================
+--- tomoshibi-code-server.orig/lib/vscode/src/vs/workbench/contrib/terminal/test/browser/terminalInstance.test.ts
++++ tomoshibi-code-server/lib/vscode/src/vs/workbench/contrib/terminal/test/browser/terminalInstance.test.ts
+@@ -21,7 +21,7 @@ import { IWorkspaceFolder } from '../../
+ import { IViewDescriptorService } from '../../../../common/views.js';
+ import { ITerminalConfigurationService, ITerminalInstance, ITerminalInstanceService, ITerminalService } from '../../browser/terminal.js';
+ import { TerminalConfigurationService } from '../../browser/terminalConfigurationService.js';
+-import { parseExitResult, TerminalInstance, TerminalLabelComputer } from '../../browser/terminalInstance.js';
++import { getIPadHardwareEnterData, parseExitResult, TerminalInstance, TerminalLabelComputer } from '../../browser/terminalInstance.js';
+ import { IEnvironmentVariableService } from '../../common/environmentVariable.js';
+ import { EnvironmentVariableService } from '../../common/environmentVariableService.js';
+ import { ITerminalProfileResolverService, ProcessState, DEFAULT_COMMANDS_TO_SKIP_SHELL } from '../../common/terminal.js';
+@@ -122,6 +122,35 @@ class TestTerminalInstanceService extend
+ suite('Workbench - TerminalInstance', () => {
+ 	const store = ensureNoDisposablesAreLeakedInTestSuite();
+ 
++	suite('getIPadHardwareEnterData', () => {
++		function keyboardEvent(type: string, init: KeyboardEventInit, keyCode?: number): KeyboardEvent {
++			const event = new KeyboardEvent(type, init);
++			if (keyCode !== undefined) {
++				Object.defineProperty(event, 'keyCode', { value: keyCode });
++			}
++			return event;
++		}
++
++		test('writes each hardware Return press once on iPad', () => {
++			strictEqual(getIPadHardwareEnterData(new KeyboardEvent('keydown', { key: 'Enter' }), true), '\r');
++			strictEqual(getIPadHardwareEnterData(new KeyboardEvent('keyup', { key: 'Enter' }), true), null);
++			strictEqual(getIPadHardwareEnterData(new KeyboardEvent('keypress', { key: 'Enter' }), true), null);
++			strictEqual(getIPadHardwareEnterData(new KeyboardEvent('keydown', { key: 'Return', shiftKey: true }), true), '\x1b\r');
++			strictEqual(getIPadHardwareEnterData(new KeyboardEvent('keydown', { code: 'Enter' }), true), '\r');
++			strictEqual(getIPadHardwareEnterData(new KeyboardEvent('keydown', { code: 'NumpadEnter' }), true), '\r');
++			strictEqual(getIPadHardwareEnterData(keyboardEvent('keydown', {}, 13), true), '\r');
++		});
++
++		test('leaves IME, modified and non-iPad Return events to xterm', () => {
++			strictEqual(getIPadHardwareEnterData(new KeyboardEvent('keydown', { key: 'Enter', isComposing: true }), true), undefined);
++			strictEqual(getIPadHardwareEnterData(keyboardEvent('keydown', { key: 'Enter' }, 229), true), undefined);
++			strictEqual(getIPadHardwareEnterData(new KeyboardEvent('keydown', { key: 'Enter', metaKey: true }), true), undefined);
++			strictEqual(getIPadHardwareEnterData(new KeyboardEvent('keydown', { key: 'Enter', ctrlKey: true }), true), undefined);
++			strictEqual(getIPadHardwareEnterData(new KeyboardEvent('keydown', { key: 'Enter', altKey: true }), true), undefined);
++			strictEqual(getIPadHardwareEnterData(new KeyboardEvent('keydown', { key: 'Enter' }), false), undefined);
++		});
++	});
++
+ 	suite('TerminalInstance', () => {
+ 		let terminalInstance: ITerminalInstance;
+ 
+Index: tomoshibi-code-server/lib/vscode/src/vs/platform/terminal/common/terminalEnvironment.ts
+===================================================================
+--- tomoshibi-code-server.orig/lib/vscode/src/vs/platform/terminal/common/terminalEnvironment.ts
++++ tomoshibi-code-server/lib/vscode/src/vs/platform/terminal/common/terminalEnvironment.ts
+@@ -80,6 +80,33 @@ export function escapeNonWindowsPath(pat
+ }
+ 
+ /**
++ * Quote a path as one inert shell argument. Unlike {@link escapeNonWindowsPath},
++ * this preserves valid filename characters and is never an executable-path
++ * expression (for example, it never adds PowerShell's call operator).
++ */
++export function quoteShellArgument(path: string, shellType: TerminalShellType | undefined, os: OperatingSystem | undefined): string {
++	if (/[\x00-\x1F\x7F]/.test(path)) {
++		throw new Error('Shell arguments cannot contain control characters');
++	}
++	if (shellType === GeneralShellType.PowerShell) {
++		return `'${path.replaceAll('\'', '\'\'')}'`;
++	}
++	if (shellType === PosixShellType.Fish) {
++		return `'${path.replaceAll('\\', '\\\\').replaceAll('\'', '\\\'')}'`;
++	}
++	if (os === OperatingSystem.Windows && shellType === WindowsShellType.Wsl) {
++		throw new Error('Raw WSL argument conversion is unavailable');
++	}
++	if (os === OperatingSystem.Windows && shellType !== WindowsShellType.GitBash && shellType !== WindowsShellType.Wsl) {
++		if (/[%!]/.test(path)) {
++			throw new Error('Interactive Command Prompt arguments cannot safely contain % or !');
++		}
++		return `"${path.replaceAll('"', '""')}"`;
++	}
++	return `'${path.replaceAll('\'', `'\\''`)}'`;
++}
++
++/**
+  * Collapses the user's home directory into `~` if it exists within the path, this gives a shorter
+  * path that is more suitable within the context of a terminal.
+  */
+Index: tomoshibi-code-server/lib/vscode/src/vs/platform/terminal/test/common/terminalEnvironment.test.ts
+===================================================================
+--- tomoshibi-code-server.orig/lib/vscode/src/vs/platform/terminal/test/common/terminalEnvironment.test.ts
++++ tomoshibi-code-server/lib/vscode/src/vs/platform/terminal/test/common/terminalEnvironment.test.ts
+@@ -3,10 +3,10 @@
+  *  Licensed under the MIT License. See License.txt in the project root for license information.
+  *--------------------------------------------------------------------------------------------*/
+ 
+-import { strictEqual } from 'assert';
++import { strictEqual, throws } from 'assert';
+ import { OperatingSystem, OS } from '../../../../base/common/platform.js';
+ import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../base/test/common/utils.js';
+-import { collapseTildePath, sanitizeCwd, escapeNonWindowsPath } from '../../common/terminalEnvironment.js';
++import { collapseTildePath, sanitizeCwd, escapeNonWindowsPath, quoteShellArgument } from '../../common/terminalEnvironment.js';
+ import { PosixShellType, WindowsShellType, GeneralShellType } from '../../common/terminal.js';
+ 
+ suite('terminalEnvironment', () => {
+@@ -96,4 +96,29 @@ suite('terminalEnvironment', () => {
+ 			strictEqual(escapeNonWindowsPath('/foo/bar`whoami`', PosixShellType.Bash), '\'/foo/barwhoami\'');
+ 		});
+ 	});
++
++	suite('quoteShellArgument', () => {
++		test('should preserve metacharacters as one POSIX argument', () => {
++			strictEqual(quoteShellArgument('/foo/a$# !;|&<>~^*b', PosixShellType.Bash, OperatingSystem.Linux), '\'/foo/a$# !;|&<>~^*b\'');
++			strictEqual(quoteShellArgument('/foo/bar\'baz', PosixShellType.Zsh, OperatingSystem.Linux), `'/foo/bar'\\''baz'`);
++		});
++
++		test('should quote Fish and PowerShell arguments without an execute operator', () => {
++			strictEqual(quoteShellArgument('/foo/bar\'baz"qux', PosixShellType.Fish, OperatingSystem.Linux), '\'/foo/bar\\\'baz"qux\'');
++			strictEqual(quoteShellArgument('/tmp/a b\'c.txt', GeneralShellType.PowerShell, OperatingSystem.Linux), '\'/tmp/a b\'\'c.txt\'');
++		});
++
++		test('should quote Windows command arguments and reject unsafe expansion', () => {
++			strictEqual(quoteShellArgument('c:\\tmp\\done.txt', WindowsShellType.CommandPrompt, OperatingSystem.Windows), '"c:\\tmp\\done.txt"');
++			throws(() => quoteShellArgument('c:\\tmp\\%PATH%.txt', WindowsShellType.CommandPrompt, OperatingSystem.Windows));
++			throws(() => quoteShellArgument('c:\\tmp\\!PATH!.txt', WindowsShellType.CommandPrompt, OperatingSystem.Windows));
++			throws(() => quoteShellArgument('\'/mnt/c/tmp/file\'', WindowsShellType.Wsl, OperatingSystem.Windows));
++		});
++
++		test('should reject terminal control input', () => {
++			for (const value of ['/tmp/a\0b', '/tmp/a\tb', '/tmp/a\x1bb', '/tmp/a\x7fb']) {
++				throws(() => quoteShellArgument(value, PosixShellType.Bash, OperatingSystem.Linux));
++			}
++		});
++	});
+ });
+Index: tomoshibi-code-server/lib/vscode/src/vs/workbench/contrib/files/browser/fileActions.ts
+===================================================================
+--- tomoshibi-code-server.orig/lib/vscode/src/vs/workbench/contrib/files/browser/fileActions.ts
++++ tomoshibi-code-server/lib/vscode/src/vs/workbench/contrib/files/browser/fileActions.ts
+@@ -61,6 +61,8 @@ import { Categories } from '../../../../
+ import { ILocalizedString } from '../../../../platform/action/common/action.js';
+ import { VSBuffer } from '../../../../base/common/buffer.js';
+ import { getPathForFile } from '../../../../platform/dnd/browser/dnd.js';
++import { ITerminalInstance, ITerminalService } from '../../terminal/browser/terminal.js';
++import { quoteShellArgument } from '../../../../platform/terminal/common/terminalEnvironment.js';
+ 
+ export const NEW_FILE_COMMAND_ID = 'explorer.newFile';
+ export const NEW_FILE_LABEL = nls.localize2('newFile', "New File...");
+@@ -1094,19 +1096,150 @@ CommandsRegistry.registerCommand({
+ 	handler: downloadFileHandler
+ });
+ 
+-const uploadFileHandler = async (accessor: ServicesAccessor) => {
++interface IUploadFileCommandOptions {
++	readonly tomoshibiTarget?: 'activeTerminal';
++	readonly insertIntoTerminal?: boolean;
++}
++
++interface ITomoshibiUploadTarget {
++	readonly item: ExplorerItem;
++	readonly usedTerminalCwd: boolean;
++}
++
++/**
++ * Maps a terminal working directory onto the workspace provider used by code-server.
++ */
++export function getTomoshibiTerminalUploadResource(fallbackRoot: URI, normalizedCwd: URI): { readonly resource: URI; readonly usedTerminalCwd: boolean } {
++	if (!normalizedCwd.path) {
++		return { resource: fallbackRoot, usedTerminalCwd: false };
++	}
++
++	return {
++		resource: fallbackRoot.with({
++			path: normalizedCwd.path,
++			query: '',
++			fragment: '',
++		}),
++		usedTerminalCwd: true,
++	};
++}
++
++async function resolveTomoshibiUploadTarget(
++	terminal: ITerminalInstance | undefined,
++	explorerService: IExplorerService,
++	fileService: IFileService,
++	configurationService: IConfigurationService,
++	filesConfigurationService: IFilesConfigurationService,
++	pathService: IPathService,
++): Promise<ITomoshibiUploadTarget | undefined> {
++	const roots = explorerService.roots;
++	let fallbackRoot = terminal?.workspaceFolder ? explorerService.findClosestRoot(terminal.workspaceFolder.uri) : null;
++	fallbackRoot ??= roots[0];
++	if (!fallbackRoot || !terminal) {
++		return fallbackRoot ? { item: fallbackRoot, usedTerminalCwd: false } : undefined;
++	}
++
++	try {
++		const cwd = await terminal.getSpeculativeCwd();
++		const normalizedCwd = await pathService.fileURI(cwd);
++		const mappedCwd = getTomoshibiTerminalUploadResource(fallbackRoot.resource, normalizedCwd);
++		if (!mappedCwd.usedTerminalCwd) {
++			return { item: fallbackRoot, usedTerminalCwd: false };
++		}
++		const cwdResource = mappedCwd.resource;
++
++		// `fileURI` normalizes for the terminal backend OS, but code-server's browser file
++		// provider uses the workspace scheme and authority. Preserve those remote components.
++		const existingItem = explorerService.findClosest(cwdResource);
++		if (existingItem?.isDirectory && !existingItem.isReadonly) {
++			return { item: existingItem, usedTerminalCwd: true };
++		}
++
++		if (!await fileService.canHandleResource(cwdResource)) {
++			return { item: fallbackRoot, usedTerminalCwd: false };
++		}
++		const stat = await fileService.resolve(cwdResource);
++		const item = ExplorerItem.create(fileService, configurationService, filesConfigurationService, stat, undefined);
++		if (!item.isDirectory || item.isReadonly) {
++			return { item: fallbackRoot, usedTerminalCwd: false };
++		}
++
++		return { item, usedTerminalCwd: true };
++	} catch {
++		return { item: fallbackRoot, usedTerminalCwd: false };
++	}
++}
++
++const uploadFileHandler = async (accessor: ServicesAccessor, options?: IUploadFileCommandOptions) => {
++	const targetActiveTerminal = options?.tomoshibiTarget === 'activeTerminal';
++	const terminalAtClick = targetActiveTerminal ? accessor.get(ITerminalService).activeInstance : undefined;
++	// This must run synchronously in the original click task. In particular, do not put an
++	// extension-host command, dialog or await between the user gesture and this call on iPadOS.
++	const filesPromise = triggerUpload();
+ 	const explorerService = accessor.get(IExplorerService);
+ 	const notificationService = accessor.get(INotificationService);
+ 	const instantiationService = accessor.get(IInstantiationService);
+-
+-	const context = explorerService.getContext(false);
+-	const element = context.length ? context[0] : explorerService.roots[0];
++	const fileService = accessor.get(IFileService);
++	const configurationService = accessor.get(IConfigurationService);
++	const filesConfigurationService = accessor.get(IFilesConfigurationService);
++	const pathService = accessor.get(IPathService);
++	const explorerContextAtClick = targetActiveTerminal ? [] : explorerService.getContext(false);
++	const explorerItemAtClick = explorerContextAtClick.length ? explorerContextAtClick[0] : explorerService.roots[0];
+ 
+ 	try {
+-		const files = await triggerUpload();
+-		if (files) {
+-			const browserUpload = instantiationService.createInstance(BrowserFileUpload);
+-			await browserUpload.upload(element, files);
++		const files = await filesPromise;
++		if (!files?.length) {
++			return;
++		}
++
++		let target: ITomoshibiUploadTarget | undefined;
++		if (targetActiveTerminal) {
++			target = await resolveTomoshibiUploadTarget(terminalAtClick, explorerService, fileService, configurationService, filesConfigurationService, pathService);
++		} else {
++			target = explorerItemAtClick ? { item: explorerItemAtClick, usedTerminalCwd: false } : undefined;
++		}
++
++		if (!target) {
++			notificationService.warn(nls.localize('uploadNoFolder', "Open a folder before uploading files."));
++			return;
++		}
++
++		const browserUpload = instantiationService.createInstance(BrowserFileUpload);
++		const uploadedResources = await browserUpload.upload(target.item, files, {
++			openUploadedFile: !targetActiveTerminal,
++		});
++
++		if (targetActiveTerminal && terminalAtClick?.isDisposed) {
++			notificationService.warn(nls.localize('uploadTerminalClosed', "Files were uploaded, but the original terminal was closed before their paths could be inserted."));
++		} else if (targetActiveTerminal && terminalAtClick && options?.insertIntoTerminal && uploadedResources.length) {
++			const insertableResources = uploadedResources.filter(resource => !/[\x00-\x1F\x7F]/.test(resource.fsPath));
++			if (insertableResources.length !== uploadedResources.length) {
++				notificationService.warn(nls.localize('uploadPathControlCharacter', "Files with control characters in their names were uploaded, but their paths were not inserted into the terminal."));
++			}
++
++			if (insertableResources.length) {
++				const shellPaths = await Promise.all(insertableResources.map(resource => terminalAtClick.getUriLabelForShell(resource)));
++				let preparedPaths: string[];
++				try {
++					preparedPaths = shellPaths.map(path => quoteShellArgument(path, terminalAtClick.shellType, terminalAtClick.os));
++				} catch {
++					notificationService.warn(nls.localize('uploadPathUnsupportedShell', "Files were uploaded, but their paths could not be safely inserted into this shell."));
++					return;
++				}
++				// Insert into the terminal that was active when the picker opened. Do not execute,
++				// reveal, focus or switch terminals if the user moved elsewhere during the upload.
++				if (terminalAtClick.isDisposed) {
++					notificationService.warn(nls.localize('uploadTerminalClosedAfterPrepare', "Files were uploaded, but the original terminal closed before their paths could be inserted."));
++				} else {
++					await terminalAtClick.sendText(`${preparedPaths.join(' ')} `, false, true);
++				}
++			}
++		} else if (targetActiveTerminal && !terminalAtClick) {
++			notificationService.warn(nls.localize('uploadNoTerminal', "Files were uploaded to the workspace, but no terminal was open to receive their paths."));
++		}
++
++		if (targetActiveTerminal && terminalAtClick && !target.usedTerminalCwd) {
++			notificationService.info(nls.localize('uploadCwdFallback', "The terminal directory was unavailable, so files were uploaded to the workspace root."));
+ 		}
+ 	} catch (error) {
+ 		notificationService.error(error);
+Index: tomoshibi-code-server/lib/vscode/src/vs/workbench/contrib/files/browser/fileImportExport.ts
+===================================================================
+--- tomoshibi-code-server.orig/lib/vscode/src/vs/workbench/contrib/files/browser/fileImportExport.ts
++++ tomoshibi-code-server/lib/vscode/src/vs/workbench/contrib/files/browser/fileImportExport.ts
+@@ -48,6 +48,32 @@ interface IBrowserUploadOperation {
+ 	totalBytesUploaded: number;
+ }
+ 
++export interface IBrowserFileUploadOptions {
++	readonly openUploadedFile?: boolean;
++}
++
++interface IBrowserFileUploadResult {
++	readonly isFile: boolean;
++	readonly resource: URI;
++}
++
++/**
++ * Finalizes an upload without changing the input order of its resources.
++ */
++export async function finalizeBrowserFileUpload(
++	results: readonly IBrowserFileUploadResult[],
++	options: IBrowserFileUploadOptions | undefined,
++	isCancellationRequested: boolean,
++	openEditor: (resource: URI) => Promise<void>,
++): Promise<readonly URI[]> {
++	const firstUploadedFile = results[0];
++	if (options?.openUploadedFile !== false && !isCancellationRequested && firstUploadedFile?.isFile) {
++		await openEditor(firstUploadedFile.resource);
++	}
++
++	return results.map(result => result.resource);
++}
++
+ interface IWebkitDataTransfer {
+ 	items: IWebkitDataTransferItem[];
+ }
+@@ -82,7 +108,7 @@ export class BrowserFileUpload {
+ 	) {
+ 	}
+ 
+-	upload(target: ExplorerItem, source: DragEvent | FileList): Promise<void> {
++	upload(target: ExplorerItem, source: DragEvent | FileList, options?: IBrowserFileUploadOptions): Promise<readonly URI[]> {
+ 		const cts = new CancellationTokenSource();
+ 
+ 		// Indicate progress globally
+@@ -93,7 +119,7 @@ export class BrowserFileUpload {
+ 				cancellable: true,
+ 				title: localize('uploadingFiles', "Uploading")
+ 			},
+-			async progress => this.doUpload(target, this.toTransfer(source), progress, cts.token),
++			async progress => this.doUpload(target, this.toTransfer(source), progress, cts.token, options),
+ 			() => cts.dispose(true)
+ 		);
+ 
+@@ -131,7 +157,7 @@ export class BrowserFileUpload {
+ 		return transfer;
+ 	}
+ 
+-	private async doUpload(target: ExplorerItem, source: IWebkitDataTransfer, progress: IProgress<IProgressStep>, token: CancellationToken): Promise<void> {
++	private async doUpload(target: ExplorerItem, source: IWebkitDataTransfer, progress: IProgress<IProgressStep>, token: CancellationToken, options?: IBrowserFileUploadOptions): Promise<readonly URI[]> {
+ 		const items = source.items;
+ 
+ 		// Somehow the items thing is being modified at random, maybe as a security
+@@ -148,7 +174,6 @@ export class BrowserFileUpload {
+ 			}
+ 		}
+ 
+-		const results: { isFile: boolean; resource: URI }[] = [];
+ 		const operation: IBrowserUploadOperation = {
+ 			startTime: Date.now(),
+ 			progressScheduler: new RunOnceWorker<IProgressStep>(steps => { progress.report(steps[steps.length - 1]); }, 1000),
+@@ -162,7 +187,7 @@ export class BrowserFileUpload {
+ 		// Upload all entries in parallel up to a
+ 		// certain maximum leveraging the `Limiter`
+ 		const uploadLimiter = new Limiter(BrowserFileUpload.MAX_PARALLEL_UPLOADS);
+-		await Promises.settled(entries.map(entry => {
++		const results = coalesce(await Promises.settled(entries.map(entry => {
+ 			return uploadLimiter.queue(async () => {
+ 				if (token.isCancellationRequested) {
+ 					return;
+@@ -186,20 +211,15 @@ export class BrowserFileUpload {
+ 				}
+ 
+ 				// Upload entry
+-				const result = await this.doUploadEntry(entry, target.resource, target, progress, operation, token);
+-				if (result) {
+-					results.push(result);
+-				}
++				return this.doUploadEntry(entry, target.resource, target, progress, operation, token);
+ 			});
+-		}));
++		})));
+ 
+ 		operation.progressScheduler.dispose();
+ 
+-		// Open uploaded file in editor only if we upload just one
+-		const firstUploadedFile = results[0];
+-		if (!token.isCancellationRequested && firstUploadedFile?.isFile) {
+-			await this.editorService.openEditor({ resource: firstUploadedFile.resource, options: { pinned: true } });
+-		}
++		return finalizeBrowserFileUpload(results, options, token.isCancellationRequested, async resource => {
++			await this.editorService.openEditor({ resource, options: { pinned: true } });
++		});
+ 	}
+ 
+ 	private async doUploadEntry(entry: IWebkitDataTransferItemEntry, parentResource: URI, target: ExplorerItem | undefined, progress: IProgress<IProgressStep>, operation: IBrowserUploadOperation, token: CancellationToken): Promise<{ isFile: boolean; resource: URI } | undefined> {
+Index: tomoshibi-code-server/lib/vscode/src/vs/workbench/contrib/files/test/browser/fileActions.test.ts
+===================================================================
+--- tomoshibi-code-server.orig/lib/vscode/src/vs/workbench/contrib/files/test/browser/fileActions.test.ts
++++ tomoshibi-code-server/lib/vscode/src/vs/workbench/contrib/files/test/browser/fileActions.test.ts
+@@ -4,8 +4,28 @@
+  *--------------------------------------------------------------------------------------------*/
+ 
+ import assert from 'assert';
++import { URI } from '../../../../../base/common/uri.js';
+ import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
+-import { incrementFileName } from '../../browser/fileActions.js';
++import { getTomoshibiTerminalUploadResource, incrementFileName } from '../../browser/fileActions.js';
++
++suite('Files - Tomoshibi terminal upload target', () => {
++
++	test('preserves workspace scheme and authority and falls back for an empty cwd', () => {
++		const fallbackRoot = URI.parse('vscode-remote://ssh-remote+tomoshibi/workspace?stale=true#selection');
++		const resolved = getTomoshibiTerminalUploadResource(fallbackRoot, URI.file('/home/user/project'));
++		const emptyCwd = getTomoshibiTerminalUploadResource(fallbackRoot, URI.parse('untitled:'));
++
++		assert.deepStrictEqual({
++			resolved: { resource: resolved.resource.toString(), usedTerminalCwd: resolved.usedTerminalCwd },
++			emptyCwd: { resource: emptyCwd.resource.toString(), usedTerminalCwd: emptyCwd.usedTerminalCwd },
++		}, {
++			resolved: { resource: 'vscode-remote://ssh-remote%2Btomoshibi/home/user/project', usedTerminalCwd: true },
++			emptyCwd: { resource: fallbackRoot.toString(), usedTerminalCwd: false },
++		});
++	});
++
++	ensureNoDisposablesAreLeakedInTestSuite();
++});
+ 
+ suite('Files - Increment file name simple', () => {
+ 
+Index: tomoshibi-code-server/lib/vscode/src/vs/workbench/contrib/files/test/browser/fileImportExport.test.ts
+===================================================================
+--- /dev/null
++++ tomoshibi-code-server/lib/vscode/src/vs/workbench/contrib/files/test/browser/fileImportExport.test.ts
+@@ -0,0 +1,104 @@
++/*---------------------------------------------------------------------------------------------
++ *  Copyright (c) Microsoft Corporation. All rights reserved.
++ *  Licensed under the MIT License. See License.txt in the project root for license information.
++ *--------------------------------------------------------------------------------------------*/
++
++import assert from 'assert';
++import { coalesce } from '../../../../../base/common/arrays.js';
++import { DeferredPromise, Promises } from '../../../../../base/common/async.js';
++import { URI } from '../../../../../base/common/uri.js';
++import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
++import { finalizeBrowserFileUpload } from '../../browser/fileImportExport.js';
++
++suite('BrowserFileUpload', () => {
++
++	test('preserves selected file order and does not open an editor when disabled', async () => {
++		const selectedResources = [
++			URI.parse('vscode-remote://test/home/user/third.txt'),
++			URI.parse('vscode-remote://test/home/user/first.txt'),
++			URI.parse('vscode-remote://test/home/user/second.txt'),
++		];
++		const openedResources: URI[] = [];
++
++		const uploadedResources = await finalizeBrowserFileUpload(
++			selectedResources.map(resource => ({ isFile: true, resource })),
++			{ openUploadedFile: false },
++			false,
++			async resource => { openedResources.push(resource); },
++		);
++
++		assert.deepStrictEqual({
++			uploaded: uploadedResources.map(resource => resource.toString()),
++			opened: openedResources.map(resource => resource.toString()),
++		}, {
++			uploaded: selectedResources.map(resource => resource.toString()),
++			opened: [],
++		});
++	});
++
++	test('opens only an enabled, active upload whose first result is a file', async () => {
++		const firstResource = URI.parse('vscode-remote://test/home/user/first.txt');
++		const secondResource = URI.parse('vscode-remote://test/home/user/second.txt');
++		const outcomes: { label: string; opened: string[] }[] = [];
++
++		for (const scenario of [
++			{ label: 'default', options: undefined, isCancellationRequested: false, firstIsFile: true },
++			{ label: 'explicit true', options: { openUploadedFile: true }, isCancellationRequested: false, firstIsFile: true },
++			{ label: 'cancelled', options: undefined, isCancellationRequested: true, firstIsFile: true },
++			{ label: 'first result is a directory', options: undefined, isCancellationRequested: false, firstIsFile: false },
++		]) {
++			const openedResources: string[] = [];
++			await finalizeBrowserFileUpload(
++				[
++					{ isFile: scenario.firstIsFile, resource: firstResource },
++					{ isFile: true, resource: secondResource },
++				],
++				scenario.options,
++				scenario.isCancellationRequested,
++				async resource => { openedResources.push(resource.toString()); },
++			);
++			outcomes.push({ label: scenario.label, opened: openedResources });
++		}
++
++		assert.deepStrictEqual(outcomes, [
++			{ label: 'default', opened: [firstResource.toString()] },
++			{ label: 'explicit true', opened: [firstResource.toString()] },
++			{ label: 'cancelled', opened: [] },
++			{ label: 'first result is a directory', opened: [] },
++		]);
++	});
++
++	test('preserves input order when concurrent uploads finish out of order', async () => {
++		const inputResources = [
++			URI.parse('vscode-remote://test/home/user/first.txt'),
++			URI.parse('vscode-remote://test/home/user/second.txt'),
++			URI.parse('vscode-remote://test/home/user/third.txt'),
++		];
++		const pendingResults = inputResources.map(() => new DeferredPromise<{ isFile: boolean; resource: URI }>());
++		const completionOrder: string[] = [];
++		const resultsPromise = Promises.settled(pendingResults.map((pending, index) => pending.p.then(result => {
++			completionOrder.push(inputResources[index].path);
++			return result;
++		})));
++
++		await pendingResults[2].complete({ isFile: true, resource: inputResources[2] });
++		await pendingResults[1].complete({ isFile: true, resource: inputResources[1] });
++		await pendingResults[0].complete({ isFile: true, resource: inputResources[0] });
++		const uploadedResources = await finalizeBrowserFileUpload(
++			coalesce(await resultsPromise),
++			{ openUploadedFile: false },
++			false,
++			async () => { },
++		);
++
++		assert.deepStrictEqual({
++			completed: completionOrder,
++			uploaded: uploadedResources.map(resource => resource.path),
++		}, {
++			completed: [inputResources[2].path, inputResources[1].path, inputResources[0].path],
++			uploaded: inputResources.map(resource => resource.path),
++		});
++	});
++
++	ensureNoDisposablesAreLeakedInTestSuite();
++});
+Index: tomoshibi-code-server/lib/vscode/extensions/tomoshibi-leftbar/media/claude.svg
+===================================================================
+--- /dev/null
++++ tomoshibi-code-server/lib/vscode/extensions/tomoshibi-leftbar/media/claude.svg
+@@ -0,0 +1,3 @@
++<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
++	<path fill="currentColor" d="M11 1h2l.7 7 5.3-4.7 1.4 1.4L15.8 10l7.2.8v2l-7.2.8 4.6 5.3-1.4 1.4-5.3-4.7L13 23h-2l-.7-7.4L5 20.3l-1.4-1.4L8.2 13.6 1 12.8v-2L8.2 10 3.6 4.7 5 3.3 10.3 8Z"/>
++</svg>
+Index: tomoshibi-code-server/lib/vscode/extensions/tomoshibi-leftbar/media/codex.svg
+===================================================================
+--- /dev/null
++++ tomoshibi-code-server/lib/vscode/extensions/tomoshibi-leftbar/media/codex.svg
+@@ -0,0 +1,3 @@
++<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
++	<path fill="currentColor" d="M12 1.8a5.2 5.2 0 0 1 4.5 2.6 5.2 5.2 0 0 1 4.4 7.7 5.2 5.2 0 0 1-4.4 7.6A5.2 5.2 0 0 1 7.5 20a5.2 5.2 0 0 1-4.4-7.7 5.2 5.2 0 0 1 4.4-7.6A5.2 5.2 0 0 1 12 1.8Zm0 3.1a7.1 7.1 0 1 0 0 14.2 7.1 7.1 0 0 0 0-14.2Zm0 3.2a3.9 3.9 0 1 1 0 7.8 3.9 3.9 0 0 1 0-7.8Z"/>
++</svg>
+Index: tomoshibi-code-server/lib/vscode/extensions/tomoshibi-leftbar/media/terminal.svg
+===================================================================
+--- /dev/null
++++ tomoshibi-code-server/lib/vscode/extensions/tomoshibi-leftbar/media/terminal.svg
+@@ -0,0 +1,4 @@
++<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
++	<path fill="currentColor" d="M3.8 6.2 11.2 12 3.8 17.8 2 16.4 7.6 12 2 7.6Z"/>
++	<rect fill="currentColor" x="12" y="16" width="10" height="2.2" rx="0.4"/>
++</svg>
+Index: tomoshibi-code-server/lib/vscode/extensions/tomoshibi-leftbar/src/views/activityLaunchers.ts
+===================================================================
+--- /dev/null
++++ tomoshibi-code-server/lib/vscode/extensions/tomoshibi-leftbar/src/views/activityLaunchers.ts
+@@ -0,0 +1,78 @@
++/*---------------------------------------------------------------------------------------------
++ *  Copyright (c) Microsoft Corporation. All rights reserved.
++ *  Licensed under the MIT License. See License.txt in the project root for license information.
++ *--------------------------------------------------------------------------------------------*/
++
++import * as vscode from 'vscode';
++
++interface LauncherDefinition {
++	readonly viewId: string;
++	readonly command: string;
++	readonly label: string;
++}
++
++const launchers: readonly LauncherDefinition[] = [
++	{ viewId: 'tomoshibi.terminalLauncher', command: 'tomoshibi.openTerminal', label: '终端' },
++	{ viewId: 'tomoshibi.codexLauncher', command: 'tomoshibi.codexTerm', label: 'Codex' },
++	{ viewId: 'tomoshibi.claudeLauncher', command: 'tomoshibi.claudeTerm', label: 'Claude Code' },
++];
++
++class EmptyLauncherProvider implements vscode.TreeDataProvider<never> {
++	getTreeItem(): vscode.TreeItem {
++		throw new Error('Launcher views do not contain tree items.');
++	}
++
++	getChildren(): never[] {
++		return [];
++	}
++}
++
++export function registerActivityLaunchers(context: vscode.ExtensionContext): void {
++	for (const launcher of launchers) {
++		const view = vscode.window.createTreeView(launcher.viewId, {
++			treeDataProvider: new EmptyLauncherProvider(),
++			showCollapseAll: false,
++		});
++		let launching = false;
++		const launch = async (): Promise<void> => {
++			if (!view.visible || launching) {
++				return;
++			}
++
++			launching = true;
++			let launched = false;
++			try {
++				try {
++					await vscode.commands.executeCommand(launcher.command);
++					launched = true;
++				} catch (error) {
++					const message = error instanceof Error ? error.message : String(error);
++					void vscode.window.showErrorMessage(vscode.l10n.t('无法打开 {0}：{1}', launcher.label, message));
++				}
++				// Do not leave a launcher as the active view container. Otherwise a
++				// later Ctrl+B would reveal it and launch the command again.
++				try {
++					await vscode.commands.executeCommand('workbench.view.explorer');
++				} catch { }
++				try {
++					await vscode.commands.executeCommand('workbench.action.closeSidebar');
++				} catch { }
++				if (launched) {
++					try {
++						await vscode.commands.executeCommand('workbench.action.terminal.focus');
++					} catch { }
++				}
++			} finally {
++				launching = false;
++			}
++		};
++		context.subscriptions.push(view, view.onDidChangeVisibility(event => {
++			if (event.visible) {
++				void launch();
++			}
++		}));
++		if (view.visible) {
++			void launch();
++		}
++	}
++}
+Index: tomoshibi-code-server/lib/vscode/src/vs/workbench/browser/parts/notifications/notificationsToasts.ts
+===================================================================
+--- tomoshibi-code-server.orig/lib/vscode/src/vs/workbench/browser/parts/notifications/notificationsToasts.ts
++++ tomoshibi-code-server/lib/vscode/src/vs/workbench/browser/parts/notifications/notificationsToasts.ts
+@@ -47,6 +47,7 @@ export class NotificationsToasts extends
+ 
+ 	private static readonly MAX_WIDTH = 450;
+ 	private static readonly MAX_NOTIFICATIONS = 3;
++	private static readonly SHOW_TOASTS = false;
+ 
+ 	private static readonly PURGE_TIMEOUT: { [severity: number]: number } = {
+ 		[Severity.Info]: 10000,
+@@ -181,6 +182,13 @@ export class NotificationsToasts extends
+ 	}
+ 
+ 	private addToast(item: INotificationViewItem): void {
++		// Code-Tomoshibi is terminal-first and intentionally never interrupts the
++		// active session with toast popups. Notifications remain in the shared
++		// model and are still available from the notification center.
++		if (!NotificationsToasts.SHOW_TOASTS) {
++			return;
++		}
++
+ 		if (this.isNotificationsCenterVisible) {
+ 			return; // do not show toasts while notification center is visible
+ 		}
+Index: tomoshibi-code-server/lib/vscode/src/vs/workbench/test/browser/notificationsToasts.test.ts
+===================================================================
+--- tomoshibi-code-server.orig/lib/vscode/src/vs/workbench/test/browser/notificationsToasts.test.ts
++++ tomoshibi-code-server/lib/vscode/src/vs/workbench/test/browser/notificationsToasts.test.ts
+@@ -5,7 +5,6 @@
+ 
+ import assert from 'assert';
+ import { Dimension, getWindow } from '../../../base/browser/dom.js';
+-import { Event } from '../../../base/common/event.js';
+ import { DisposableStore, toDisposable } from '../../../base/common/lifecycle.js';
+ import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../base/test/common/utils.js';
+ import { Severity } from '../../../platform/notification/common/notification.js';
+@@ -15,18 +14,6 @@ import { workbenchInstantiationService }
+ 
+ suite('NotificationsToasts', () => {
+ 
+-	suiteSetup(async () => {
+-		const warmupDisposables = new DisposableStore();
+-		try {
+-			const { model, toasts } = await createToasts(warmupDisposables);
+-			const toastVisible = Event.toPromise(toasts.onDidChangeVisibility);
+-			model.addNotification({ severity: Severity.Error, message: 'Warmup' });
+-			await toastVisible;
+-		} finally {
+-			warmupDisposables.dispose();
+-		}
+-	});
+-
+ 	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
+ 
+ 	async function createToasts(testDisposables: Pick<DisposableStore, 'add'> = disposables): Promise<{
+@@ -61,55 +48,52 @@ suite('NotificationsToasts', () => {
+ 		};
+ 	}
+ 
+-	test('shows one toast for rapidly added duplicate notifications', async () => {
+-		const { container, model, toasts } = await createToasts();
+-		const toastVisible = Event.toPromise(toasts.onDidChangeVisibility);
++	test('keeps duplicate notifications in the model without showing a toast', async () => {
++		const { container, model, toasts, flushAnimationFrame } = await createToasts();
++		let visibilityChanges = 0;
++		disposables.add(toasts.onDidChangeVisibility(() => visibilityChanges++));
+ 
+ 		for (let i = 0; i < 15; i++) {
+ 			model.addNotification({ severity: Severity.Error, message: 'Hello!' });
+ 		}
+ 		await Promise.resolve();
++		await flushAnimationFrame();
+ 
+-		const beforeAnimationFrame = {
+-			notifications: model.notifications.length,
+-			toasts: container.querySelectorAll('.notification-toast-container').length
+-		};
+-
+-		await toastVisible;
+ 		assert.deepStrictEqual({
+-			beforeAnimationFrame,
+ 			notifications: model.notifications.length,
+ 			toasts: container.querySelectorAll('.notification-toast-container').length,
+-			visible: toasts.isVisible
++			visible: toasts.isVisible,
++			visibilityChanges
+ 		}, {
+-			beforeAnimationFrame: {
+-				notifications: 1,
+-				toasts: 0
+-			},
+ 			notifications: 1,
+-			toasts: 1,
+-			visible: true
++			toasts: 0,
++			visible: false,
++			visibilityChanges: 0
+ 		});
+ 	});
+ 
+-	test('limits rapidly added distinct notification toasts', async () => {
+-		const { container, model, toasts } = await createToasts();
+-		const toastVisible = Event.toPromise(toasts.onDidChangeVisibility);
++	test('keeps distinct notifications in the model without showing toasts', async () => {
++		const { container, model, toasts, flushAnimationFrame } = await createToasts();
++		let visibilityChanges = 0;
++		disposables.add(toasts.onDidChangeVisibility(() => visibilityChanges++));
+ 
+ 		for (let i = 0; i < 15; i++) {
+ 			model.addNotification({ severity: Severity.Error, message: `Message ${i}` });
+ 		}
+ 
+-		await toastVisible;
++		await Promise.resolve();
++		await flushAnimationFrame();
+ 
+ 		assert.deepStrictEqual({
+ 			notifications: model.notifications.length,
+ 			toasts: container.querySelectorAll('.notification-toast-container').length,
+-			visible: toasts.isVisible
++			visible: toasts.isVisible,
++			visibilityChanges
+ 		}, {
+ 			notifications: 15,
+-			toasts: 3,
+-			visible: true
++			toasts: 0,
++			visible: false,
++			visibilityChanges: 0
+ 		});
+ 	});
+ 
+Index: tomoshibi-code-server/lib/vscode/src/vs/workbench/test/browser/workbenchTestServices.ts
+===================================================================
+--- tomoshibi-code-server.orig/lib/vscode/src/vs/workbench/test/browser/workbenchTestServices.ts
++++ tomoshibi-code-server/lib/vscode/src/vs/workbench/test/browser/workbenchTestServices.ts
+@@ -545,7 +545,12 @@ class TestEnvironmentServiceWithArgs ext
+ 	args = [];
+ }
+ 
+-export const TestEnvironmentService = new TestEnvironmentServiceWithArgs('', URI.file('tests').with({ scheme: 'vscode-tests' }), Object.create(null), TestProductService);
++export const TestEnvironmentService = new TestEnvironmentServiceWithArgs('', URI.file('tests').with({ scheme: 'vscode-tests' }), {
++	userDataPath: '/User',
++	isEnabledFileDownloads: false,
++	isEnabledFileUploads: false,
++	isEnabledCoderGettingStarted: false
++}, TestProductService);
+ 
+ export class TestProgressService implements IProgressService {
+ 

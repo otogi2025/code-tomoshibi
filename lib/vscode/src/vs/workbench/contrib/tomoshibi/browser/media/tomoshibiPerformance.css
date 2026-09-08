@@ -1,0 +1,122 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/* Server performance readout in the bottom-left status bar, plus the popover it opens.
+ *
+ * The shell (docs/ui-shell/codet-shell.html) pins these colours to fixed greys; here every one
+ * of them is expressed as a theme variable or as an opacity on the status bar foreground, so
+ * the readout stays legible on a blue, black or light status bar.
+ *
+ * Two constraints this file lives under:
+ * - stylelint rejects any --vscode-* name missing from build/lib/stylelint/vscode-known-variables.json,
+ *   and --vscode-editor-font-family is not in it, so the monospace stack is written out by hand.
+ * - hygiene's unicode check covers CSS, so this file stays pure ASCII. The arrow glyphs of the
+ *   status bar live in the TypeScript strings instead. */
+
+.monaco-workbench .part.statusbar .tomoshibi-perf-status {
+	display: flex;
+	align-items: center;
+	height: 100%;
+	gap: 8px;
+	padding: 0 6px;
+	border: 0;
+	background: transparent;
+	color: var(--vscode-statusBar-foreground);
+	font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+	font-size: 11px;
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+	cursor: pointer;
+	touch-action: manipulation;
+	-webkit-tap-highlight-color: transparent;
+}
+
+.monaco-workbench .part.statusbar .tomoshibi-perf-status:hover {
+	background: var(--vscode-statusBarItem-hoverBackground);
+}
+
+.monaco-workbench .part.statusbar .tomoshibi-perf-status:active,
+.monaco-workbench .part.statusbar .tomoshibi-perf-status.active {
+	background: var(--vscode-statusBarItem-activeBackground);
+}
+
+.monaco-workbench .part.statusbar .tomoshibi-perf-key {
+	font-weight: 600;
+	opacity: .65;
+}
+
+.monaco-workbench .part.statusbar .tomoshibi-perf-val {
+	opacity: 1;
+}
+
+/* The stopwatch is a glyph from the Tomoshibi icon font, not an inline SVG. */
+.monaco-workbench .part.statusbar .tomoshibi-perf-status .codicon {
+	font-size: 12px;
+	opacity: .65;
+	margin: 0 1px 0 3px;
+}
+
+.context-view .tomoshibi-perf-detail {
+	box-sizing: border-box;
+	width: 300px;
+	padding: 8px;
+	border: 1px solid var(--vscode-widget-border);
+	border-radius: 6px;
+	background: var(--vscode-editorWidget-background);
+	color: var(--vscode-editorWidget-foreground);
+	box-shadow: 0 6px 24px var(--vscode-widget-shadow);
+	font-family: var(--vscode-font-family);
+}
+
+.context-view .tomoshibi-perf-detail h4 {
+	margin: 2px 6px 6px;
+	font-size: 11px;
+	font-weight: 600;
+	letter-spacing: .5px;
+	opacity: .65;
+}
+
+.context-view .tomoshibi-perf-detail h4 + h4,
+.context-view .tomoshibi-perf-kv + h4 {
+	margin-top: 10px;
+}
+
+.context-view .tomoshibi-perf-kv {
+	display: grid;
+	grid-template-columns: auto 1fr auto;
+	gap: 4px 10px;
+	padding: 0 6px;
+	align-items: center;
+	font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+	font-size: 11.5px;
+	font-variant-numeric: tabular-nums;
+}
+
+.context-view .tomoshibi-perf-kv.procs {
+	grid-template-columns: 1fr auto;
+}
+
+.context-view .tomoshibi-perf-bar {
+	height: 6px;
+	overflow: hidden;
+	border-radius: 3px;
+	background: color-mix(in srgb, currentColor 22%, transparent);
+}
+
+.context-view .tomoshibi-perf-bar > i {
+	display: block;
+	width: 0;
+	height: 100%;
+	background: var(--vscode-charts-blue);
+	transition: width 160ms linear;
+}
+
+.context-view .tomoshibi-perf-bar > i.warn {
+	background: var(--vscode-charts-yellow);
+}
+
+.context-view .tomoshibi-perf-v {
+	text-align: right;
+}

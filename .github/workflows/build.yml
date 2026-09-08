@@ -1,0 +1,98 @@
+# Code-Tomoshibi: build the linux-x64 release tarball on a GitHub-hosted runner.
+# The build itself is unchanged (ci/build/*.sh); this file only provides the
+# environment those scripts expect. ci/build/build-vscode.sh refuses to run
+# outside a dedicated, memory-limited cgroup named *tomoshibi-code-build* with
+# at least 12 GiB of RAM, so the VS Code step runs inside a transient systemd
+# scope that satisfies that guard.
+name: build-linux-x64
+
+on:
+  push:
+    branches: [main]
+    # 纯文档 / 截图改动不值得跑一次 8 分钟的全量编译
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+  workflow_dispatch:
+
+env:
+  VERSION: 4.132.0-tomoshibi.2
+  VSCODE_TARGET: linux-x64
+  DISABLE_V8_COMPILE_CACHE: "1"
+  ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+  PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+jobs:
+  build:
+    name: linux-x64
+    runs-on: ubuntu-22.04
+    timeout-minutes: 240
+    steps:
+      - name: Runner facts
+        run: |
+          nproc
+          free -g
+          df -h /
+          cat /proc/self/cgroup
+          stat -fc %T /sys/fs/cgroup
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          df -h /
+
+      - name: System deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libkrb5-dev libsecret-1-dev libxkbfile-dev libx11-dev pkg-config
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            lib/vscode/package-lock.json
+
+      - name: Install code-server deps
+        run: SKIP_SUBMODULE_DEPS=1 npm ci
+
+      - name: Build code-server (tsc)
+        run: npm run build
+
+      - name: Install VS Code deps
+        working-directory: lib/vscode
+        run: npm ci
+
+      - name: Build VS Code (inside memory-limited scope)
+        run: |
+          sudo systemd-run --scope --quiet \
+            --unit=tomoshibi-code-build \
+            --description="Code-Tomoshibi VS Code build" \
+            -p MemoryMax=12G \
+            -- runuser -u "$USER" -- env \
+              PATH="$PATH" HOME="$HOME" \
+              VERSION="$VERSION" VSCODE_TARGET="$VSCODE_TARGET" \
+              TOMOSHIBI_ISOLATED_BUILD=1 \
+              DISABLE_V8_COMPILE_CACHE=1 ELECTRON_SKIP_BINARY_DOWNLOAD=1 \
+              GITHUB_TOKEN="$GITHUB_TOKEN" \
+              bash -c "cd '$PWD' && npm run build:vscode"
+
+      - name: Release
+        run: npm run release
+
+      - name: Pack
+        run: |
+          tar -C release -czf "codet-${GITHUB_SHA:0:11}.tar.gz" .
+          ls -la codet-*.tar.gz
+          echo "product.json commit: $(grep -o '"commit": *"[^"]*"' release/lib/vscode/product.json | head -1)"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: codet-release
+          path: codet-*.tar.gz
+          retention-days: 14
+          compression-level: 0

@@ -1,0 +1,23 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/*
+ * The three icons to the left of this entry are glyphs from the Tomoshibi icon font
+ * (see ../tomoshibi/browser/tomoshibiIcons.ts), not CSS overrides, so nothing about them
+ * belongs in this file.
+ *
+ * MADE BY ITSUKI: same weight / tracking / spacing as the old production build
+ * (its workbench.html __tomoshibiLogoutCss__ block). It is always the last item on
+ * the right, so the `.right.last-visible-item` corner rule has to be out-specified. */
+.monaco-workbench .part.statusbar > .items-container > .statusbar-item[id="status.tomoshibi.logout"] > .statusbar-item-label,
+.monaco-workbench .part.statusbar > .items-container > .statusbar-item.right.last-visible-item[id="status.tomoshibi.logout"] > .statusbar-item-label {
+	margin: 0 3px;
+	padding: 0 7px;
+	color: #9b9bfa;
+	font-size: 11px;
+	font-weight: 700;
+	letter-spacing: 1px;
+	white-space: nowrap;
+}

@@ -1,0 +1,47 @@
+# Allowlist of pre-existing JavaScript files (.js, .cjs, .mjs).
+#
+# This file is consumed by eslint.config.js and gates the
+# `local/code-no-new-javascript-files` lint rule.
+#
+# DO NOT ADD NEW ENTRIES. Write new files in TypeScript instead.
+# Modifications to this file require sign-off from the CODEOWNERS.
+#
+# Lines starting with `#` are comments. Blank lines are ignored.
+
+.github/skills/heap-snapshot-analysis/helpers/streamSnapshot.mjs
+build/azure-pipelines/common/installPlaywright.js
+build/azure-pipelines/github-check-run.js
+build/builtin/browser-main.js
+build/builtin/main.js
+build/codex/generate-protocol.mjs
+eslint.config.js
+extensions/cpp/build/update-grammars.js
+extensions/html/build/update-grammar.mjs
+extensions/json/build/update-grammars.js
+extensions/latex/build/update-grammars.js
+extensions/less/build/update-grammar.js
+extensions/objective-c/build/update-grammars.js
+extensions/php/build/update-grammar.mjs
+extensions/postinstall.mjs
+extensions/razor/build/update-grammar.mjs
+extensions/rust/build/update-grammar.mjs
+extensions/sql/build/update-grammar.mjs
+extensions/theme-seti/build/update-icon-theme.js
+extensions/typescript-basics/build/update-grammars.mjs
+extensions/yaml/build/update-grammar.js
+gulpfile.mjs
+scripts/chat-simulation/common/perf-scenarios.js
+scripts/chat-simulation/common/utils.js
+scripts/chat-simulation/merge-ci-summary.js
+scripts/chat-simulation/test-chat-mem-leaks.js
+scripts/chat-simulation/test-chat-perf-regression.js
+scripts/code-agent-host.js
+scripts/code-perf.js
+scripts/code-server.js
+scripts/code-sessions-web.js
+scripts/code-web.js
+scripts/xterm-update.js
+src/vs/base/browser/dompurify/dompurify.js
+src/vs/base/common/marked/marked.js
+src/vs/base/common/semver/semver.js
+src/vs/workbench/contrib/webview/browser/pre/service-worker.js

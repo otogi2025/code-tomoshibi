@@ -1,0 +1,56 @@
+<!-- Copyright (C) Microsoft Corporation. All rights reserved. -->
+<!DOCTYPE html>
+<html>
+	<head>
+		<script>
+			performance.mark('code/didStartRenderer');
+			document.documentElement.classList.add('__tomoshibiBooting__');
+		</script>
+		<meta charset="utf-8" />
+
+		<!-- Mobile tweaks -->
+		<meta name="mobile-web-app-capable" content="yes" />
+		<meta name="apple-mobile-web-app-capable" content="yes" />
+		<meta name="apple-mobile-web-app-title" content="Code">
+		<link rel="apple-touch-icon" sizes="192x192" href="{{BASE}}/_static/src/browser/media/pwa-icon-192.png" />
+		<link rel="apple-touch-icon" sizes="512x512" href="{{BASE}}/_static/src/browser/media/pwa-icon-512.png" />
+
+		<!-- Disable pinch zooming -->
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no">
+		<meta name="color-scheme" content="dark">
+			<style id="__tomoshibiBootBackground__">
+				html, body { margin: 0; min-width: 100%; min-height: 100%; background: #181818; color-scheme: dark; }
+				html.__tomoshibiBooting__ body::before { content: ""; position: fixed; inset: 0; z-index: 2147483647; background: #181818; opacity: 1; transition: opacity 160ms ease-out; animation: __tomoshibiBootFallback__ 1ms 8s forwards; }
+				html.__tomoshibiBooting__.__tomoshibiReady__ body::before { opacity: 0; }
+				@keyframes __tomoshibiBootFallback__ { to { opacity: 0; visibility: hidden; } }
+			</style>
+
+		<!-- Workbench Configuration -->
+		<meta id="vscode-workbench-web-configuration" data-settings="{{WORKBENCH_WEB_CONFIGURATION}}">
+
+		<!-- Workbench Auth Session -->
+
+		<!-- Workbench Icon/Manifest/CSS -->
+		<link rel="icon" href="{{BASE}}/_static/src/browser/media/favicon-dark-support.svg" />
+		<link rel="alternate icon" href="{{BASE}}/_static/src/browser/media/favicon.ico" type="image/x-icon" />
+		<link rel="manifest" href="{{VS_BASE}}/manifest.json" crossorigin="use-credentials" />
+		<link rel="stylesheet" href="{{WORKBENCH_WEB_BASE_URL}}/out/vs/code/browser/workbench/workbench.css">
+
+	</head>
+
+	<body aria-label="">
+	</body>
+
+	<!-- Startup (do not modify order of script tags!) -->
+	<script>
+		const baseUrl = new URL('{{WORKBENCH_WEB_BASE_URL}}', window.location).toString();
+		globalThis._VSCODE_FILE_ROOT = baseUrl + '/out/';
+	</script>
+	<script>
+		performance.mark('code/willLoadWorkbenchMain');
+	</script>
+	<!-- always ensure built in english NLS messages -->
+	<script type="module" src="{{WORKBENCH_NLS_FALLBACK_URL}}?tomoshibi-zh=2"></script>
+	<!-- zh-cn is installed in the fallback catalog; no empty second NLS request. -->
+	<script type="module" src="{{WORKBENCH_WEB_BASE_URL}}/out/vs/code/browser/workbench/workbench.js?tomoshibi-native-ui=25"></script>
+	</html>

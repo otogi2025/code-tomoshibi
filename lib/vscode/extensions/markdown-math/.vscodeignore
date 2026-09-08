@@ -1,0 +1,8 @@
+src/**
+copy-katex-assets.mts
+tsconfig*.json
+**/*.tsbuildinfo
+esbuild*
+cgmanifest.json
+package-lock.json
+.gitignore

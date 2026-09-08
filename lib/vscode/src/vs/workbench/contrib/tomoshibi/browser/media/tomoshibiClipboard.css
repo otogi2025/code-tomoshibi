@@ -1,0 +1,186 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/* Clipboard history and scratch notes, the two sidebar views of requirement 7-1.
+ *
+ * The numbers come from the UI shell (docs/ui-shell/codet-shell.html, rules .clip / .note /
+ * .rowbtn). The shell pins its colours to fixed greys; here each one is a theme variable, so
+ * the two views stay legible on a light theme as well.
+ *
+ * Two constraints this file lives under:
+ * - stylelint rejects any --vscode-* name missing from build/lib/stylelint/vscode-known-variables.json,
+ *   and --vscode-editor-font-family is not in it, so the monospace stack is written out by hand.
+ * - hygiene's unicode check covers CSS, so this file stays pure ASCII. Every glyph and every
+ *   label of these two views lives in the TypeScript strings instead. */
+
+.monaco-workbench .tomoshibi-pane-body {
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+}
+
+/* ---- shared bottom button row ---- */
+
+.monaco-workbench .tomoshibi-pane-body .tomoshibi-rowbtn {
+	display: flex;
+	flex: none;
+	gap: 6px;
+	padding: 4px 8px;
+	border-top: 1px solid var(--vscode-sideBarSectionHeader-border);
+}
+
+.monaco-workbench .tomoshibi-pane-body .tomoshibi-rowbtn > button {
+	flex: 1;
+	padding: 5px 0;
+	border: 1px solid var(--vscode-input-border, transparent);
+	border-radius: 3px;
+	background: var(--vscode-button-background);
+	color: var(--vscode-button-foreground);
+	font-family: inherit;
+	font-size: 11px;
+	cursor: pointer;
+}
+
+.monaco-workbench .tomoshibi-pane-body .tomoshibi-rowbtn > button:hover {
+	background: var(--vscode-button-hoverBackground);
+}
+
+.monaco-workbench .tomoshibi-pane-body .tomoshibi-rowbtn > button:focus-visible {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: -1px;
+}
+
+.monaco-workbench .tomoshibi-pane-body .tomoshibi-placeholder {
+	padding: 8px;
+	color: var(--vscode-descriptionForeground);
+	font-size: 11px;
+	line-height: 1.5;
+	word-break: break-word;
+}
+
+/* ---- clipboard history ---- */
+
+.monaco-workbench .tomoshibi-clip-list {
+	flex: 1;
+	overflow-y: auto;
+	overflow-x: hidden;
+}
+
+.monaco-workbench .tomoshibi-clip {
+	display: flex;
+	align-items: flex-start;
+	gap: 6px;
+	padding: 6px 8px;
+	border-bottom: 1px solid var(--vscode-sideBarSectionHeader-border);
+	cursor: pointer;
+}
+
+.monaco-workbench .tomoshibi-clip:hover {
+	background: var(--vscode-list-hoverBackground);
+}
+
+.monaco-workbench .tomoshibi-clip > .t {
+	flex: 1;
+	min-width: 0;
+	/* --vscode-editor-font-family is not in vscode-known-variables.json, hence the literal stack. */
+	font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+	font-size: 11.5px;
+	line-height: 1.35;
+	white-space: pre-wrap;
+	word-break: break-all;
+	/* Roughly three lines; anything longer is clipped rather than allowed to fill the sidebar. */
+	max-height: 3.4em;
+	overflow: hidden;
+}
+
+.monaco-workbench .tomoshibi-clip > .m {
+	flex: none;
+	font-size: 10px;
+	white-space: nowrap;
+	color: var(--vscode-descriptionForeground);
+	padding-top: 1px;
+}
+
+.monaco-workbench .tomoshibi-clip > .b {
+	flex: none;
+	padding: 0 4px;
+	border: none;
+	background: transparent;
+	color: var(--vscode-descriptionForeground);
+	font-family: inherit;
+	font-size: 11px;
+	cursor: pointer;
+}
+
+.monaco-workbench .tomoshibi-clip > .b:hover {
+	color: inherit;
+}
+
+.monaco-workbench .tomoshibi-clip > .b:focus-visible {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: -1px;
+}
+
+/* ---- scratch notes ---- */
+
+.monaco-workbench .tomoshibi-note-list {
+	flex: 1;
+	overflow-y: auto;
+	overflow-x: hidden;
+}
+
+.monaco-workbench .tomoshibi-note {
+	position: relative;
+	margin: 6px 8px;
+}
+
+.monaco-workbench .tomoshibi-note > textarea {
+	display: block;
+	box-sizing: border-box;
+	width: 100%;
+	min-height: 64px;
+	padding: 6px 22px 6px 8px;
+	border: 1px solid var(--vscode-input-border, transparent);
+	border-radius: 4px;
+	background: var(--vscode-input-background);
+	color: var(--vscode-input-foreground);
+	font-family: inherit;
+	font-size: 12px;
+	line-height: 1.45;
+	resize: none;
+	overflow: hidden;
+}
+
+.monaco-workbench .tomoshibi-note > textarea:focus {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: -1px;
+}
+
+.monaco-workbench .tomoshibi-note > .x {
+	position: absolute;
+	top: 3px;
+	right: 3px;
+	width: 18px;
+	height: 18px;
+	padding: 0;
+	border: none;
+	border-radius: 3px;
+	background: transparent;
+	color: var(--vscode-descriptionForeground);
+	font-family: inherit;
+	font-size: 11px;
+	line-height: 18px;
+	cursor: pointer;
+}
+
+.monaco-workbench .tomoshibi-note > .x:hover {
+	background: var(--vscode-list-hoverBackground);
+	color: inherit;
+}
+
+.monaco-workbench .tomoshibi-note > .x:focus-visible {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: -1px;
+}

@@ -1,0 +1,205 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+/* allow-any-unicode-file */
+
+html, body {
+	margin: 0;
+	padding: 0;
+	height: 100%;
+	width: 100%;
+	background: var(--vscode-editor-background);
+}
+
+body {
+	overflow: hidden;
+}
+
+#markdown-workbench {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	width: 100%;
+	min-width: 0;
+	background: var(--vscode-editor-background);
+}
+
+#markdown-toolbar {
+	display: flex;
+	align-items: center;
+	flex: 0 0 43px;
+	min-width: 0;
+	border-bottom: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, .3));
+	background: var(--vscode-editorWidget-background, var(--vscode-editor-background));
+	font-family: var(--vscode-font-family);
+	user-select: none;
+	-webkit-user-select: none;
+}
+
+.markdown-toolbar-scroll {
+	display: flex;
+	align-items: center;
+	gap: 3px;
+	min-width: 0;
+	flex: 1 1 auto;
+	overflow-x: auto;
+	overflow-y: hidden;
+	padding: 4px 6px;
+	scrollbar-width: none;
+}
+
+.markdown-toolbar-scroll::-webkit-scrollbar { display: none; }
+
+.markdown-toolbar-fixed {
+	display: flex;
+	align-items: center;
+	gap: 3px;
+	flex: 0 0 auto;
+	padding: 4px 6px 4px 2px;
+	background: inherit;
+}
+
+#markdown-toolbar button,
+#markdown-toolbar select {
+	height: 34px;
+	min-width: 34px;
+	box-sizing: border-box;
+	border: 1px solid transparent;
+	border-radius: 5px;
+	padding: 0 9px;
+	color: var(--vscode-foreground);
+	background: transparent;
+	font: 13px var(--vscode-font-family);
+	white-space: nowrap;
+	touch-action: manipulation;
+}
+
+#markdown-toolbar button:hover,
+#markdown-toolbar button:active,
+#markdown-toolbar select:hover {
+	background: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, .18));
+	border-color: var(--vscode-contrastBorder, transparent);
+}
+
+#markdown-toolbar .is-bold { font-weight: 700; }
+#markdown-toolbar .is-italic { font-style: italic; }
+#markdown-toolbar .is-strike { text-decoration: line-through; }
+
+.markdown-toolbar-divider {
+	width: 1px;
+	height: 22px;
+	flex: 0 0 1px;
+	margin: 0 3px;
+	background: var(--vscode-panel-border, rgba(128, 128, 128, .3));
+}
+
+#markdown-status {
+	max-width: 110px;
+	color: var(--vscode-descriptionForeground);
+	font-size: 12px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+#editor {
+	min-height: 0;
+	flex: 1 1 auto;
+	width: 100%;
+	overflow: auto;
+	-webkit-overflow-scrolling: touch;
+}
+
+#markdown-outline {
+	position: absolute;
+	top: 44px;
+	right: 0;
+	bottom: 0;
+	z-index: 10;
+	display: flex;
+	flex-direction: column;
+	width: min(300px, 82vw);
+	box-sizing: border-box;
+	border-left: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, .3));
+	background: var(--vscode-sideBar-background, var(--vscode-editor-background));
+	box-shadow: -8px 0 24px rgba(0, 0, 0, .18);
+	transform: translateX(102%);
+	transition: transform 120ms ease-out;
+}
+
+#markdown-outline.is-open { transform: translateX(0); }
+
+.markdown-outline-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	height: 44px;
+	padding: 0 10px 0 14px;
+	border-bottom: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, .3));
+	font: 14px var(--vscode-font-family);
+}
+
+.markdown-outline-header button {
+	width: 34px;
+	height: 34px;
+	border: 0;
+	border-radius: 5px;
+	color: var(--vscode-foreground);
+	background: transparent;
+	font-size: 24px;
+}
+
+.markdown-outline-list {
+	min-height: 0;
+	overflow: auto;
+	padding: 6px;
+}
+
+.markdown-outline-item {
+	display: block;
+	width: 100%;
+	min-height: 38px;
+	box-sizing: border-box;
+	border: 0;
+	border-radius: 5px;
+	padding: 7px 8px 7px calc(10px + var(--outline-level) * 13px);
+	color: var(--vscode-foreground);
+	background: transparent;
+	font: 13px var(--vscode-font-family);
+	text-align: left;
+}
+
+.markdown-outline-item:hover,
+.markdown-outline-item:active { background: var(--vscode-list-hoverBackground); }
+
+.markdown-outline-empty {
+	padding: 16px 10px;
+	color: var(--vscode-descriptionForeground);
+	font: 13px var(--vscode-font-family);
+}
+
+/* The upstream table already supports direct cell editing. Give it a larger,
+ * spreadsheet-like hit area without adding another grid implementation. */
+#editor .md-table td,
+#editor .md-table th {
+	min-width: 92px;
+	min-height: 34px;
+	padding-top: 7px;
+	padding-bottom: 7px;
+	border-color: var(--vscode-panel-border, rgba(128, 128, 128, .35));
+}
+
+#editor .md-table.md-block-active td {
+	background: color-mix(in srgb, var(--vscode-editor-background) 92%, var(--vscode-focusBorder));
+}
+
+@media (max-width: 700px) {
+	.markdown-toolbar-fixed button[data-command="readonly"] { font-size: 0; width: 38px; padding: 0; }
+	.markdown-toolbar-fixed button[data-command="readonly"]::after { content: '模式'; font-size: 12px; }
+	#markdown-status { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+	#markdown-outline { transition: none; }
+}

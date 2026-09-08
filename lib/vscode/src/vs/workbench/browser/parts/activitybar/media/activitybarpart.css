@@ -1,0 +1,145 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.monaco-workbench .part.activitybar {
+	width: var(--activity-bar-width, 48px);
+	height: 100%;
+}
+
+/* Activity Bar - shadow when sidebar is hidden or on the right */
+.monaco-workbench.nosidebar .part.activitybar {
+	box-shadow: var(--vscode-shadow-md);
+}
+
+.monaco-workbench.activitybar-right .part.activitybar {
+	box-shadow: var(--vscode-shadow-md);
+}
+
+.monaco-workbench .activitybar.bordered::before {
+	content: '';
+	float: left;
+	position: absolute;
+	box-sizing: border-box;
+	height: 100%;
+	width: 0px;
+	border-color: inherit;
+}
+
+.monaco-workbench .activitybar.left.bordered::before {
+	right: 0;
+	border-right-style: solid;
+	border-right-width: 1px;
+}
+
+.monaco-workbench .activitybar.right.bordered::before {
+	left: 0;
+	border-left-style: solid;
+	border-left-width: 1px;
+}
+
+.monaco-workbench .activitybar > .content {
+	height: 100%;
+	display: flex;
+	flex-direction: column;
+	justify-content: space-between;
+}
+
+/** Viewlet Switcher */
+
+.monaco-workbench .activitybar > .content .monaco-action-bar {
+	text-align: left;
+	background-color: inherit;
+}
+
+.monaco-workbench .activitybar .action-item:focus {
+	outline: 0 !important; /* activity bar indicates focus custom */
+}
+
+/* Code-Tomoshibi: the launcher buttons sit directly under the view-container buttons;
+ * this margin pushes the global bar (settings gear) to the bottom instead of the composite bar. */
+.monaco-workbench .activitybar .tomoshibi-activity-launchers {
+	display: flex;
+	flex: 0 0 auto;
+	flex-direction: column;
+	align-items: stretch;
+	margin-bottom: auto;
+}
+
+.monaco-workbench .activitybar .tomoshibi-activity-launcher {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 100%;
+	height: var(--activity-bar-action-height, 48px);
+	padding: 0;
+	border: 0;
+	background: transparent;
+	color: var(--vscode-activityBar-inactiveForeground);
+	cursor: pointer;
+	-webkit-tap-highlight-color: transparent;
+	touch-action: manipulation;
+}
+
+.monaco-workbench .activitybar .tomoshibi-activity-launcher:hover,
+.monaco-workbench .activitybar .tomoshibi-activity-launcher:focus-visible {
+	color: var(--vscode-activityBar-foreground);
+}
+
+.monaco-workbench .activitybar .tomoshibi-activity-launcher > .codicon {
+	font-size: var(--activity-bar-icon-size, 24px);
+}
+
+/** Menu Bar */
+
+.monaco-workbench .activitybar .menubar {
+	width: 100%;
+	height: 35px;
+}
+
+.monaco-workbench .activitybar .menubar.compact .toolbar-toggle-more {
+	width: 100%;
+	height: 35px;
+}
+
+/** Code-Tomoshibi: permanent on-screen keys (Esc, newline) at the top-left corner, right of
+ *  the compact menu. Same look as the old production overlay (title bar background, 13px/600).
+ *  The activity bar part clips overflow, so the keys live in the workbench container and
+ *  ActivitybarPart.layoutTomoshibiSoftKeys() writes top/left from the bar's rectangle, laying
+ *  them out left to right with an 8px gap (TOMOSHIBI_SOFT_KEY_GAP). */
+.monaco-workbench > .tomoshibi-soft-key {
+	position: absolute;
+	top: 0;
+	left: 48px;
+	height: 35px;
+	min-width: 56px;
+	z-index: 60;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 0 10px;
+	border: 0;
+	border-radius: 0;
+	font-family: var(--vscode-font-family);
+	font-size: 13px;
+	font-weight: 600;
+	background: var(--vscode-titleBar-activeBackground, transparent);
+	color: var(--vscode-foreground);
+	-webkit-tap-highlight-color: transparent;
+	touch-action: manipulation;
+	cursor: pointer;
+}
+
+.monaco-workbench > .tomoshibi-soft-key:hover,
+.monaco-workbench > .tomoshibi-soft-key:active {
+	background: rgba(128, 128, 128, .28);
+}
+
+/* Narrow (portrait iPad with the side bar open): shrink so it never covers the menu */
+@media (max-width: 480px) {
+	.monaco-workbench > .tomoshibi-soft-key {
+		min-width: 44px;
+		font-size: 11px;
+	}
+}

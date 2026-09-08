@@ -1,0 +1,194 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/*
+ * The handles, the loupe and the menu are absolutely positioned children of the
+ * terminal wrapper, so the wrapper has to be a containing block. Only
+ * `.fixed-dims` wrappers were positioned before, the rest were static, so the
+ * contribution adds `tomoshibi-touch-anchor` for as long as the UI is up. That
+ * keeps the change to the wrapper's layout scoped to an active touch selection.
+ */
+.monaco-workbench .terminal-wrapper.tomoshibi-touch-anchor {
+	position: relative;
+}
+
+/* Suppress the iPadOS callout bubble that would otherwise race the long press. */
+.monaco-workbench .terminal-wrapper .xterm-screen {
+	-webkit-touch-callout: none;
+}
+
+/* While a handle or a long press is being dragged the browser must not scroll. */
+.monaco-workbench .terminal-wrapper.tomoshibi-touch-dragging {
+	touch-action: none;
+}
+
+/*
+ * The workbench hover lives outside the terminal panel, which is a stacking context of its own, so
+ * it paints over the handles, the loupe and the menu no matter what z-index they are given. The
+ * contribution puts this class on the workbench container for as long as the touch selection UI is
+ * up, which covers every hover the panel can produce -- title bar, tab, activity bar, view header
+ * -- without touching the hover service itself. `display` rather than `visibility`, so the hover
+ * also stops taking the taps aimed at the menu underneath it.
+ */
+.tomoshibi-touch-suppress-hover .monaco-hover.workbench-hover,
+.tomoshibi-touch-suppress-hover .workbench-hover-pointer {
+	display: none !important;
+}
+
+/*
+ * Handles: a 2px bar one cell high with a 12px dot above (start) or below (end),
+ * matching the iOS selection handles. iOS blue, one tone per theme.
+ */
+.monaco-workbench .tomoshibi-touch-handle {
+	position: absolute;
+	z-index: 40; /* above .xterm-viewport (30) and the overview ruler (31) */
+	width: 2px;
+	background: #0a84ff;
+	touch-action: none;
+	cursor: default;
+}
+
+.monaco-workbench.vs .tomoshibi-touch-handle {
+	background: #007aff;
+}
+
+/* Transparent hit area, at least 32x32, so the thin bar stays reachable. */
+.monaco-workbench .tomoshibi-touch-handle::before {
+	content: '';
+	position: absolute;
+	left: 50%;
+	top: 50%;
+	width: 40px;
+	height: 44px;
+	transform: translate(-50%, -50%);
+}
+
+.monaco-workbench .tomoshibi-touch-handle-dot {
+	position: absolute;
+	left: 50%;
+	width: 12px;
+	height: 12px;
+	margin-left: -6px;
+	border-radius: 50%;
+	background: #0a84ff;
+	pointer-events: none;
+}
+
+.monaco-workbench.vs .tomoshibi-touch-handle-dot {
+	background: #007aff;
+}
+
+.monaco-workbench .tomoshibi-touch-handle.is-start .tomoshibi-touch-handle-dot {
+	top: -11px;
+}
+
+.monaco-workbench .tomoshibi-touch-handle.is-end .tomoshibi-touch-handle-dot {
+	bottom: -11px;
+}
+
+/*
+ * Loupe: a text readout of the cells around the drag point. Deliberately not a
+ * screenshot, a canvas snapshot cannot be taken from the webgl renderer.
+ */
+.monaco-workbench .tomoshibi-touch-loupe {
+	position: absolute;
+	z-index: 42;
+	width: 140px;
+	height: 44px;
+	box-sizing: border-box;
+	border-radius: 22px;
+	pointer-events: none;
+	background: var(--vscode-terminal-background, var(--vscode-editor-background));
+	border: 1px solid rgba(255, 255, 255, 0.28);
+	box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
+	color: var(--vscode-terminal-foreground, var(--vscode-editor-foreground));
+	font-family: var(--monaco-monospace-font);
+	line-height: 1;
+}
+
+.monaco-workbench .tomoshibi-touch-loupe::after {
+	content: '';
+	position: absolute;
+	left: 50%;
+	bottom: -8px;
+	margin-left: -8px;
+	border-left: 8px solid transparent;
+	border-right: 8px solid transparent;
+	border-top: 8px solid var(--vscode-terminal-background, var(--vscode-editor-background));
+}
+
+.monaco-workbench .tomoshibi-touch-loupe-content {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 100%;
+	height: 100%;
+	overflow: hidden;
+	border-radius: inherit;
+	white-space: pre;
+}
+
+.monaco-workbench .tomoshibi-touch-loupe-content > span {
+	display: inline-block;
+	padding: 2px 0;
+}
+
+.monaco-workbench .tomoshibi-touch-loupe-content > span.is-selected {
+	background: rgba(10, 132, 255, 0.25);
+}
+
+.monaco-workbench.vs .tomoshibi-touch-loupe-content > span.is-selected {
+	background: rgba(0, 122, 255, 0.25);
+}
+
+.monaco-workbench .tomoshibi-touch-loupe-content > span.is-target {
+	background: rgba(10, 132, 255, 0.45);
+}
+
+.monaco-workbench.vs .tomoshibi-touch-loupe-content > span.is-target {
+	background: rgba(0, 122, 255, 0.45);
+}
+
+/* Menu: the iOS black pill. */
+.monaco-workbench .tomoshibi-touch-menu {
+	position: absolute;
+	z-index: 44;
+	display: flex;
+	align-items: center;
+	padding: 4px;
+	border-radius: 9px;
+	background: #1c1c1e;
+	color: #fff;
+	box-shadow: 0 5px 20px rgba(0, 0, 0, 0.42);
+	font-family: var(--vscode-font-family);
+	font-size: 14px;
+	white-space: nowrap;
+	touch-action: manipulation;
+	-webkit-user-select: none;
+	user-select: none;
+}
+
+.monaco-workbench .tomoshibi-touch-menu button {
+	min-width: 54px;
+	height: 36px;
+	padding: 0 10px;
+	border: 0;
+	border-radius: 6px;
+	background: transparent;
+	color: inherit;
+	font: inherit;
+	white-space: nowrap;
+	cursor: pointer;
+}
+
+.monaco-workbench .tomoshibi-touch-menu button:active {
+	background: rgba(255, 255, 255, 0.18);
+}
+
+.monaco-workbench .tomoshibi-touch-menu-separator {
+	width: 1px;
+	height: 23px;
+	background: rgba(255, 255, 255, 0.22);
+}

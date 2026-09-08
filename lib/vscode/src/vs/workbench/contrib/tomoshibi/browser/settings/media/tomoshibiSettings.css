@@ -1,0 +1,469 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/* Code-Tomoshibi settings page.
+ *
+ * Every number here comes from the approved shell (docs/ui-shell/codet-shell.html, the `.settings`
+ * block); every colour is swapped for a theme variable so the page follows Dark 2026 and
+ * Light 2026 instead of the shell's fixed greys.
+ *
+ * Two constraints this file lives under:
+ * - hygiene's unicode check covers CSS, so this file stays pure ASCII and its comments are English.
+ * - stylelint rejects any --vscode-* name missing from build/lib/stylelint/vscode-known-variables.json. */
+
+/* The settings page is a modal overlay, not an editor tab. The scrim fills the workbench
+ * container (.monaco-workbench is position: relative), so opening settings never asks the
+ * workbench for room: the editor area and the terminal panel keep the widths they had. */
+
+.monaco-workbench .tomoshibi-settings-scrim {
+	position: absolute;
+	inset: 0;
+	z-index: 2560; /* Above the workbench parts and the quick input, below dialogs (2575). */
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: rgba(0, 0, 0, 0.5);
+}
+
+/* The dialog box. Width and height are capped in viewport units so the box stays inside the
+ * container on any iPad orientation; everything that does not fit scrolls inside .tomoshibi-
+ * settings-pg, which is the only scroller here. */
+
+.monaco-workbench .tomoshibi-settings {
+	position: relative;
+	width: min(720px, 92vw);
+	height: min(80vh, 620px);
+	max-height: calc(100% - 24px);
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+	border: 1px solid var(--vscode-editorWidget-border);
+	border-radius: 8px;
+	box-shadow: 0 8px 32px var(--vscode-widget-shadow);
+	background: var(--vscode-editor-background);
+	color: var(--vscode-foreground);
+}
+
+.monaco-workbench .tomoshibi-settings-hd {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	height: 35px;
+	flex: none;
+	padding: 0 6px;
+	border-bottom: 1px solid var(--vscode-editorWidget-border);
+}
+
+.monaco-workbench .tomoshibi-settings-hd h2 {
+	margin: 0;
+	font-size: 13px;
+	font-weight: 600;
+}
+
+.monaco-workbench .tomoshibi-settings-x {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	margin-left: auto;
+	width: 28px;
+	height: 28px;
+	font-size: 16px;
+	border: 0;
+	border-radius: 4px;
+	background: transparent;
+	color: var(--vscode-foreground);
+	cursor: pointer;
+}
+
+.monaco-workbench .tomoshibi-settings-x:hover {
+	background: var(--vscode-toolbar-hoverBackground);
+}
+
+.monaco-workbench .tomoshibi-settings-bd {
+	flex: 1;
+	display: grid;
+	grid-template-columns: 150px 1fr;
+	min-height: 0;
+}
+
+.monaco-workbench .tomoshibi-settings-bd > nav {
+	padding: 6px 0;
+	overflow: auto;
+	border-right: 1px solid var(--vscode-editorWidget-border);
+}
+
+.monaco-workbench .tomoshibi-settings-bd > nav > button {
+	display: block;
+	width: 100%;
+	padding: 7px 14px;
+	border: 0;
+	background: transparent;
+	text-align: left;
+	font: inherit;
+	color: var(--vscode-descriptionForeground);
+	cursor: pointer;
+}
+
+.monaco-workbench .tomoshibi-settings-bd > nav > button.on {
+	color: var(--vscode-foreground);
+	background: var(--vscode-list-activeSelectionBackground);
+	box-shadow: inset 2px 0 0 var(--vscode-focusBorder);
+}
+
+.monaco-workbench .tomoshibi-settings-pg {
+	overflow: auto;
+	padding: 12px 18px 40px;
+}
+
+.monaco-workbench .tomoshibi-settings-pg > section {
+	display: none;
+}
+
+.monaco-workbench .tomoshibi-settings-pg > section.on {
+	display: block;
+}
+
+.monaco-workbench .tomoshibi-settings-pg h3 {
+	margin: 4px 0 12px;
+	font-size: 15px;
+	font-weight: 600;
+}
+
+.monaco-workbench .tomoshibi-settings-note {
+	max-width: 60ch;
+	margin: 0 0 10px;
+	color: var(--vscode-descriptionForeground);
+}
+
+.monaco-workbench .tomoshibi-settings-opt {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	padding: 9px 0;
+	border-bottom: 1px solid var(--vscode-editorWidget-border);
+}
+
+.monaco-workbench .tomoshibi-settings-l {
+	flex: 1;
+	min-width: 0;
+}
+
+.monaco-workbench .tomoshibi-settings-l small {
+	display: block;
+	margin-top: 2px;
+	font-size: 11.5px;
+	color: var(--vscode-descriptionForeground);
+}
+
+.monaco-workbench .tomoshibi-settings-select,
+.monaco-workbench .tomoshibi-settings-text,
+.monaco-workbench .tomoshibi-settings-number {
+	max-width: 160px;
+	padding: 4px 6px;
+	border: 1px solid var(--vscode-input-border);
+	border-radius: 3px;
+	background: var(--vscode-input-background);
+	color: var(--vscode-input-foreground);
+	font: inherit;
+}
+
+.monaco-workbench .tomoshibi-settings-number {
+	width: 64px;
+}
+
+.monaco-workbench .tomoshibi-settings-mono {
+	font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+	color: var(--vscode-descriptionForeground);
+}
+
+.monaco-workbench .tomoshibi-sw {
+	position: relative;
+	flex: none;
+	width: 38px;
+	height: 22px;
+	padding: 0;
+	border: 0;
+	border-radius: 11px;
+	background: var(--vscode-input-border);
+	cursor: pointer;
+}
+
+.monaco-workbench .tomoshibi-sw::after {
+	content: "";
+	position: absolute;
+	top: 2px;
+	left: 2px;
+	width: 18px;
+	height: 18px;
+	border-radius: 50%;
+	background: var(--vscode-descriptionForeground);
+	transition: left 0.15s;
+}
+
+.monaco-workbench .tomoshibi-sw.on {
+	background: var(--vscode-button-background);
+}
+
+.monaco-workbench .tomoshibi-sw.on::after {
+	left: 18px;
+	background: var(--vscode-button-foreground);
+}
+
+.monaco-workbench .tomoshibi-btn {
+	padding: 5px 12px;
+	border: 1px solid var(--vscode-input-border);
+	border-radius: 4px;
+	background: transparent;
+	color: var(--vscode-foreground);
+	font: inherit;
+	cursor: pointer;
+}
+
+.monaco-workbench .tomoshibi-btn.pri {
+	border-color: var(--vscode-button-background);
+	background: var(--vscode-button-background);
+	color: var(--vscode-button-foreground);
+	font-weight: 600;
+}
+
+.monaco-workbench .tomoshibi-btn.dan {
+	color: var(--vscode-errorForeground);
+}
+
+.monaco-workbench .tomoshibi-settings table {
+	width: 100%;
+	border-collapse: collapse;
+	font-variant-numeric: tabular-nums;
+}
+
+.monaco-workbench .tomoshibi-settings th,
+.monaco-workbench .tomoshibi-settings td {
+	padding: 7px 8px;
+	border-bottom: 1px solid var(--vscode-editorWidget-border);
+	text-align: left;
+	font-size: 12.5px;
+}
+
+.monaco-workbench .tomoshibi-settings th {
+	font-size: 11px;
+	font-weight: 600;
+	letter-spacing: 0.4px;
+	color: var(--vscode-descriptionForeground);
+}
+
+.monaco-workbench .tomoshibi-settings .tomoshibi-tag {
+	padding: 1px 6px;
+	border-radius: 3px;
+	font-size: 10.5px;
+	background: var(--vscode-input-background);
+	color: var(--vscode-descriptionForeground);
+}
+
+.monaco-workbench .tomoshibi-settings .tomoshibi-tag.ok {
+	color: var(--vscode-terminal-ansiGreen);
+}
+
+/* Ports table. The action column is sized to its button so the three text columns keep the room;
+ * the text columns clip instead of wrapping because a process command line can be very long. */
+
+.monaco-workbench .tomoshibi-settings-ports td.tomoshibi-settings-mono {
+	color: var(--vscode-foreground);
+}
+
+.monaco-workbench .tomoshibi-settings-ports td.tomoshibi-settings-mono,
+.monaco-workbench .tomoshibi-settings-proc {
+	max-width: 220px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.monaco-workbench .tomoshibi-settings-ports td.tomoshibi-settings-act {
+	width: 1%;
+	text-align: right;
+	white-space: nowrap;
+}
+
+.monaco-workbench .tomoshibi-settings-empty {
+	color: var(--vscode-descriptionForeground);
+}
+
+.monaco-workbench .tomoshibi-settings-link {
+	color: var(--vscode-textLink-foreground);
+	cursor: pointer;
+	text-decoration: none;
+}
+
+.monaco-workbench .tomoshibi-settings-link:hover {
+	text-decoration: underline;
+}
+
+.monaco-workbench .tomoshibi-settings-add {
+	display: flex;
+	gap: 8px;
+	margin-top: 12px;
+}
+
+.monaco-workbench .tomoshibi-settings-portadd {
+	width: 180px;
+	max-width: 180px;
+}
+
+/* Narrow dialog. TomoshibiSettingsOverlay._updateNarrow() sets .narrow from the measured width
+ * of the box, which on a small screen is 92vw rather than the full 720px: the section list turns
+ * into a horizontally scrollable strip on top, every row stacks its control under its label, and
+ * text-like controls take the full width. Switch rows (.sw) keep the control beside the label
+ * because it fits. */
+
+.monaco-workbench .tomoshibi-settings.narrow .tomoshibi-settings-bd {
+	display: flex;
+	flex-direction: column;
+}
+
+.monaco-workbench .tomoshibi-settings.narrow .tomoshibi-settings-bd > nav {
+	display: flex;
+	flex: none;
+	gap: 2px;
+	padding: 0 6px;
+	overflow-x: auto;
+	overflow-y: hidden;
+	border-right: 0;
+	border-bottom: 1px solid var(--vscode-editorWidget-border);
+	scrollbar-width: none;
+}
+
+.monaco-workbench .tomoshibi-settings.narrow .tomoshibi-settings-bd > nav::-webkit-scrollbar {
+	display: none;
+}
+
+.monaco-workbench .tomoshibi-settings.narrow .tomoshibi-settings-bd > nav > button {
+	width: auto;
+	flex: none;
+	padding: 9px 10px;
+	white-space: nowrap;
+}
+
+.monaco-workbench .tomoshibi-settings.narrow .tomoshibi-settings-bd > nav > button.on {
+	background: transparent;
+	box-shadow: inset 0 -2px 0 var(--vscode-focusBorder);
+}
+
+.monaco-workbench .tomoshibi-settings.narrow .tomoshibi-settings-pg {
+	padding: 10px 12px 40px;
+}
+
+.monaco-workbench .tomoshibi-settings.narrow .tomoshibi-settings-opt {
+	flex-direction: column;
+	align-items: stretch;
+	gap: 6px;
+}
+
+.monaco-workbench .tomoshibi-settings.narrow .tomoshibi-settings-opt.sw {
+	flex-direction: row;
+	align-items: center;
+	gap: 12px;
+}
+
+.monaco-workbench .tomoshibi-settings.narrow .tomoshibi-settings-opt > .tomoshibi-settings-select,
+.monaco-workbench .tomoshibi-settings.narrow .tomoshibi-settings-opt > .tomoshibi-settings-text {
+	width: 100%;
+	max-width: none;
+	box-sizing: border-box;
+}
+
+.monaco-workbench .tomoshibi-settings.narrow .tomoshibi-settings-opt > .tomoshibi-settings-number,
+.monaco-workbench .tomoshibi-settings.narrow .tomoshibi-settings-opt > .tomoshibi-btn {
+	align-self: flex-start;
+}
+
+/* Ports table in the narrow pane: five columns do not fit in 220px, so each row becomes a
+ * two-line card. Line one is port, process (clipped) and the forwarded tag; line two is the
+ * address link with the action button at the right. A row without a tunnel keeps its dash
+ * address cell in the grid but hidden, so the button stays in the same place on every row. */
+
+.monaco-workbench .tomoshibi-settings.narrow .tomoshibi-settings-ports,
+.monaco-workbench .tomoshibi-settings.narrow .tomoshibi-settings-ports > tbody {
+	display: block;
+}
+
+.monaco-workbench .tomoshibi-settings.narrow .tomoshibi-settings-ports > thead {
+	display: none;
+}
+
+.monaco-workbench .tomoshibi-settings.narrow .tomoshibi-settings-ports tr {
+	display: grid;
+	grid-template-columns: auto minmax(0, 1fr) auto;
+	gap: 6px 8px;
+	align-items: center;
+	padding: 8px 0;
+	border-bottom: 1px solid var(--vscode-editorWidget-border);
+}
+
+.monaco-workbench .tomoshibi-settings.narrow .tomoshibi-settings-ports td {
+	display: block;
+	padding: 0;
+	border: 0;
+	max-width: none;
+}
+
+.monaco-workbench .tomoshibi-settings.narrow .tomoshibi-settings-ports td.tomoshibi-settings-empty {
+	grid-column: 1 / -1;
+}
+
+.monaco-workbench .tomoshibi-settings.narrow .tomoshibi-settings-ports td.tomoshibi-settings-proc {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.monaco-workbench .tomoshibi-settings.narrow .tomoshibi-settings-ports td.tomoshibi-settings-state {
+	grid-column: 3;
+	grid-row: 1;
+	white-space: nowrap;
+}
+
+.monaco-workbench .tomoshibi-settings.narrow .tomoshibi-settings-ports td.tomoshibi-settings-addr {
+	grid-column: 1 / 3;
+	grid-row: 2;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.monaco-workbench .tomoshibi-settings.narrow .tomoshibi-settings-ports td.tomoshibi-settings-addr.none {
+	visibility: hidden;
+}
+
+.monaco-workbench .tomoshibi-settings.narrow .tomoshibi-settings-ports td.tomoshibi-settings-act {
+	grid-column: 3;
+	grid-row: 2;
+	width: auto;
+}
+
+.monaco-workbench .tomoshibi-settings.narrow .tomoshibi-settings-add {
+	flex-wrap: wrap;
+}
+
+.monaco-workbench .tomoshibi-settings.narrow .tomoshibi-settings-portadd {
+	width: 100%;
+	max-width: none;
+}
+
+/* Thick scrollbars. The class is toggled onto the body by the settings contribution because
+ * Monaco's scrollable elements and xterm's viewport share no option that widens both. */
+
+body.tomoshibi-thick-scrollbar .monaco-scrollable-element > .scrollbar.vertical,
+body.tomoshibi-thick-scrollbar .monaco-scrollable-element > .scrollbar.vertical > .slider {
+	width: 14px;
+}
+
+body.tomoshibi-thick-scrollbar .monaco-scrollable-element > .scrollbar.horizontal,
+body.tomoshibi-thick-scrollbar .monaco-scrollable-element > .scrollbar.horizontal > .slider {
+	height: 14px;
+}
+
+body.tomoshibi-thick-scrollbar .xterm-viewport::-webkit-scrollbar {
+	width: 14px;
+}
