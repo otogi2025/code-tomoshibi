@@ -929,17 +929,13 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 			return filesToOpenOrCreate;
 		}
 
-		// Empty workbench configured to open untitled file if empty
-		else if (this.contextService.getWorkbenchState() === WorkbenchState.EMPTY && this.configurationService.getValue('workbench.startupEditor') === 'newUntitledFile') {
-			if (this.editorGroupService.hasRestorableState) {
-				return []; // do not open any empty untitled file if we restored groups/editors from previous session
-			}
-
-			return [{
-				editor: { resource: undefined } // open empty untitled file
-			}];
-		}
-
+		// Code-Tomoshibi always starts without an editor: the product opens straight
+		// into a terminal. Upstream picked this from `workbench.startupEditor`, but the
+		// only registration of that key sits in the orphaned welcomeGettingStarted
+		// contribution, so in this fork it has no schema, no default and no entry in the
+		// settings UI. Rather than read a key that cannot be configured, the behavior is
+		// fixed to `none`; editors requested explicitly (URL parameters, `defaultLayout`)
+		// still open through the branch above.
 		return [];
 	}
 
