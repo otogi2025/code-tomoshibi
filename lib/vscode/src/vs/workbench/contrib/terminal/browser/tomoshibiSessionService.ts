@@ -118,6 +118,11 @@ export interface ITomoshibiSessionService {
 export const TOMOSHIBI_SESSION_GROUP_COLORS: readonly string[] = ['#f2a154', '#b48cff', '#5fd38d', '#4da3ff', '#ff7a7a', '#ffd166'];
 
 const MIRROR_STORAGE_KEY = 'tomoshibi.terminal.sessions.v2';
+/**
+ * 「已经问过一次要不要开系统通知」。⛔ 只问一次：被拒之后再弹就是骚扰，而且浏览器把 denied 记死了，
+ * 再怎么问 `requestPermission()` 也只会立刻返回 denied。
+ */
+const NOTIFICATION_ASKED_STORAGE_KEY = 'tomoshibi.terminal.notificationPermissionAsked.v1';
 const V1_GROUPS_STORAGE_KEY = 'tomoshibi.terminal.sessionGroups.v1';
 const V1_TITLES_STORAGE_KEY = 'tomoshibi.terminal.sessionTitles.v1';
 const V1_PINNED_STORAGE_KEY = 'tomoshibi.terminal.pinnedSessions.v1';
@@ -292,6 +297,8 @@ export class TomoshibiSessionService extends Disposable implements ITomoshibiSes
 	private _loadRetryTimer: ReturnType<typeof setTimeout> | undefined;
 	/** 只在第一次进入「写不了」状态时提示一次；读通之后复位，下一次真出问题还会再提示。 */
 	private _notifiedReadOnly = false;
+	/** 见 {@link NOTIFICATION_ASKED_STORAGE_KEY}。 */
+	private _notificationPermissionAsked = false;
 
 	private readonly _sessionKeysByInstanceId = new Map<number, string>();
 	/** 每个实例的 onWillDispose/onDisposed 订阅，实例一走就跟着扔。 */
@@ -323,6 +330,7 @@ export class TomoshibiSessionService extends Disposable implements ITomoshibiSes
 		// only be trusted to paint the very first frame. The server file is the source of truth.
 		this._lastMirrorValue = this._storageService.get(MIRROR_STORAGE_KEY, StorageScope.PROFILE);
 		this._model = reviveModel(this._lastMirrorValue) ?? createEmptyModel();
+		this._notificationPermissionAsked = this._storageService.getBoolean(NOTIFICATION_ASKED_STORAGE_KEY, StorageScope.PROFILE, false);
 
 		this._saveScheduler = this._register(new RunOnceScheduler(() => void this._writeFile(), SAVE_DEBOUNCE_MS));
 		this._reconcileScheduler = this._register(new RunOnceScheduler(() => this._reconcile(), SESSION_RECONCILE_DELAY_MS));
@@ -971,9 +979,49 @@ export class TomoshibiSessionService extends Disposable implements ITomoshibiSes
 		this._notificationService.info(message);
 
 		const targetWindow = dom.getActiveWindow();
-		if (targetWindow.document.visibilityState === 'hidden' && targetWindow.Notification?.permission === 'granted') {
-			new targetWindow.Notification('Code-Tomoshibi', { body: message, tag: `tomoshibi-terminal-${instance.instanceId}` });
+		const permission = targetWindow.Notification?.permission;
+		if (permission === 'granted') {
+			if (targetWindow.document.visibilityState === 'hidden') {
+				new targetWindow.Notification('Code-Tomoshibi', { body: message, tag: `tomoshibi-terminal-${instance.instanceId}` });
+			}
+			return;
 		}
+		if (permission === 'default') {
+			this._requestNotificationPermission(targetWindow);
+		}
+	}
+
+	/**
+	 * 申请系统通知权限的唯一入口。⛔ 必须在用户手势里调 `Notification.requestPermission()` —— 所以走
+	 * 通知条上的按钮，那个 `run` 是真的 click 处理器。全仓库以前没有任何地方申请过权限，
+	 * `_notifyAgentComplete` 里那个 `permission === 'granted'` 分支因此从来没成立过。
+	 *
+	 * iPad 上还有一层：Safari 普通标签页里 `window.Notification` 根本是 undefined（iOS 只对「添加到
+	 * 主屏幕」的 Web App 暴露这个 API），这时 `permission` 是 undefined，连问都问不了，只能靠提示语
+	 * 让人先把站点加到主屏幕。
+	 */
+	private _requestNotificationPermission(targetWindow: Window & typeof globalThis): void {
+		const notificationApi = targetWindow.Notification;
+		if (!notificationApi || this._notificationPermissionAsked) {
+			return;
+		}
+		this._notificationPermissionAsked = true;
+		this._storageService.store(NOTIFICATION_ASKED_STORAGE_KEY, true, StorageScope.PROFILE, StorageTarget.USER);
+		this._notificationService.prompt(
+			Severity.Info,
+			nls.localize('tomoshibi.agent.notify.ask', "要不要在 agent 跑完时推一条系统通知？这样切到别的 App 也能知道。（iPad 上得先把本站「添加到主屏幕」再从那个图标打开，Safari 标签页里收不到。）"),
+			[{
+				label: nls.localize('tomoshibi.agent.notify.enable', "开启完成提醒"),
+				run: () => {
+					void notificationApi.requestPermission();
+				},
+			}, {
+				label: nls.localize('tomoshibi.agent.notify.never', "不用了"),
+				isSecondary: true,
+				run: () => { },
+			}],
+			{ sticky: true }
+		);
 	}
 
 	/**
