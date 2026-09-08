@@ -3,6 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { addDisposableListener, EventType, onDidRegisterWindow } from '../../../../base/browser/dom.js';
+import { mainWindow } from '../../../../base/browser/window.js';
 import { RunOnceScheduler } from '../../../../base/common/async.js';
 import { VSBuffer } from '../../../../base/common/buffer.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
@@ -106,6 +108,20 @@ export class TomoshibiNoteService extends Disposable implements ITomoshibiNoteSe
 				void this._reinitialize();
 			}
 		}));
+
+		// Writing is debounced by 800ms, and on the iPad the tab is very often discarded inside
+		// that window: Safari reclaims a backgrounded tab and the timer simply never runs, so the
+		// last thing typed is silently lost. Waiting for shutdown is not an option either, because
+		// the web lifecycle service does not support an async join (lifecycleService.ts:169-176).
+		// Getting the write out while the page is still alive is the only thing that works.
+		this._register(Event.runAndSubscribe(onDidRegisterWindow, ({ window, disposables }) => {
+			disposables.add(addDisposableListener(window.document, 'visibilitychange', () => {
+				if (window.document.visibilityState === 'hidden') {
+					this._saveScheduler.flush();
+				}
+			}));
+			disposables.add(addDisposableListener(window, EventType.PAGE_HIDE, () => this._saveScheduler.flush()));
+		}, { window: mainWindow, disposables: this._store }));
 	}
 
 	private async _reinitialize(): Promise<void> {
