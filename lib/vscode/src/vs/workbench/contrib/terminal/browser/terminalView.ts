@@ -351,6 +351,8 @@ const TOMOSHIBI_PILL_CLASS = 'tomoshibi-terminal-session-tab';
 const TOMOSHIBI_WRAP_CLASS = 'tomoshibi-terminal-session-group-wrap';
 const TOMOSHIBI_CHIP_CLASS = 'tomoshibi-terminal-session-chip';
 const TOMOSHIBI_TREE_CLASS = 'tomoshibi-session-tree';
+/** 未分组那条标题在树浮层里的复用键。分组 id 是 uuid，空串不会跟它撞。 */
+const TOMOSHIBI_TREE_UNGROUPED_KEY = '';
 /** Touch long press that promotes a press into a drag. Shorter than a context menu press. */
 const TOMOSHIBI_DRAG_LONG_PRESS_MS = 220;
 /** A finger that travels this far before the timer fires is scrolling the strip, not dragging. */
@@ -584,6 +586,27 @@ interface ITomoshibiPress {
 interface ITomoshibiPlacement {
 	readonly key: string;
 	readonly groupId: string | undefined;
+}
+
+/** Session 树浮层里的一行。按 instanceId 复用，所以 instance 是只读的。 */
+interface ITomoshibiTreeRow {
+	readonly element: HTMLButtonElement;
+	readonly status: HTMLElement;
+	readonly label: HTMLElement;
+	readonly instance: ITerminalInstance;
+	readonly disposables: DisposableStore;
+}
+
+/** Session 树浮层里的一条分段标题。按分组 id 复用，未分组那条用 TOMOSHIBI_TREE_UNGROUPED_KEY。 */
+interface ITomoshibiTreeHeader {
+	readonly element: HTMLElement;
+	/** 只有分组标题才有色点。 */
+	readonly dot: HTMLElement | undefined;
+	readonly name: HTMLElement;
+	readonly count: HTMLElement;
+	readonly disposables: DisposableStore;
+	/** 复用节点，所以分组对象每轮重新写一次，`...` 菜单从这里现取。 */
+	group: ITomoshibiSessionGroup | undefined;
 }
 
 /**
@@ -1585,19 +1608,29 @@ class TomoshibiSessionTreeActionViewItem extends ActionViewItem {
 	private _renderTree(container: HTMLElement, anchor: HTMLElement): IDisposable {
 		const store = new DisposableStore();
 		const root = dom.append(container, dom.$(`.${TOMOSHIBI_TREE_CLASS}`));
-		const rows = store.add(new DisposableStore());
-		const rerender = () => {
-			const scrollTop = root.scrollTop;
-			rows.clear();
-			dom.clearNode(root);
-			this._fill(root, rows);
-			root.scrollTop = scrollTop;
-		};
-		rerender();
-		store.add(this._sessionService.onDidChange(() => rerender()));
-		store.add(this._sessionService.onDidChangeActivity(() => rerender()));
-		store.add(this._terminalService.onDidChangeInstances(() => rerender()));
-		store.add(this._terminalService.onDidChangeActiveInstance(() => rerender()));
+		// ⛔ 浮层开着的时候不许整棵重建。挂在下面四个事件上的 onDidChangeActivity 由后台 agent 的
+		// running/idle 翻转和 12 秒空闲定时器触发，跟手指无关；原来每来一次就 clearNode + 重新
+		// _fill，行 button 全是新节点、旧的 click 监听随之释放，iPad 上从按下到 click 派发那几十到
+		// 几百毫秒里撞上一次就「点了没反应」，列表还会被打断 iOS 惯性滑动。
+		// 改成照条带 _sync() 的路子做增量：行按 instanceId、标题按分组 id 复用节点，只改 textContent
+		// 和 className，最后用 tomoshibiReconcileChildren 摆顺序——节点不换，监听就不会掉。
+		const rows = new Map<number, ITomoshibiTreeRow>();
+		const headers = new Map<string, ITomoshibiTreeHeader>();
+		store.add(toDisposable(() => {
+			for (const row of rows.values()) {
+				row.disposables.dispose();
+			}
+			for (const header of headers.values()) {
+				header.disposables.dispose();
+			}
+		}));
+		const footer = this._createTreeFooter(store);
+		const update = () => this._updateTree(root, rows, headers, footer);
+		update();
+		store.add(this._sessionService.onDidChange(update));
+		store.add(this._sessionService.onDidChangeActivity(update));
+		store.add(this._terminalService.onDidChangeInstances(update));
+		store.add(this._terminalService.onDidChangeActiveInstance(update));
 		// The context view's own dismissal watches its container, which here is the whole
 		// .monaco-workbench, so it never sees an "outside" click. The flyout dismisses itself.
 		const targetWindow = dom.getWindow(anchor);
@@ -1617,33 +1650,10 @@ class TomoshibiSessionTreeActionViewItem extends ActionViewItem {
 		return store;
 	}
 
-	private _fill(root: HTMLElement, store: DisposableStore): void {
-		const instances = tomoshibiVisibleInstances(this._terminalGroupService);
-		const activeInstanceId = this._terminalGroupService.activeInstance?.instanceId;
-
-		const ungrouped = instances.filter(instance => !this._sessionService.getGroupOf(instance));
-		// 空的分组下面本来就有 `members.length === 0` 跳过，未分组这一段必须同一个规矩：
-		// 全部 Session 都归了组（或一个可见 Session 都没有）时，一条「未分组 0」的空标题占满
-		// 约 29px 高，浮层在 iPad 上只有 70vh 可用，白挂一行还像是有内容没渲染出来。
-		if (ungrouped.length > 0) {
-			this._appendHeader(root, store, nls.localize('tomoshibi.session.tree.ungrouped', "未分组"), ungrouped.length, undefined);
-			for (const instance of ungrouped) {
-				this._appendRow(root, store, instance, activeInstanceId);
-			}
-		}
-		for (const group of this._sessionService.groups) {
-			const members = instances.filter(instance => this._sessionService.getGroupOf(instance)?.id === group.id);
-			if (members.length === 0) {
-				continue;
-			}
-			this._appendHeader(root, store, group.name, members.length, group);
-			for (const instance of members) {
-				this._appendRow(root, store, instance, activeInstanceId);
-			}
-		}
-
-		dom.append(root, dom.$('.tomoshibi-session-tree-separator'));
-		const newGroup = dom.append(root, dom.$('button.tomoshibi-session-tree-new')) as HTMLButtonElement;
+	/** 分隔线和「＋ 新建分组」跟数据无关，建一次就一直复用，每轮更新只是重新摆到列表末尾。 */
+	private _createTreeFooter(store: DisposableStore): readonly HTMLElement[] {
+		const separator = dom.$('.tomoshibi-session-tree-separator');
+		const newGroup = dom.$('button.tomoshibi-session-tree-new') as HTMLButtonElement;
 		newGroup.type = 'button';
 		newGroup.textContent = nls.localize('tomoshibi.session.tree.newGroup', "＋ 新建分组");
 		store.add(dom.addDisposableListener(newGroup, dom.EventType.CLICK, event => {
@@ -1651,26 +1661,86 @@ class TomoshibiSessionTreeActionViewItem extends ActionViewItem {
 			this._hide();
 			void createSessionGroup(TerminalLocation.Panel, this._terminalService, this._sessionService, this.element);
 		}));
+		return [separator, newGroup];
 	}
 
-	private _appendHeader(root: HTMLElement, store: DisposableStore, name: string, count: number, group: ITomoshibiSessionGroup | undefined): void {
-		const header = dom.append(root, dom.$('.tomoshibi-session-tree-header'));
-		if (group) {
-			const dot = dom.append(header, dom.$('span.tomoshibi-session-tree-color'));
-			dot.style.background = group.color;
+	/**
+	 * 一轮增量更新：按 instanceId / 分组 id 复用已有节点，只改内容，最后一次性摆顺序。
+	 * ⛔ 这里一个节点都不许重建 —— 重建就等于把用户手指底下那一行连同它的 click 监听换掉。
+	 */
+	private _updateTree(root: HTMLElement, rows: Map<number, ITomoshibiTreeRow>, headers: Map<string, ITomoshibiTreeHeader>, footer: readonly HTMLElement[]): void {
+		const instances = tomoshibiVisibleInstances(this._terminalGroupService);
+		const activeInstanceId = this._terminalGroupService.activeInstance?.instanceId;
+		const children: HTMLElement[] = [];
+		const liveRows = new Set<number>();
+		const liveHeaders = new Set<string>();
+
+		const section = (headerKey: string, name: string, group: ITomoshibiSessionGroup | undefined, members: readonly ITerminalInstance[]) => {
+			// 空的一段整段不画：分组如此，未分组也如此（浮层高度只有 70vh，空标题是纯损耗）。
+			if (members.length === 0) {
+				return;
+			}
+			liveHeaders.add(headerKey);
+			const header = headers.get(headerKey) ?? this._createTreeHeader(headers, headerKey, !!group);
+			header.group = group;
+			if (header.dot && group) {
+				header.dot.style.background = group.color;
+			}
+			header.name.textContent = name;
+			header.count.textContent = String(members.length);
+			children.push(header.element);
+			for (const instance of members) {
+				liveRows.add(instance.instanceId);
+				const row = rows.get(instance.instanceId) ?? this._createTreeRow(rows, instance);
+				this._updateTreeRow(row, activeInstanceId);
+				children.push(row.element);
+			}
+		};
+
+		section(TOMOSHIBI_TREE_UNGROUPED_KEY, nls.localize('tomoshibi.session.tree.ungrouped', "未分组"), undefined, instances.filter(instance => !this._sessionService.getGroupOf(instance)));
+		for (const group of this._sessionService.groups) {
+			section(group.id, group.name, group, instances.filter(instance => this._sessionService.getGroupOf(instance)?.id === group.id));
 		}
-		dom.append(header, dom.$('span.tomoshibi-session-tree-name')).textContent = name;
-		dom.append(header, dom.$('span.tomoshibi-session-tree-count')).textContent = String(count);
-		if (!group) {
-			return;
+		children.push(...footer);
+
+		for (const [instanceId, row] of [...rows]) {
+			if (!liveRows.has(instanceId)) {
+				row.disposables.dispose();
+				row.element.remove();
+				rows.delete(instanceId);
+			}
 		}
-		const more = dom.append(header, dom.$('span.tomoshibi-session-tree-more.codicon.codicon-ellipsis')) as HTMLElement;
-		more.setAttribute('role', 'button');
-		more.title = nls.localize('tomoshibi.session.tree.groupMenu', "分组操作");
-		store.add(dom.addDisposableListener(more, dom.EventType.CLICK, event => {
-			dom.EventHelper.stop(event, true);
-			this._openGroupMenu(more, group);
-		}));
+		for (const [headerKey, header] of [...headers]) {
+			if (!liveHeaders.has(headerKey)) {
+				header.disposables.dispose();
+				header.element.remove();
+				headers.delete(headerKey);
+			}
+		}
+		tomoshibiReconcileChildren(root, children);
+	}
+
+	private _createTreeHeader(headers: Map<string, ITomoshibiTreeHeader>, headerKey: string, grouped: boolean): ITomoshibiTreeHeader {
+		const element = dom.$('.tomoshibi-session-tree-header');
+		const dot = grouped ? dom.append(element, dom.$('span.tomoshibi-session-tree-color')) : undefined;
+		const name = dom.append(element, dom.$('span.tomoshibi-session-tree-name'));
+		const count = dom.append(element, dom.$('span.tomoshibi-session-tree-count'));
+		const disposables = new DisposableStore();
+		const header: ITomoshibiTreeHeader = { element, dot, name, count, disposables, group: undefined };
+		if (grouped) {
+			const more = dom.append(element, dom.$('span.tomoshibi-session-tree-more.codicon.codicon-ellipsis')) as HTMLElement;
+			more.setAttribute('role', 'button');
+			more.title = nls.localize('tomoshibi.session.tree.groupMenu', "分组操作");
+			disposables.add(dom.addDisposableListener(more, dom.EventType.CLICK, event => {
+				dom.EventHelper.stop(event, true);
+				// 分组对象会随重命名/换色换成新的，节点复用所以从 header 上现取。
+				if (header.group) {
+					this._openGroupMenu(more, header.group);
+				}
+			}));
+		}
+		headers.set(headerKey, header);
+		return header;
 	}
 
 	private _openGroupMenu(anchor: HTMLElement, group: ITomoshibiSessionGroup): void {
@@ -1692,27 +1762,22 @@ class TomoshibiSessionTreeActionViewItem extends ActionViewItem {
 		});
 	}
 
-	private _appendRow(root: HTMLElement, store: DisposableStore, instance: ITerminalInstance, activeInstanceId: number | undefined): void {
-		const row = dom.append(root, dom.$('button.tomoshibi-session-tree-item')) as HTMLButtonElement;
-		row.type = 'button';
-		const state = tomoshibiSessionStatusClass(instance, this._sessionService);
-		const rowStatus = dom.append(row, dom.$('span'));
-		rowStatus.className = tomoshibiSessionStatusClassName(state);
-		const label = dom.append(row, dom.$('span.tomoshibi-session-tree-label'));
-		// The whole point of the tree is that a Session name is never clipped here.
-		label.textContent = this._sessionService.getTitle(instance) || instance.title;
-		const active = instance.instanceId === activeInstanceId;
-		row.classList.toggle('is-active', active);
-		row.title = `${label.textContent} · ${tomoshibiSessionStatusText(instance, state)}`;
-		store.add(dom.addDisposableListener(row, dom.EventType.CLICK, event => {
+	private _createTreeRow(rows: Map<number, ITomoshibiTreeRow>, instance: ITerminalInstance): ITomoshibiTreeRow {
+		const element = dom.$('button.tomoshibi-session-tree-item') as HTMLButtonElement;
+		element.type = 'button';
+		const status = dom.append(element, dom.$('span'));
+		const label = dom.append(element, dom.$('span.tomoshibi-session-tree-label'));
+		const disposables = new DisposableStore();
+		// 行按 instanceId 复用，所以这里捕获的 instance 一辈子对得上这一行。
+		disposables.add(dom.addDisposableListener(element, dom.EventType.CLICK, event => {
 			dom.EventHelper.stop(event, true);
 			activateTomoshibiSession(instance, this._terminalGroupService);
 			this._hide();
 		}));
-		const more = dom.append(row, dom.$('span.tomoshibi-session-tree-more.codicon.codicon-ellipsis')) as HTMLElement;
+		const more = dom.append(element, dom.$('span.tomoshibi-session-tree-more.codicon.codicon-ellipsis')) as HTMLElement;
 		more.setAttribute('role', 'button');
 		more.title = nls.localize('tomoshibi.session.tree.rowMenu', "Session 操作");
-		store.add(dom.addDisposableListener(more, dom.EventType.CLICK, event => {
+		disposables.add(dom.addDisposableListener(more, dom.EventType.CLICK, event => {
 			dom.EventHelper.stop(event, true);
 			const actions = createTomoshibiSessionActions(instance, this._actionHost);
 			this._contextMenuService.showContextMenu({
@@ -1721,5 +1786,18 @@ class TomoshibiSessionTreeActionViewItem extends ActionViewItem {
 				onHide: () => dispose(actions),
 			});
 		}));
+		const row: ITomoshibiTreeRow = { element, status, label, instance, disposables };
+		rows.set(instance.instanceId, row);
+		return row;
+	}
+
+	private _updateTreeRow(row: ITomoshibiTreeRow, activeInstanceId: number | undefined): void {
+		const instance = row.instance;
+		const state = tomoshibiSessionStatusClass(instance, this._sessionService);
+		row.status.className = tomoshibiSessionStatusClassName(state);
+		// The whole point of the tree is that a Session name is never clipped here.
+		row.label.textContent = this._sessionService.getTitle(instance) || instance.title;
+		row.element.classList.toggle('is-active', instance.instanceId === activeInstanceId);
+		row.element.title = `${row.label.textContent} · ${tomoshibiSessionStatusText(instance, state)}`;
 	}
 }
