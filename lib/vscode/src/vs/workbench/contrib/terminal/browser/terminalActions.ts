@@ -457,13 +457,13 @@ export function registerTerminalActions() {
 			const sessionService = accessor.get(ITomoshibiSessionService);
 
 			const candidates = c.groupService.groups.flatMap(group => group.activeInstance ? [group.activeInstance] : []);
-			const sessions: ITomoshibiPopoverChoice[] = candidates.map((instance, index) => {
+			const sessions: ITomoshibiPopoverChoice[] = candidates.map(instance => {
 				const sessionGroup = sessionService.getGroupOf(instance);
 				const active = instance === c.groupService.activeInstance;
 				return {
 					id: String(instance.instanceId),
 					icon: active ? 'check' : 'terminal',
-					label: `${index + 1} · ${sessionService.getTitle(instance) || instance.title}`,
+					label: sessionService.getTitle(instance) || instance.title,
 					description: sessionGroup ? localize('tomoshibi.sessionManager.group', "分组：{0}", sessionGroup.name) : localize('tomoshibi.sessionManager.ungrouped', "未分组"),
 					current: active,
 				};
