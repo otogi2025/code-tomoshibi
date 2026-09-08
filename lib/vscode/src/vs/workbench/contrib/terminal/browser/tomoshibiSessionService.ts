@@ -131,6 +131,13 @@ const ACTIVITY_IDLE_MS = 12000;
 /** Coalesce window for the activity sniffer: a screen-repaint storm runs the regex once per
  * window instead of once per data chunk. This is a throttle, not a debounce — see `_queueActivity`. */
 const ACTIVITY_COALESCE_MS = 150;
+/**
+ * 每个合并窗口最多留这么多原始字节参与嗅探。剥离转义序列的两个全局正则以前是对**整块**数据跑的，
+ * 跑完却只用最后 2400 个字符（`state.tail`），`cat` 一个几 MB 的日志时每 150ms 就白扫一遍全部数据，
+ * 还顺带制造约 3 份整块 buffer 的临时字符串（iPad Safari 上 GC 压力比 CPU 更扎手）。
+ * 16KB 给转义序列留足了膨胀余量：尾巴是跨窗口累积的，被截掉的中间内容本来也进不了那 2400 字符。
+ */
+const ACTIVITY_RAW_TAIL_LIMIT = 16 * 1024;
 
 /**
  * 元数据键的三个命名空间。⛔ 三者绝不可以互相解析成对方 —— 把 pty id 和 instanceId 塞进同一个命名
@@ -910,7 +917,8 @@ export class TomoshibiSessionService extends Disposable implements ITomoshibiSes
 	 */
 	private _queueActivity(instance: ITerminalInstance, data: string): void {
 		const instanceId = instance.instanceId;
-		this._pendingActivityData.set(instanceId, (this._pendingActivityData.get(instanceId) ?? '') + data);
+		const merged = (this._pendingActivityData.get(instanceId) ?? '') + data;
+		this._pendingActivityData.set(instanceId, merged.length > ACTIVITY_RAW_TAIL_LIMIT ? merged.slice(-ACTIVITY_RAW_TAIL_LIMIT) : merged);
 		if (this._activityFlushTimers.has(instanceId)) {
 			return;
 		}
@@ -928,7 +936,10 @@ export class TomoshibiSessionService extends Disposable implements ITomoshibiSes
 		const instanceId = instance.instanceId;
 		const state = this._activityStates.get(instanceId) ?? { running: false, agentIdle: false, tail: '' };
 		const wasRunning = state.running;
-		const visible = String(data ?? '')
+		// ⛔ 先截断再剥离，不许反过来：剥离是两个全局正则，成本跟输入长度成正比，而下面只用最后
+		// 2400 个字符。`_queueActivity` 已经截过一次，这里再兜一次是给直接调进来的路径用的。
+		const raw = String(data ?? '');
+		const visible = (raw.length > ACTIVITY_RAW_TAIL_LIMIT ? raw.slice(-ACTIVITY_RAW_TAIL_LIMIT) : raw)
 			.replace(/\x1b\][^\x07]*(?:\x07|\x1b\\)/g, '')
 			.replace(/\x1b\[[0-?]*[ -\/]*[@-~]/g, '');
 		if (!visible.trim()) {
