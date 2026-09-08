@@ -39,7 +39,7 @@ Every terminal is a **Session**: a persistent process on the server, shown as a 
 - **Reorder, pin, rename, close.** Long-press a pill (220 ms) and drag to reorder or to drop it into another group. Pin a Session to the front. Rename it in a small popover. A tree flyout lists every Session and group when the row gets crowded.
 - **Split.** Two panes side by side, always horizontal regardless of where the panel is docked.
 - **No keyboard pop-ups.** Every Session prompt (pick a group, rename, manage) is a custom popover with no search box, so the iPad keyboard stays down.
-- **Survives the tab.** Close the page, sleep the iPad, change networks. Reopen and the same shells reattach with their scrollback, the one you were looking at first. A Session whose page was closed is kept on the server for 20 minutes by default, or 2 minutes once another page has connected without picking it up (`--reconnection-grace-time` raises the first number).
+- **Survives the tab.** Close the page, sleep the iPad, change networks. Reopen and the same shells reattach with their scrollback, the one you were looking at first. A Session whose page was closed is kept on the server for 3 hours by default, or 5 minutes once another page has connected without picking it up (`--reconnection-grace-time` changes the first number).
 
 ### A terminal you can use with a finger
 
@@ -108,33 +108,7 @@ PASSWORD=123456 node . \
 
 The first start writes code-server's usual `config.yaml` (`bind-addr`, `auth`, `password`, `cert`). `PASSWORD` or `HASHED_PASSWORD` in the environment override it. Put the whole thing behind HTTPS (Caddy, nginx); Safari's clipboard and a few other APIs only work in a secure context.
 
-Then drop this into `<user-data-dir>/User/settings.json`. The first two lines are not optional yet:
-
-```jsonc
-{
-  // Required: turns on the Session pill row and the Split / close buttons next to it. The stock tabs list it replaces was removed from the source.
-  "terminal.integrated.tabs.enabled": false,
-  // iPad Safari corrupts the WebGL glyph atlas after the file picker or a viewport change. DOM rendering is stable.
-  "terminal.integrated.gpuAcceleration": "off",
-
-  "terminal.integrated.enablePersistentSessions": true,
-  "terminal.integrated.persistentSessionReviveProcess": "onExitAndWindowClose",
-  "terminal.integrated.scrollback": 10000,
-  "terminal.integrated.persistentSessionScrollback": 100,
-  "terminal.integrated.copyOnSelection": true,
-  "terminal.integrated.rightClickBehavior": "paste",
-  "terminal.integrated.cursorStyle": "block",
-
-  "workbench.panel.defaultLocation": "left",
-  "window.commandCenter": false,
-  "workbench.layoutControl.enabled": false,
-  "workbench.startupEditor": "none",
-  "workbench.reduceMotion": "on",
-  "workbench.colorTheme": "Dark 2026"
-}
-```
-
-Baking these into the fork's defaults is on the to-do list.
+Nothing in `settings.json` is required. The iPad-specific behaviour ships as the fork's own defaults: DOM terminal rendering instead of WebGL (Safari corrupts the glyph atlas after the file picker or a viewport change), the panel on the left, no command center or layout controls, 10 000 lines of scrollback with sessions revived after the tab is closed, copy on selection and paste on right click, a block cursor, reduced motion, and the Dark 2026 theme. Each of those is an ordinary setting, so `<user-data-dir>/User/settings.json` can override any of them.
 
 ## Building from source
 
@@ -168,15 +142,13 @@ tar -C release -czf codet.tar.gz .
 | `src/` | code-server: the HTTP / websocket layer, CLI, login page, and the `/_tomoshibi/performance` route. |
 | `ci/build/` | Build scripts, including the memory guard. |
 | `.github/workflows/build.yml` | The only workflow. |
-| `patches/` | code-server's historical patch series. Kept for reference; it is *not* how this tree is produced. |
-| `docs/` | Still upstream code-server's documentation. Most of it does not apply here. |
+
+There is no patch series. The Tomoshibi changes are plain commits on top of VS Code `1.132.0`; compare against upstream with `git diff` if you need the delta.
 
 ## Known gaps
 
 Honest list, in the order they bite.
 
-- The terminal scrollbar still auto-hides the way xterm.js does on hover, so on an iPad it is invisible most of the time. Fix planned.
-- The pill row and the Split / close buttons depend on `terminal.integrated.tabs.enabled: false` in user settings (see above).
 - Shift+Enter only works as a newline on an iPad. In a desktop browser xterm.js gets the key first and submits the line.
 - The update check still points at upstream code-server's releases. Pass `--disable-update-check`.
 - The PWA name and the error pages use `--app-name`, which defaults to `code-server`.

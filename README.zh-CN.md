@@ -39,7 +39,7 @@ iPad 浏览器里的 VS Code 离「跑 agent 的人需要的东西」只差一�
 - **拖、钉、改名、关。** 长按胶囊（220 毫秒）拖动可以排序，也可以拖进别的组。可以把一个 Session 钉到最前面。改名在一个小浮层里做。胶囊多到放不下时，有一个树状列表把所有 Session 和分组列出来。
 - **分屏。** 左右两块，不管面板停在哪一边都是左右。
 - **不弹键盘。** 所有跟 Session 有关的提示（选分组、改名、管理）都是自定义浮层，里面没有搜索框，iPad 的软键盘不会跳出来。
-- **关掉网页也不死。** 关掉页面、让 iPad 睡觉、换网络，回来重新打开，还是原来那几个 shell，回滚缓冲区也在，你刚才看着的那个先回来。页面被关闭的 Session，服务器默认保留 20 分钟；如果这期间有别的页面连上来却没接手它，就只保留 2 分钟（`--reconnection-grace-time` 可以把前一个数调长）。
+- **关掉网页也不死。** 关掉页面、让 iPad 睡觉、换网络，回来重新打开，还是原来那几个 shell，回滚缓冲区也在，你刚才看着的那个先回来。页面被关闭的 Session，服务器默认保留 3 小时；如果这期间有别的页面连上来却没接手它，就只保留 5 分钟（`--reconnection-grace-time` 可以改前一个数）。
 
 ### 手指能用的终端
 
@@ -108,33 +108,7 @@ PASSWORD=123456 node . \
 
 第一次启动会写出 code-server 常规的 `config.yaml`（`bind-addr`、`auth`、`password`、`cert`）。环境变量 `PASSWORD` 或 `HASHED_PASSWORD` 优先于它。整个东西放到 HTTPS 后面（Caddy、nginx 都行）：Safari 的剪贴板和另外几个 API 只在安全上下文里工作。
 
-然后把下面这段放进 `<user-data-dir>/User/settings.json`。前两行暂时不是可选项：
-
-```jsonc
-{
-  // 必须：打开 Session 胶囊行和旁边的分屏 / 关闭按钮。它顶替的原版侧边标签列表已经从源码里删掉了。
-  "terminal.integrated.tabs.enabled": false,
-  // iPad Safari 在文件选择器返回或视口变化后会弄坏 WebGL 字形贴图。DOM 渲染是稳的。
-  "terminal.integrated.gpuAcceleration": "off",
-
-  "terminal.integrated.enablePersistentSessions": true,
-  "terminal.integrated.persistentSessionReviveProcess": "onExitAndWindowClose",
-  "terminal.integrated.scrollback": 10000,
-  "terminal.integrated.persistentSessionScrollback": 100,
-  "terminal.integrated.copyOnSelection": true,
-  "terminal.integrated.rightClickBehavior": "paste",
-  "terminal.integrated.cursorStyle": "block",
-
-  "workbench.panel.defaultLocation": "left",
-  "window.commandCenter": false,
-  "workbench.layoutControl.enabled": false,
-  "workbench.startupEditor": "none",
-  "workbench.reduceMotion": "on",
-  "workbench.colorTheme": "Dark 2026"
-}
-```
-
-把这些做成分叉自己的默认值，在待办清单上。
+`settings.json` 里没有必填项。iPad 相关的行为已经是分叉自己的默认值：终端用 DOM 渲染而不是 WebGL（Safari 在文件选择器返回或视口变化后会弄坏字形贴图）、面板在左边、没有命令中心和布局按钮、10000 行回滚且关掉标签页后 Session 还能续上、选中即复制、右键粘贴、方块光标、少动画、Dark 2026 主题。这些都是普通设置，`<user-data-dir>/User/settings.json` 里想改哪个都能改。
 
 ## 从源码编译
 
@@ -168,15 +142,13 @@ tar -C release -czf codet.tar.gz .
 | `src/` | code-server：HTTP / websocket 层、命令行、登录页，以及 `/_tomoshibi/performance` 路由。 |
 | `ci/build/` | 编译脚本，包括内存闸门。 |
 | `.github/workflows/build.yml` | 唯一的工作流。 |
-| `patches/` | code-server 历史上的补丁序列。留作参考，*不是* 这棵树的生成方式。 |
-| `docs/` | 还是上游 code-server 的文档，大部分跟这里对不上。 |
+
+没有补丁序列。Tomoshibi 的改动就是叠在 VS Code `1.132.0` 上的普通提交，要看差异直接跟上游 `git diff`。
 
 ## 已知的坑
 
 按硌人的程度排。
 
-- 终端滚动条还是 xterm.js 那套「悬停才出现」，iPad 上大部分时间看不见。准备修。
-- 胶囊行和分屏 / 关闭按钮依赖用户设置里的 `terminal.integrated.tabs.enabled: false`（见上）。
 - Shift+回车只在 iPad 上是换行。桌面浏览器里 xterm.js 先拿到按键，直接把这一行提交了。
 - 更新检查还指向上游 code-server 的发布页。传 `--disable-update-check`。
 - PWA 名称和错误页用的是 `--app-name`，默认值是 `code-server`。
