@@ -2497,6 +2497,13 @@ export class SearchView extends ViewPane {
 	}
 
 	private onFilesChanged(e: FileChangesEvent): void {
+		// 「按文件名搜索」那个 cacheKey 背后存的是一次真实的磁盘走查结果，而且按 filePattern 前缀
+		// 复用；文件被新建或删除之后继续吃它，新文件就永远搜不出来（跟 maxResults 截断是同一个
+		// 症状，只是换了条路）。这里只把 key 置回 undefined，下一次搜索才重新生成，所以高频文件
+		// 事件不会每次都往搜索进程发一次 clearCache。内容变化不影响文件名，gotUpdated 不管。
+		if (this.fileNameSearchCacheKey !== undefined && (e.gotAdded() || e.gotDeleted())) {
+			this.clearFileNameSearchCache();
+		}
 		if (!this.viewModel || (this.searchConfig.sortOrder !== SearchSortOrder.Modified && !e.gotDeleted())) {
 			return;
 		}
