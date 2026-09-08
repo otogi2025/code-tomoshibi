@@ -14,6 +14,7 @@ import { IAsyncDataSource, ITreeContextMenuEvent, ObjectTreeElementCollapseState
 import { Delayer, RunOnceScheduler, Throttler } from '../../../../base/common/async.js';
 import * as errors from '../../../../base/common/errors.js';
 import { Event } from '../../../../base/common/event.js';
+import { defaultGenerator } from '../../../../base/common/idGenerator.js';
 import { KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
 import { Disposable, DisposableStore, IDisposable, MutableDisposable } from '../../../../base/common/lifecycle.js';
 import { isLinux } from '../../../../base/common/platform.js';
@@ -70,7 +71,7 @@ import { createEditorFromSearchResult } from '../../searchEditor/browser/searchE
 import { ACTIVE_GROUP, IEditorService, SIDE_GROUP } from '../../../services/editor/common/editorService.js';
 import { IPreferencesService, ISettingsEditorOptions } from '../../../services/preferences/common/preferences.js';
 import { ITextQueryBuilderOptions, QueryBuilder } from '../../../services/search/common/queryBuilder.js';
-import { SemanticSearchBehavior, IPatternInfo, ISearchComplete, ISearchConfiguration, ISearchConfigurationProperties, ITextQuery, SearchCompletionExitCode, SearchSortOrder, TextSearchCompleteMessageType, ViewMode, isAIKeyword } from '../../../services/search/common/search.js';
+import { SemanticSearchBehavior, IPatternInfo, ISearchComplete, ISearchConfiguration, ISearchConfigurationProperties, ISearchService, ITextQuery, SearchCompletionExitCode, SearchSortOrder, TextSearchCompleteMessageType, ViewMode, isAIKeyword } from '../../../services/search/common/search.js';
 import { AISearchKeyword, TextSearchCompleteMessage } from '../../../services/search/common/searchExtTypes.js';
 import { ITextFileService } from '../../../services/textfile/common/textfiles.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
@@ -171,6 +172,7 @@ export class SearchView extends ViewPane {
 	private searchWidgetsContainerElement!: HTMLElement;
 	private fileNameSearchResults!: HTMLElement;
 	private fileNameSearchGeneration = 0;
+	private fileNameSearchCacheKey: string | undefined;
 	private readonly fileNameSearchDelayer = this._register(new Delayer<void>(150));
 	private searchWidget!: SearchWidget;
 	private size!: dom.Dimension;
@@ -245,6 +247,7 @@ export class SearchView extends ViewPane {
 		@IAccessibilitySignalService private readonly accessibilitySignalService: IAccessibilitySignalService,
 		@ITelemetryService private readonly telemetryService: ITelemetryService,
 		@ITerminalService private readonly terminalService: ITerminalService,
+		@ISearchService private readonly searchService: ISearchService,
 	) {
 
 		super(options, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, hoverService);
@@ -311,6 +314,7 @@ export class SearchView extends ViewPane {
 		this._register(this.fileService.onDidFilesChange(e => this.onFilesChanged(e)));
 		this._register(this.textFileService.untitled.onWillDispose(model => this.onUntitledDidDispose(model.resource)));
 		this._register(this.contextService.onDidChangeWorkbenchState(() => this.onDidChangeWorkbenchState()));
+		this._register(this.contextService.onDidChangeWorkspaceFolders(() => this.clearFileNameSearchCache()));
 		this._register(this.searchHistoryService.onDidClearHistory(() => this.clearHistory()));
 		this._register(this.configurationService.onDidChangeConfiguration(e => this.onConfigurationUpdated(e)));
 
@@ -491,6 +495,14 @@ export class SearchView extends ViewPane {
 		dom.append(parent, $('h3.tomoshibi-search-section-title.tomoshibi-content-search-title', undefined, '搜索文件内容'));
 	}
 
+	private clearFileNameSearchCache(): void {
+		const cacheKey = this.fileNameSearchCacheKey;
+		this.fileNameSearchCacheKey = undefined;
+		if (cacheKey) {
+			this.searchService.clearCache(cacheKey).then(undefined, err => errors.onUnexpectedError(err));
+		}
+	}
+
 	private async runFileNameSearch(rawPattern: string): Promise<void> {
 		const generation = ++this.fileNameSearchGeneration;
 		const pattern = rawPattern.trim();
@@ -509,6 +521,9 @@ export class SearchView extends ViewPane {
 		this.reLayout();
 
 		try {
+			if (!this.fileNameSearchCacheKey) {
+				this.fileNameSearchCacheKey = defaultGenerator.nextId();
+			}
 			const query = this.queryBuilder.file(this.contextService.getWorkspace().folders, {
 				_reason: 'searchViewFileName',
 				excludePattern: [
@@ -518,8 +533,9 @@ export class SearchView extends ViewPane {
 					{ pattern: 'browser-config/proot-apps/**' }
 				],
 				filePattern: pattern,
-				maxResults: 80,
-				sortByScore: false
+				cacheKey: this.fileNameSearchCacheKey,
+				maxResults: 512,
+				sortByScore: true
 			});
 			const complete = await this.viewModel.fileSearch(query);
 			if (generation !== this.fileNameSearchGeneration) {
@@ -535,13 +551,8 @@ export class SearchView extends ViewPane {
 				return;
 			}
 
-			const normalizedPattern = pattern.toLowerCase();
-			const rank = (match: typeof complete.results[number]): number => {
-				const name = match.resource.path.split('/').pop()?.toLowerCase() || '';
-				return name === normalizedPattern ? 0 : name.startsWith(normalizedPattern) ? 1 : name.includes(normalizedPattern) ? 2 : 3;
-			};
-			const rankedResults = [...complete.results].sort((a, b) => rank(a) - rank(b) || a.resource.path.localeCompare(b.resource.path));
-			for (const match of rankedResults) {
+			// 结果已由搜索引擎按 fuzzy score 排序（sortByScore: true），这里不再二次排序
+			for (const match of complete.results) {
 				const resource = match.resource;
 				const workspaceFolder = this.contextService.getWorkspaceFolder(resource);
 				const relativePath = workspaceFolder && resource.path.startsWith(workspaceFolder.uri.path)
@@ -2597,6 +2608,7 @@ export class SearchView extends ViewPane {
 
 	override dispose(): void {
 		this.isDisposed = true;
+		this.clearFileNameSearchCache();
 		this.saveState();
 		super.dispose();
 	}
