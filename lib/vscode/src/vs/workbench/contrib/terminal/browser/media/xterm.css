@@ -2,6 +2,8 @@
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
+/* allow-any-unicode-file -- Code-Tomoshibi's own notes in this file are written in Chinese, the
+ * same exemption the fork already takes in ~880 TypeScript files. */
 /**
  * Copyright (c) 2014 The xterm.js authors. All rights reserved.
  * Copyright (c) 2012-2013, Christopher Jeffrey (MIT License)
@@ -306,6 +308,31 @@
 
 .xterm .xterm-scrollable-element > .xterm-invisible.xterm-fade {
 	transition: opacity 800ms linear;
+}
+
+/* Code-Tomoshibi: 触摸设备上让竖向滚动条常显、常可点。
+ *
+ * 上游的显隐是鼠标驱动的：scrollableElement 靠 mouseover / mouseout 切 .xterm-visible /
+ * .xterm-invisible，滚动时短暂 reveal 一下、500ms 后收回。iPad 没有 hover，这根条实际长期停在
+ * .xterm-invisible 上 —— opacity: 0 看不见，pointer-events: none 连盲戳都点不着，等于没有滚动条。
+ *
+ * 权重：上游那条 `.xterm .xterm-scrollable-element > .xterm-invisible` 是 (0,3,0)，下面这条把
+ * 工作台与容器两层类名带上之后是 (0,7,0)，不靠 !important 也压得过它；!important 是多钉一道，
+ * 防止以后谁在别处补一条带 !important 的 opacity 又把它盖回去。
+ *
+ * 滑块不会压住最右一列字符：字符网格的宽度在 terminalInstance.ts 的 _getDimension 里已经扣掉了
+ * xterm.scrollbarWidth（TerminalScrollbarWidth.Default = 20），terminal.css 里 .xterm-viewport 的
+ * `right: 20px` 又把同样宽的一条让给了滚动条，两边都给它留着位置。
+ *
+ * 已知取舍：xterm 在「内容没超出一屏」时同样用 .xterm-invisible 表达，而那种情况下滑块是满高的，
+ * 所以缓冲区还没滚起来的新终端右侧会有一条满高的灰条。用 CSS 区分不出这两种 invisible。
+ */
+@media (any-pointer: coarse) {
+	.monaco-workbench .terminal-editor .xterm .xterm-scrollable-element > .xterm-scrollbar.xterm-vertical,
+	.monaco-workbench .pane-body.integrated-terminal .xterm .xterm-scrollable-element > .xterm-scrollbar.xterm-vertical {
+		opacity: 1 !important;
+		pointer-events: auto !important;
+	}
 }
 
 /* Scrollable Content Inset Shadow */
