@@ -1,7 +1,6 @@
 lib
 release-packages
 release
-helm-chart
 test/scripts
 test/e2e/extensions/test-extension
 package-lock.json
