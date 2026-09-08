@@ -509,11 +509,20 @@ export class TomoshibiSettingsOverlay extends Disposable {
 		input.placeholder = localize('tomoshibi.settings.ports.addPlaceholder', "手动添加端口，如 3000");
 		const submit = () => {
 			const port = Number.parseInt(input.value, 10);
-			input.value = '';
-			if (Number.isFinite(port) && port >= 1 && port <= 65535) {
-				this._forward('localhost', port);
+			if (!Number.isFinite(port) || port < 1 || port > 65535) {
+				// 先校验再清空。以前是反过来的：输错一位（80000）按「添加」，内容当场消失、表里
+				// 什么都没多、也没有任何提示，看起来像按钮坏了。照同仓库 numberControl 的做法把
+				// 输入留着，并给一个看得见的错误态。
+				input.classList.add('bad');
+				input.focus();
+				input.select();
+				return;
 			}
+			input.classList.remove('bad');
+			input.value = '';
+			this._forward('localhost', port);
 		};
+		store.add(addDisposableListener(input, EventType.INPUT, () => input.classList.remove('bad')));
 		store.add(addDisposableListener(input, EventType.KEY_DOWN, event => {
 			if (new StandardKeyboardEvent(event).equals(KeyCode.Enter)) {
 				event.preventDefault();

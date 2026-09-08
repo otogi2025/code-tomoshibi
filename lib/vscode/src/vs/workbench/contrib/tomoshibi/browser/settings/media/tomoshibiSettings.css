@@ -173,6 +173,11 @@
 	width: 64px;
 }
 
+/* Rejected input keeps what was typed; this is the only sign that it was rejected. */
+.monaco-workbench .tomoshibi-settings-number.bad {
+	border-color: var(--vscode-inputValidation-errorBorder);
+}
+
 .monaco-workbench .tomoshibi-settings-mono {
 	font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 	color: var(--vscode-descriptionForeground);
