@@ -10,7 +10,7 @@ import { CommandsRegistry } from '../../../../platform/commands/common/commands.
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { TerminalLocation } from '../../../../platform/terminal/common/terminal.js';
-import { ITerminalGroupService, ITerminalInstance, ITerminalService } from '../../terminal/browser/terminal.js';
+import { ITerminalInstance, ITerminalService } from '../../terminal/browser/terminal.js';
 
 /**
  * Puts text into the active Session without running it.
@@ -50,13 +50,18 @@ CommandsRegistry.registerCommand(TOMOSHIBI_INSERT_TEXT_COMMAND_ID, async (access
 	}
 
 	const terminalService = accessor.get(ITerminalService);
-	const groupService = accessor.get(ITerminalGroupService);
 	const notificationService = accessor.get(INotificationService);
 
-	const instance = groupService.activeInstance ?? await terminalService.createTerminal({ location: TerminalLocation.Panel });
-	groupService.setActiveInstance(instance);
-	// 面板先开：新建的终端要先有容器才好起 xterm，下面还可能等上几秒，藏着等对用户是黑屏。
-	await groupService.showPanel(true);
+	// 用 terminalService.activeInstance 而不是 groupService 的：后者是 activeGroup?.activeInstance，
+	// 只看底部面板里的终端组。session 被移到编辑器区时它是 undefined，会白开一个新终端；面板里有
+	// 一个、编辑器区那个正被聚焦的混合态下，它返回的还是面板里那个，文本会被静默送进另一个 session。
+	const instance = terminalService.activeInstance ?? await terminalService.createTerminal({ location: TerminalLocation.Panel });
+
+	// focusInstance 按 instance.target 分流（terminalService.ts:398-407）：面板里的走 showPanel，
+	// 编辑器区的走 revealEditor。不能沿用 groupService.setActiveInstance + showPanel —— 对编辑器区的
+	// 实例前者会抛「Terminal with ID x does not exist」，后者还会把面板盖到那个终端前面。
+	// 先让它露面再等：新建的终端要先有容器才好起 xterm，下面还可能等上几秒，藏着等对用户是黑屏。
+	await terminalService.focusInstance(instance);
 
 	// `createTerminal()` 返回时 xterm 还卡在动态 import 里、pty 也还没起来（terminalInstance.ts:615-641），
 	// 此刻 `sendText` 里那个同步的 `this.xterm?.raw.modes.bracketedPasteMode` 判断必然为假。
