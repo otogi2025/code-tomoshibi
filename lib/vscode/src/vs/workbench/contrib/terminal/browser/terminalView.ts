@@ -955,7 +955,7 @@ class SwitchTerminalActionViewItem extends BaseActionViewItem {
 			if (this._drag) {
 				if (event.pointerId === this._drag.pointerId) {
 					dom.EventHelper.stop(event, true);
-					this._endDrag();
+					this._endDrag(true);
 				}
 				return;
 			}
@@ -986,7 +986,8 @@ class SwitchTerminalActionViewItem extends BaseActionViewItem {
 		}, true));
 		this._register(dom.addDisposableListener(targetWindow.document, 'pointercancel', event => {
 			if (this._drag && event.pointerId === this._drag.pointerId) {
-				this._endDrag();
+				// ⛔ pointercancel 是「这次交互被系统中止了」，不是「用户完成了放置」，不许提交排序。
+				this._endDrag(false);
 				return;
 			}
 			if (this._press && event.pointerId === this._press.pointerId) {
@@ -1139,7 +1140,14 @@ class SwitchTerminalActionViewItem extends BaseActionViewItem {
 		}
 	}
 
-	private _endDrag(): void {
+	/**
+	 * `commit` 为真才写回排序。pointerup 传 true，pointercancel 传 false —— 后者是系统把这次指针
+	 * 序列掐了（底边上滑切 App、控制中心下拉、拖拽中第二根手指落屏触发缩放），用户根本没松手确认。
+	 * 真实胶囊在拖拽过程中已经被 _placeGhost 搬到了落点上，所以取消这条路必须靠一次 _sync() 按模型
+	 * 顺序把 DOM 复位，⛔ 不许走 _applyPlacements —— 否则中断瞬间屏幕上的顺序就被当成用户的选择存下来，
+	 * 悬停在折叠组 chip 上时还会顺手把这个 Session 归进那个组。
+	 */
+	private _endDrag(commit: boolean): void {
 		const drag = this._drag;
 		const switcher = this._switcher;
 		if (!drag || !switcher) {
@@ -1153,6 +1161,10 @@ class SwitchTerminalActionViewItem extends BaseActionViewItem {
 			wrap.chip.classList.remove('is-drop-target');
 		}
 		this._suppressClickUntil = Date.now() + TOMOSHIBI_DRAG_CLICK_GUARD_MS;
+		if (!commit) {
+			this._sync();
+			return;
+		}
 		this._applyPlacements(drag.dropGroupId ? this._placementsForCollapsedDrop(drag.key, drag.dropGroupId) : this._placementsFromDom());
 	}
 
@@ -1392,8 +1404,8 @@ class SwitchTerminalActionViewItem extends BaseActionViewItem {
 		// _endDrag 又用 _placementsFromDom 从 DOM 反读顺序；而挂在 _sync 上的那批事件里，标题变化、
 		// 主状态变化、活动变化、子进程变化都由后台终端自己触发，跟手指无关。中途跑一次 reconcile 就
 		// 会把拖着的胶囊按模型顺序搬回原位，松手时读到的是回滚后的 DOM，排序静默丢失。
-		// 被跳过的那次刷新由 _endDrag 兜住：它先把 _drag 清空，再走 _applyPlacements，末尾必有一次
-		// _sync()。setTitle 之类的写入不受影响，挡住的只是重画。
+		// 被跳过的那次刷新由 _endDrag 兜住：它先把 _drag 清空，提交时走 _applyPlacements（末尾必有一次
+		// _sync()），取消时直接 _sync() 复位。setTitle 之类的写入不受影响，挡住的只是重画。
 		if (!switcher || this._suppressSync || this._drag) {
 			return;
 		}
