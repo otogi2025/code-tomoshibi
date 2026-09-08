@@ -1083,7 +1083,18 @@ export class TomoshibiSessionService extends Disposable implements ITomoshibiSes
 
 	private _pruneDeadInstances(): void {
 		const live = new Set(this._terminalService.instances.map(instance => instance.instanceId));
-		for (const instanceId of [...this._sessionKeysByInstanceId.keys()]) {
+		// ⛔ 遍历源必须是「真正存着状态的那几张表的并集」，不能只拿 `_sessionKeysByInstanceId`：
+		// 那张表只有 `sessionKey()` 被调用过的实例才有（渲染路径只对每个组的 activeInstance 调），
+		// 而四张活动表是按 `onAnyInstanceData` 填的，覆盖所有实例 —— 从编辑器区直接新建的终端、
+		// 重载后恢复的分屏里用户从没切过去的窗格，销毁时条目和 12 秒定时器就全留下了。
+		const tracked = new Set<number>([
+			...this._sessionKeysByInstanceId.keys(),
+			...this._activityStates.keys(),
+			...this._activityTimers.keys(),
+			...this._activityFlushTimers.keys(),
+			...this._pendingActivityData.keys(),
+		]);
+		for (const instanceId of tracked) {
 			if (live.has(instanceId)) {
 				continue;
 			}
@@ -1105,6 +1116,16 @@ export class TomoshibiSessionService extends Disposable implements ITomoshibiSes
 			}
 			this._activityFlushTimers.delete(instanceId);
 			this._pendingActivityData.delete(instanceId);
+		}
+		// `_waitingKeys` 是按元数据键存的，实例走了它不会自己掉。此刻 `_sessionKeysByInstanceId`
+		// 里剩下的就是活实例的键，其余一律清掉 —— 否则一条黄点会挂在已经不存在的 Session 上。
+		if (this._waitingKeys.size) {
+			const liveKeys = new Set(this._sessionKeysByInstanceId.values());
+			for (const key of [...this._waitingKeys]) {
+				if (!liveKeys.has(key)) {
+					this._waitingKeys.delete(key);
+				}
+			}
 		}
 	}
 
