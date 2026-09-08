@@ -23,8 +23,8 @@
 
     <!-- 这里曾经预取 workbench.js / workbench.css，但工作台真正请求的是
          base + "/stable-<vscode commit>/static/out/..." 再加 "?tomoshibi-native-ui=25"。
-         登录页只有 BASE 和 CS_STATIC_BASE 两个模板变量（见 src/node/http.ts 的
-         replaceTemplates），既拿不到 vscode product.json 的 commit，也拿不到那个查询串
+         登录页的模板变量只有 TO / BASE / CS_STATIC_BASE / OPTIONS 四个（见 src/node/http.ts
+         的 replaceTemplates），没有哪个能拼出 stable-<commit> 这一段，也拿不到那个查询串
          （写死在 lib/vscode 的 workbench.html 里），拼不出同一个缓存键，预取的 9.9MB
          一个字节都用不上，因此整段去掉。要恢复预取必须先新增模板变量。 -->
     <meta id="coder-options" data-settings="{{OPTIONS}}" />
