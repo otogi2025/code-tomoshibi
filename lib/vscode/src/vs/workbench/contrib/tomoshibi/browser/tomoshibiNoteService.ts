@@ -83,6 +83,9 @@ export class TomoshibiNoteService extends Disposable implements ITomoshibiNoteSe
 	private readonly _saveScheduler: RunOnceScheduler;
 	private readonly _whenReady: Promise<void>;
 
+	/** Guards against two initialisations overlapping when the setting is flipped twice quickly. */
+	private _generation = 0;
+
 	constructor(
 		@IFileService private readonly _fileService: IFileService,
 		@IStorageService private readonly _storageService: IStorageService,
@@ -94,6 +97,25 @@ export class TomoshibiNoteService extends Disposable implements ITomoshibiNoteSe
 
 		this._saveScheduler = this._register(new RunOnceScheduler(() => void this._flush(), SAVE_DEBOUNCE_MS));
 		this._whenReady = this._initialize();
+
+		// The setting used to be read exactly once, at construction. Flipping it then did nothing
+		// visible at all: the title kept saying the old thing and new notes kept going to the old
+		// place, and only a reload made the notes appear to vanish.
+		this._register(this._configurationService.onDidChangeConfiguration(event => {
+			if (event.affectsConfiguration(SYNC_CONFIG_KEY)) {
+				void this._reinitialize();
+			}
+		}));
+	}
+
+	private async _reinitialize(): Promise<void> {
+		// Whatever is still sitting on the debounce belongs to the old target, so it has to land
+		// there before the target moves underneath it.
+		if (this._saveScheduler.isScheduled()) {
+			this._saveScheduler.cancel();
+			await this._flush();
+		}
+		await this._initialize();
 	}
 
 	get whenReady(): Promise<void> {
@@ -113,6 +135,10 @@ export class TomoshibiNoteService extends Disposable implements ITomoshibiNoteSe
 	}
 
 	private async _initialize(): Promise<void> {
+		const generation = ++this._generation;
+		const previous = this._notes;
+		let resource: URI | undefined;
+
 		const syncToServer = this._configurationService.getValue<boolean>(SYNC_CONFIG_KEY) ?? DEFAULT_SYNC_TO_SERVER;
 		if (syncToServer) {
 			try {
@@ -120,37 +146,50 @@ export class TomoshibiNoteService extends Disposable implements ITomoshibiNoteSe
 				if (environment) {
 					// Same directory the terminal Session state uses, so everything Code-Tomoshibi
 					// keeps per server sits together and fileService creates the parents for us.
-					this._resource = joinPath(environment.globalStorageHome, 'tomoshibi', 'notes.json');
+					resource = joinPath(environment.globalStorageHome, 'tomoshibi', 'notes.json');
 				}
 			} catch (error) {
 				this._logService.error('[tomoshibi] failed to resolve the remote environment for notes', error);
 			}
 		}
 
-		if (this._resource) {
-			await this._loadFile(this._resource);
-		} else {
-			this._notes = this._reviveNotes(this._storageService.get(STORAGE_KEY, StorageScope.PROFILE));
+		const loaded = resource
+			? await this._loadFile(resource)
+			: { notes: this._reviveNotes(this._storageService.get(STORAGE_KEY, StorageScope.PROFILE)), readOnlyReason: undefined };
+
+		if (generation !== this._generation) {
+			// The setting was flipped again while this run was waiting; the later run owns the state.
+			return;
+		}
+
+		this._resource = resource;
+		this._readOnlyReason = loaded.readOnlyReason;
+		this._notes = loaded.notes;
+
+		// The two tiers are separate stores, so switching between them would otherwise look like
+		// "my notes are gone". Carry them across when the new side is still empty; when it already
+		// has notes, leave both sides alone rather than merging blind.
+		if (!this._notes.length && previous.length && !this._readOnlyReason) {
+			this._notes = previous;
+			this._save();
 		}
 
 		this._onDidChange.fire();
 	}
 
-	private async _loadFile(resource: URI): Promise<void> {
+	private async _loadFile(resource: URI): Promise<{ notes: INote[]; readOnlyReason: string | undefined }> {
 		try {
 			const content = await this._fileService.readFile(resource);
-			this._notes = this._reviveNotes(content.value.toString());
+			return { notes: this._reviveNotes(content.value.toString()), readOnlyReason: undefined };
 		} catch (error) {
 			if (error instanceof FileOperationError && error.fileOperationResult === FileOperationResult.FILE_NOT_FOUND) {
 				// First run against this server: no notes yet, and writing is fine.
-				this._notes = [];
-				return;
+				return { notes: [], readOnlyReason: undefined };
 			}
 			// The file is there but unreadable. Show the reason and never write, because writing
 			// now would replace whatever is in the file with an empty list.
 			this._logService.error('[tomoshibi] failed to read notes', error);
-			this._notes = [];
-			this._readOnlyReason = error instanceof Error ? error.message : String(error);
+			return { notes: [], readOnlyReason: error instanceof Error ? error.message : String(error) };
 		}
 	}
 
