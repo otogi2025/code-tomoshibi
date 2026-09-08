@@ -288,9 +288,13 @@ export class TomoshibiSessionService extends Disposable implements ITomoshibiSes
 		// ⛔ 只在实例刚被 new 出来的这一刻打号，不去补扫 `_terminalService.instances`：进程一旦建好，
 		// 再往 shellLaunchConfig 里写东西也送不到 pty 宿主，刷新之后 uuid 就没了，键会从 `s:` 悄悄变回
 		// `pty:`，元数据反而被甩掉。补不上号的实例老老实实走 `pty:` 那条退路。
-		// 时机成立的依据：`onDidCreateInstance` 是 terminalInstanceService.ts:52 在构造函数返回后同步 fire
-		// 的，而 `_createProcess()` 挂在 `_xtermReadyPromise.then()` 里（terminalInstance.ts:615-641），
-		// 最快也要等一个微任务，一定在我们之后。
+		// 时机成立的依据，两跳都是同步的：`TerminalInstance` 的构造函数一返回，
+		// `terminalInstanceService.ts:52` 就 fire `ITerminalInstanceService.onDidCreateInstance`，
+		// `terminalService.ts:204-207` 收到后原地转发成我们订阅的这个
+		// `ITerminalService.onDidCreateInstance`；而 `_createProcess()` 挂在 `_xtermReadyPromise.then()`
+		// 里（terminalInstance.ts:615-641），最快也要等一个微任务，一定排在我们之后。
+		// 隐含前提：`ITerminalService` 自己也是 Delayed 单例（terminal.contribution.ts:56），任何要建
+		// 终端的代码都得先把它构造出来，那条转发监听因此总是先于第一个实例挂好。
 		this._register(this._terminalService.onDidCreateInstance(instance => {
 			this._stampSessionId(instance);
 			this._watchInstance(instance);
