@@ -82,30 +82,6 @@ const terminalConfiguration: IStringDictionary<IConfigurationPropertySchema> = {
 		],
 		default: 'singleTerminal',
 	},
-	[TerminalSettingId.TabsShowActiveTerminal]: {
-		description: localize('terminal.integrated.tabs.showActiveTerminal', '在视图中显示活动的终端信息，当选项卡中的标题不可见时，此功能尤其有用。'),
-		type: 'string',
-		enum: ['always', 'singleTerminal', 'singleTerminalOrNarrow', 'never'],
-		enumDescriptions: [
-			localize('terminal.integrated.tabs.showActiveTerminal.always', "始终显示活动终端"),
-			localize('terminal.integrated.tabs.showActiveTerminal.singleTerminal', "当仅有一个终端打开时显示活动终端"),
-			localize('terminal.integrated.tabs.showActiveTerminal.singleTerminalOrNarrow', "仅当终端已打开或选项卡视图处于窄而无文本状态时显示活动终端"),
-			localize('terminal.integrated.tabs.showActiveTerminal.never', "从不显示活动终端"),
-		],
-		default: 'singleTerminalOrNarrow',
-	},
-	[TerminalSettingId.TabsShowActions]: {
-		description: localize('terminal.integrated.tabs.showActions', '控制是否在“新建终端”按钮旁边显示“终端拆分”和“终止”按钮。'),
-		type: 'string',
-		enum: ['always', 'singleTerminal', 'singleTerminalOrNarrow', 'never'],
-		enumDescriptions: [
-			localize('terminal.integrated.tabs.showActions.always', "始终显示操作"),
-			localize('terminal.integrated.tabs.showActions.singleTerminal', "当终端是唯一打开的终端时显示操作"),
-			localize('terminal.integrated.tabs.showActions.singleTerminalOrNarrow', "在终端是唯一打开的终端或选项卡视图处于窄而无文本状态时显示活动终端"),
-			localize('terminal.integrated.tabs.showActions.never', "从不显示操作"),
-		],
-		default: 'singleTerminalOrNarrow',
-	},
 	[TerminalSettingId.TabsLocation]: {
 		type: 'string',
 		enum: ['left', 'right'],

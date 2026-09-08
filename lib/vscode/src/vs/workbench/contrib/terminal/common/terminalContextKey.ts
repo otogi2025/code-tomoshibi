@@ -150,13 +150,13 @@ export namespace TerminalContextKeys {
 
 	/*
 	 * 分屏 / 关闭 Session 这两个内联按钮的门。上游在这里还挂着一整串 or：tabs.enabled 为假，
-	 * 或者 tabs.showActions 跟分组数量凑成某个组合。那串条件全是为侧边选项卡列表服务的，而本
-	 * fork 在源码层删掉了那个列表（terminalTabbedView.ts），按钮该一直在。
+	 * 或者另一个「什么时候显示这两个按钮」的档位设置跟分组数量凑成某个组合。那串条件全是为侧边
+	 * 选项卡列表服务的，而本 fork 在源码层删掉了那个列表（terminalTabbedView.ts），按钮该一直在。
 	 *
-	 * ⛔ 不能只删 not(tabs.enabled) 那一支：剩下的 or 里 tabs.showActions 默认是
-	 * singleTerminalOrNarrow，而 isTerminalTabsNarrow 这个上下文键在本 fork 里没有任何写入点，
-	 * 于是一旦开到两个以上 Session，两个按钮就会一起消失。整串 or 一起去掉，才跟今天线上
-	 * （tabs.enabled 手写成 false）的行为等价。
+	 * ⛔ 当初不能只删 not(tabs.enabled) 那一支：剩下的 or 那几支要么要求分组数恰好为 1，要么要求
+	 * isTerminalTabsNarrow，而这个上下文键在本 fork 里没有任何写入点、恒假 —— 一旦开到两个以上
+	 * Session，两个按钮就会一起消失。整串 or 一起去掉，才跟今天线上（tabs.enabled 手写成 false）
+	 * 的行为等价。那个只被这串 or 读的档位设置随后也一并删了。
 	 */
 	export const shouldShowViewInlineActions = ContextKeyExpr.and(
 		ContextKeyExpr.equals('view', TERMINAL_VIEW_ID),

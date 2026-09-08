@@ -45,8 +45,6 @@ export const enum TerminalSettingId {
 	TabsEnabled = 'terminal.integrated.tabs.enabled',
 	TabsEnableAnimation = 'terminal.integrated.tabs.enableAnimation',
 	TabsHideCondition = 'terminal.integrated.tabs.hideCondition',
-	TabsShowActiveTerminal = 'terminal.integrated.tabs.showActiveTerminal',
-	TabsShowActions = 'terminal.integrated.tabs.showActions',
 	TabsLocation = 'terminal.integrated.tabs.location',
 	TabsFocusMode = 'terminal.integrated.tabs.focusMode',
 	TabsAllowAgentCliTitle = 'terminal.integrated.tabs.allowAgentCliTitle',
