@@ -24,6 +24,12 @@ import { ThemeSettings, ThemeSettingDefaults } from '../../../services/themes/co
  * `workbench.web.main.ts`), before any service reads configuration; the registry
  * also applies overrides to properties registered later, so import order does not
  * matter.
+ *
+ * `terminal.integrated.persistentSessionScrollback` / `terminal.integrated.cursorStyle`
+ * are not registered here: their schema defaults already are the values this product
+ * wants. The first one also has a second, independent reader — the pty host is started
+ * with the replay buffer read in `server/node/serverServices.ts`, in the server process,
+ * where nothing on this list applies — so changing that number means going there.
  */
 Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).registerDefaultConfigurations([{
 	overrides: {
@@ -43,20 +49,12 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis
 		// Closing an iPad tab counts as a window close, so the session has to survive it.
 		[TerminalSettingId.PersistentSessionReviveProcess]: 'onExitAndWindowClose',
 
-		// An agent can print a lot in one go, but replaying all of it on every
-		// reconnect is what makes reattaching slow, so keep the buffer long and the
-		// replay short.
+		// An agent can print a lot in one go.
 		[TerminalSettingId.Scrollback]: 10000,
-		// (already the schema default, pinned here so the product definition reads in one place)
-		[TerminalSettingId.PersistentSessionScrollback]: 100,
 
 		// Touch selection copies, and there is no right mouse button to open a menu with.
 		[TerminalSettingId.CopyOnSelection]: true,
 		[TerminalSettingId.RightClickBehavior]: 'paste',
-
-		// A finger needs a wide cursor to aim at.
-		// (already the schema default, pinned here for the same reason)
-		[TerminalSettingId.CursorStyle]: 'block',
 
 		// Every animation Safari does not have to paint is battery and latency saved.
 		'workbench.reduceMotion': 'on',
