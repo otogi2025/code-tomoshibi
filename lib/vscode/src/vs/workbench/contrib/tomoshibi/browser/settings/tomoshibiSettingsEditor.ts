@@ -474,7 +474,9 @@ export class TomoshibiSettingsOverlay extends Disposable {
 
 		append(container, optRow(
 			localize('tomoshibi.settings.ports.auto', "自动发现并转发监听端口"),
-			localize('tomoshibi.settings.ports.autoSmall', "关着时只显示手动转发过的"),
+			// 这一行只管「自动转发」，从来不管表里显示什么：_portRows() 无条件并入 model.candidates，
+			// 而候选扫描由 tunnelProvider 撑着，关掉这个开关也不会停。文案照实写。
+			localize('tomoshibi.settings.ports.autoSmall', "关掉只是不再自动转发，监听中的端口照样列在下面"),
 			switchControl(store,
 				() => this._configurationService.getValue<boolean>(PORT_AUTO_FORWARD_SETTING) === true,
 				value => this._write(PORT_AUTO_FORWARD_SETTING, value))
