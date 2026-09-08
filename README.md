@@ -1,64 +1,192 @@
 # Code-Tomoshibi
 
-**在浏览器里跑 Claude Code 和 Codex 的终端前台。** 服务器上开一份，iPad 打开网页就能干活。
+[![build](https://github.com/otogi2025/code-tomoshibi/actions/workflows/build.yml/badge.svg)](https://github.com/otogi2025/code-tomoshibi/actions/workflows/build.yml)
 
-## 它不是一个 VS Code 扩展
+**A terminal front-end for running Claude Code and Codex from an iPad.**
 
-这是对 VS Code 和 code-server 的深度分叉 —— 改的是地基，不是往上挂插件。相对上游 VS Code `1.132.0`（`df53daab`）：
+Run one instance on a Linux box. Open it in Safari. The terminal is already there, your agent is already in it, and it keeps working while the iPad goes to sleep, switches from Wi-Fi to 5G, or goes back into the bag.
 
-| | 文件数 |
-| --- | ---: |
-| 删除 | 11262 |
-| 就地改掉的 VS Code 核心文件 | 1145 |
-| Tomoshibi 新增 | 25 |
+Code-Tomoshibi is a deep fork of [VS Code](https://github.com/microsoft/vscode) and [code-server](https://github.com/coder/code-server). It is not an extension and not a theme. The workbench itself was cut down and rebuilt around one job: keeping several long-running agent sessions on a server and driving them comfortably with a finger, plus a keyboard when you have one.
 
-整块拆掉的子系统包括 Copilot 扩展、Chat、Notebook、调试器、MCP、测试框架、Git 扩展、TypeScript 语言服务等等。理由很简单：跑 agent 用不上，而每留一个，就多一份在 iPad 上出问题的面积。
-
-## 现在有什么
-
-**终端**
-
-- 多个常驻 session，顶上一排胶囊直接切；可以分组，同时只展开一组
-- 触屏长按选字，出选择手柄和复制菜单 —— iPad 上原生 VS Code 做不到这件事
-- 左右分屏
-- 活动栏常驻一个 Esc 软键（其余组合键走物理键盘，不假设你在用屏幕键盘）
-
-**围绕 agent 的小工具**
-
-- **剪贴板历史** —— 终端里复制过的东西都留着，随时回插
-- **临时便签** —— 贴提示词、贴路径，不用为此另开一个编辑器
-- **状态栏性能条** —— CPU / 内存 / 上下行 / 网络延迟，最快 0.25 秒刷新一次
-- 上传 / 下载文件
-
-**界面**
-
-- 全中文，从源码层改的，不是套一个语言包
-- 左边栏只剩五个入口：文件、搜索、剪贴板历史、临时便签、终端
-
-## 这个仓库是什么
-
-这是**编译用的快照仓库** —— GitHub Actions 在这里编出 linux-x64 的发行包。
-
-- `lib/vscode/` —— VS Code 源码，Tomoshibi 的改动已经打进去了（不是 submodule）
-- `src/` —— code-server 的 HTTP / CLI 层
-- `.github/workflows/` —— 编译流水线
-
-上游：[microsoft/vscode](https://github.com/microsoft/vscode) `1.132.0` · [coder/code-server](https://github.com/coder/code-server)
-
-## 许可
-
-上游部分按各自的 MIT 许可使用，见 `LICENSE`、`lib/vscode/LICENSE.txt`、`ThirdPartyNotices.txt`。
-
-**使用、修改、部署或再发布本仓库中由 Tomoshibi 添加或修改的部分时，必须保留「Tomoshibi」标识** —— 见 [TOMOSHIBI-NOTICE.md](TOMOSHIBI-NOTICE.md)。
+English · [简体中文](README.zh-CN.md)
 
 ---
 
-## English
+## Why a fork
 
-**Code-Tomoshibi** is a browser front-end for running command-line coding agents — Claude Code, Codex — from an iPad. Run one instance on a server, open the page, and the terminal is already there; the agent keeps running server-side while the iPad sleeps, changes networks, or goes through a tunnel.
+VS Code in a browser on an iPad is *almost* what an agent operator needs, and it is wrong in a hundred small ways that add up every minute you use it. The terminal's scrollbar only shows on mouse hover. Text selection fights iPadOS. Most iPad keyboards have no Esc key. The status bar is full of things you never look at. And every subsystem that is not a terminal is one more thing that can eat memory on a small VPS or break in Safari.
 
-It is a deep fork of VS Code and code-server, not an extension. Against upstream VS Code `1.132.0` (`df53daab`): **11262 files deleted, 1145 core files modified in place, 25 files added.** Copilot, Chat, Notebook, the debugger, MCP, the test framework, the Git extension and the TypeScript language service are gone — an agent does not need them, and each one is one more thing that can misbehave on an iPad.
+So instead of patching around VS Code, this project cut into it. Against upstream VS Code `1.132.0` (`df53daab`):
 
-What is here: persistent terminal sessions with a pill switcher and collapsible groups; long-press text selection with real selection handles on touch; side-by-side splitting; clipboard history; a scratch-note view; a live status-bar meter for CPU / RAM / network / latency; file upload and download; a fully Chinese UI translated at the source level.
+| | files |
+| --- | ---: |
+| deleted | 11 262 |
+| modified in place | 1 145 |
+| added | 29 (25 of them Tomoshibi's own) |
 
-This repository is the **build snapshot** used by GitHub Actions to produce the linux-x64 release. Upstream code stays under its MIT licenses (`LICENSE`, `lib/vscode/LICENSE.txt`, `ThirdPartyNotices.txt`). If you use, modify, deploy or redistribute the parts added or changed by Tomoshibi, you must keep the "Tomoshibi" attribution — see [TOMOSHIBI-NOTICE.md](TOMOSHIBI-NOTICE.md).
+Gone entirely: GitHub Copilot and Chat (inline chat, agent sessions, voice, feedback), Notebooks, Run and Debug, MCP, Testing, Source Control and the Git extension, the Problems and Output panels, the extension marketplace, GitHub and Microsoft authentication, Settings Sync and Edit Sessions, the TypeScript / HTML / CSS / JSON / PHP language features, Emmet, Markdown preview, media preview, the simple browser, npm / grunt / gulp / jake task detection, the Ports panel, and the welcome tours.
+
+What stays is a text editor, a file explorer, a search view, and a terminal that has been taught to work with touch.
+
+## What it does
+
+### Sessions, not tabs
+
+Every terminal is a **Session**: a persistent process on the server, shown as a pill in a single row across the top of the terminal panel.
+
+- **Status at a glance.** Each pill carries a dot: green while the agent is working, yellow when it is waiting for you, red when the process died or the connection broke, a check when it finished. When an agent goes idle you get a toast (`<name> 已完成`), and a system notification if the page is hidden and the browser has notification permission. Detection is heuristic, tuned to Claude Code and Codex output.
+- **Groups.** File Sessions into named, colored groups, Chrome-style. Only one group is expanded at a time, so the row never grows past one line. Tap a group to expand it and collapse the rest.
+- **Reorder, pin, rename, close.** Long-press a pill (220 ms) and drag to reorder or to drop it into another group. Pin a Session to the front. Rename it in a small popover. A tree flyout lists every Session and group when the row gets crowded.
+- **Split.** Two panes side by side, always horizontal regardless of where the panel is docked.
+- **No keyboard pop-ups.** Every Session prompt (pick a group, rename, manage) is a custom popover with no search box, so the iPad keyboard stays down.
+- **Survives the tab.** Close the page, sleep the iPad, change networks. Reopen and the same shells reattach with their scrollback, the one you were looking at first. A Session whose page was closed is kept on the server for 20 minutes by default, or 2 minutes once another page has connected without picking it up (`--reconnection-grace-time` raises the first number).
+
+### A terminal you can use with a finger
+
+- **Long-press to select.** Hold on a word for 420 ms and it is selected, with iOS-style handles at each end, a loupe above your finger, and a menu: 复制 / 选择整行 / 全选 / 取消. Drag a handle near the top or bottom edge and the buffer auto-scrolls. Whatever you end up selecting also lands in the clipboard history.
+- **Esc.** A permanent Esc key sits at the top-left, next to the activity bar. It sends Esc to the active terminal without stealing focus, so the soft keyboard stays up.
+- **Shift+Enter is a newline.** On an iPad hardware keyboard it sends backslash + carriage return, which bash treats as line continuation and Claude Code treats as a new line in the prompt. The switch is `tomoshibi.terminal.shiftEnterNewline`, on the 终端 page of the settings overlay.
+- **A wider scrollbar.** The terminal's vertical scrollbar is 20 px instead of xterm's 14, sized for a fingertip.
+
+### Clipboard history and scratch notes
+
+Two side views made for the copy-paste loop of driving an agent.
+
+- **剪贴板历史.** Everything you copy inside the page (editor, terminal, long-press menu) is collected, newest first. Tap an entry to type it into the active terminal, without pressing Enter. `⧉` copies it back to the device clipboard. 粘贴到终端 inserts whatever the device clipboard holds right now. 清空 needs a second tap within 3 seconds.
+  Keeps 50 entries by default (10 to 200), each cut at 8000 characters. Stored in the browser only, per device, never on the server. Text that looks like a private key, a `password=` / `api_key:` pair, or an `sk-…` token is not recorded.
+- **临时便签.** Any number of free-form notes, saved automatically 0.8 s after you stop typing. By default they are written to a file on the server so they follow you across devices. A button pastes the note you are in into the terminal.
+
+### A status bar with four things on it
+
+Everything stock is gone, and extensions cannot add to it. What is left:
+
+- **Left: a live server readout.** `C 12% M 1.8G ↓115K ↑8K ⏱ 41ms`: host CPU, memory, network down / up, and round-trip latency. Refreshes every 0.5 s by default (0.25 s to 5 s). Tap it for a popover with bars for CPU, memory, swap and disk, the network rates, latency, and the three processes using the most CPU.
+  Sampling happens on the server only when a page asks for it. A hidden tab sends nothing. An idle server does nothing.
+- **Right: 回到最新** scrolls the active terminal to the bottom, **上传文件** starts an upload, and **MADE BY ITSUKI** is the sign-out button.
+
+### Upload straight into the command line
+
+Tap 上传文件, pick one or more files. Images go to `~/上传图片` on the server, everything else to `~/上传`. The shell-quoted path is then typed into the terminal you were in, followed by a space and no Enter, so it is ready to be an argument for `claude` or whatever you are running. Download is the explorer's right-click 下载.
+
+### One settings page
+
+The gear opens a single overlay (not an editor tab) with seven pages: 外观 (Dark 2026 / Light 2026, font size, scrollbar thickness, sidebar side), 终端 (default shell, persistent Sessions, Shift+Enter, touch selection), 端口转发 (replaces the Ports panel: an auto-forward switch, a live table of listening ports, manual add), 剪贴板 / 便签, 上传, 性能监测, and 账户 (sign out, version). The nine `tomoshibi.*` keys behind it are ordinary settings and can also be edited in `settings.json`. The stock settings editor is still there on Ctrl+, if you need the long tail.
+
+### A login page that fits a thumb
+
+Six slots. The numeric keyboard opens by itself, the sixth digit submits. A wrong code shakes and turns red. The server rate-limits attempts to 2 per minute plus 12 per hour. With this page, the password has to be exactly six digits.
+
+### Chinese, at the source
+
+The interface is Simplified Chinese. Not through a language pack: the default strings in the VS Code source were rewritten, so there is nothing to download and nothing to configure. There is also no way to switch it back to English. If you need an English UI, this fork is not for you as it is.
+
+### The rest of the shell
+
+- Activity bar, top to bottom: a single `Code-Tomoshibi` menu, 文件, 搜索, 剪贴板历史, 临时便签, a 终端 toggle, and the settings gear. Nothing else appears there.
+- The multi-menu menubar is replaced by that one flat menu (open explorer, search, upload, new Session, Session manager, settings).
+- Telemetry is off at the product level. The extension marketplace is gone; extensions can still be installed from the server's command line.
+
+## Getting it running
+
+Every push to `main` builds a linux-x64 tarball on GitHub Actions. Grab it from the latest green run under **Actions → build-linux-x64 → Artifacts → `codet-release`** (artifacts expire after 14 days; there is no GitHub Release yet).
+
+The tarball is the npm-package layout, not a self-contained bundle: it has no `node_modules` and no bundled Node. You need Node 24 (24.18.0 is pinned) and the usual toolchain for native modules (`build-essential pkg-config python3` on Ubuntu).
+
+```bash
+mkdir code-tomoshibi && tar -C code-tomoshibi -xzf codet-<sha>.tar.gz
+cd code-tomoshibi
+npm install --omit=dev            # as root, add --unsafe-perm
+PASSWORD=123456 node . \
+  --bind-addr 127.0.0.1:8080 \
+  --app-name Code-Tomoshibi \
+  --locale zh-cn \
+  --disable-telemetry \
+  --disable-workspace-trust \
+  --disable-update-check \
+  /path/to/your/workspace
+```
+
+The first start writes code-server's usual `config.yaml` (`bind-addr`, `auth`, `password`, `cert`). `PASSWORD` or `HASHED_PASSWORD` in the environment override it. Put the whole thing behind HTTPS (Caddy, nginx); Safari's clipboard and a few other APIs only work in a secure context.
+
+Then drop this into `<user-data-dir>/User/settings.json`. The first two lines are not optional yet:
+
+```jsonc
+{
+  // Required: turns on the Session pill row and the Split / close buttons next to it. The stock tabs list it replaces was removed from the source.
+  "terminal.integrated.tabs.enabled": false,
+  // iPad Safari corrupts the WebGL glyph atlas after the file picker or a viewport change. DOM rendering is stable.
+  "terminal.integrated.gpuAcceleration": "off",
+
+  "terminal.integrated.enablePersistentSessions": true,
+  "terminal.integrated.persistentSessionReviveProcess": "onExitAndWindowClose",
+  "terminal.integrated.scrollback": 10000,
+  "terminal.integrated.persistentSessionScrollback": 100,
+  "terminal.integrated.copyOnSelection": true,
+  "terminal.integrated.rightClickBehavior": "paste",
+  "terminal.integrated.cursorStyle": "block",
+
+  "workbench.panel.defaultLocation": "left",
+  "window.commandCenter": false,
+  "workbench.layoutControl.enabled": false,
+  "workbench.startupEditor": "none",
+  "workbench.reduceMotion": "on",
+  "workbench.colorTheme": "Dark 2026"
+}
+```
+
+Baking these into the fork's defaults is on the to-do list.
+
+## Building from source
+
+```bash
+# Ubuntu 22.04, Node 24.18.0
+sudo apt-get install -y libkrb5-dev libsecret-1-dev libxkbfile-dev libx11-dev pkg-config
+
+SKIP_SUBMODULE_DEPS=1 npm ci          # code-server deps
+npm run build                          # code-server (tsc)
+(cd lib/vscode && npm ci)              # VS Code deps
+
+# VS Code itself. See the note below about the guard.
+sudo systemd-run --scope --unit=tomoshibi-code-build -p MemoryMax=12G \
+  -- runuser -u "$USER" -- env PATH="$PATH" HOME="$HOME" \
+     VERSION=4.132.0-tomoshibi.2 VSCODE_TARGET=linux-x64 TOMOSHIBI_ISOLATED_BUILD=1 \
+     bash -c "cd '$PWD' && npm run build:vscode"
+
+npm run release                        # assembles ./release
+tar -C release -czf codet.tar.gz .
+```
+
+**The guard.** The VS Code build needs well over 8 GB of RAM, and on a small VPS it takes everything else down with it. So `ci/build/build-vscode.sh` refuses to run unless it is inside a cgroup whose name contains `tomoshibi-code-build`, with a finite memory limit between 6 and 12 GiB, on a host with at least 12 GiB, and with `TOMOSHIBI_ISOLATED_BUILD=1` set. On macOS it only checks the variable and the 12 GiB. The GitHub workflow satisfies it with the `systemd-run` scope above. GitHub's free runners for public repositories (4 cores, 16 GB) pass; the ones for private repositories (2 cores, 7 GB) do not.
+
+`lib/vscode/` is a plain vendored directory with the changes already applied, not a submodule. There is no patch step.
+
+## Layout
+
+| | |
+| --- | --- |
+| `lib/vscode/` | VS Code `1.132.0` with the Tomoshibi changes in place. New code lives under `src/vs/workbench/contrib/tomoshibi/`, `contrib/terminalContrib/tomoshibi*/` and `contrib/terminal/browser/tomoshibi*`. |
+| `src/` | code-server: the HTTP / websocket layer, CLI, login page, and the `/_tomoshibi/performance` route. |
+| `ci/build/` | Build scripts, including the memory guard. |
+| `.github/workflows/build.yml` | The only workflow. |
+| `patches/` | code-server's historical patch series. Kept for reference; it is *not* how this tree is produced. |
+| `docs/` | Still upstream code-server's documentation. Most of it does not apply here. |
+
+## Known gaps
+
+Honest list, in the order they bite.
+
+- The terminal scrollbar still auto-hides the way xterm.js does on hover, so on an iPad it is invisible most of the time. Fix planned.
+- The pill row and the Split / close buttons depend on `terminal.integrated.tabs.enabled: false` in user settings (see above).
+- Shift+Enter only works as a newline on an iPad. In a desktop browser xterm.js gets the key first and submits the line.
+- The update check still points at upstream code-server's releases. Pass `--disable-update-check`.
+- The PWA name and the error pages use `--app-name`, which defaults to `code-server`.
+- Notes are stored on the server but not merged live: two devices editing at once overwrite each other.
+- The status-bar network numbers are host-wide, not "to this device"; only the latency is measured from the browser.
+- The watchdog overlay (`tomoshibiWatchdog`) is a client for an external gateway that is not part of this repository. Without one it never appears.
+- Session status is string matching on agent output; other programs may get the wrong dot.
+
+## License
+
+The upstream parts stay under their MIT licenses: `LICENSE` (code-server), `lib/vscode/LICENSE.txt` and `ThirdPartyNotices.txt` (VS Code).
+
+If you use, modify, deploy or redistribute the parts added or changed by Tomoshibi, you must keep the "Tomoshibi" attribution: the product name, the Tomoshibi marks in the UI, and the notice file. See [TOMOSHIBI-NOTICE.md](TOMOSHIBI-NOTICE.md).
