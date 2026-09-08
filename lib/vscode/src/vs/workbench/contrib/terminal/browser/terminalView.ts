@@ -1443,7 +1443,23 @@ class SwitchTerminalActionViewItem extends BaseActionViewItem {
 			return;
 		}
 		const scrollLeft = switcher.scrollLeft;
-		const slots: ITomoshibiSlot[] = tomoshibiVisibleInstances(this._terminalGroupService).map(instance => ({
+		const instances = tomoshibiVisibleInstances(this._terminalGroupService);
+		// ⛔ 先把这一轮要用的 key 全部结算掉，再开始渲染。sessionKey() 在 `local:<instanceId>` →
+		// `pty:<id>` 那一次迁移里会 _save() → 同步 fire onDidChange → 打回 _sync()，于是整轮渲染
+		// 白跑一遍（窗口重载后 connectionState 翻成 Connected 的第一次完整 _sync 必踩）。
+		// getTitle / getGroupOf / isPinned 内部也各走一次 sessionKey，光挪 map 里这一处没用；
+		// 结算这一段用 _suppressSync 包起来，重入的那次 _sync 直接短路，而紧跟着的渲染读到的已经是
+		// 迁移完的模型。⛔ 这一段里除了 sessionKey 什么都不许做 —— 它的短路是靠「这期间不会有别的
+		// 变更」成立的。
+		this._suppressSync = true;
+		try {
+			for (const instance of instances) {
+				this._sessionService.sessionKey(instance);
+			}
+		} finally {
+			this._suppressSync = false;
+		}
+		const slots: ITomoshibiSlot[] = instances.map(instance => ({
 			key: this._sessionService.sessionKey(instance),
 			instance,
 			group: this._sessionService.getGroupOf(instance),
