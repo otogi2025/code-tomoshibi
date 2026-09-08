@@ -19,9 +19,6 @@ coverage
 # Failed e2e test videos are saved here
 test/test-results
 
-# Quilt's internal data.
-/.pc
-/patches/*.diff~
 
 # 会话状态，绝不能进公开仓
 .claude/

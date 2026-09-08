@@ -22,7 +22,6 @@
               rsync
               jq
               moreutils
-              quilt
               bats
               openssl
             ];

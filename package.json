@@ -12,7 +12,6 @@
     "clean": "./ci/build/clean.sh",
     "build": "./ci/build/build-code-server.sh",
     "build:vscode": "./ci/build/build-vscode.sh",
-    "doctoc": "./ci/dev/doctoc.sh",
     "release": "./ci/build/build-release.sh",
     "release:prep": "./ci/build/release-prep.sh",
     "test:e2e": "VSCODE_IPC_HOOK_CLI= ./ci/dev/test-e2e.sh",
@@ -27,7 +26,7 @@
     "postinstall": "./ci/dev/postinstall.sh",
     "publish:npm": "./ci/steps/publish-npm.sh",
     "publish:docker": "./ci/steps/docker-buildx-push.sh",
-    "fmt": "npm run prettier && ./ci/dev/doctoc.sh",
+    "fmt": "npm run prettier",
     "lint:scripts": "./ci/dev/lint-scripts.sh",
     "lint:ts": "eslint --max-warnings=0 --fix $(git ls-files '*.ts' '*.js' | grep -v 'lib/vscode')",
     "test": "echo 'Run npm run test:unit or npm run test:e2e' && exit 1",
@@ -52,7 +51,6 @@
     "@types/semver": "^7.5.2",
     "@types/trusted-types": "^2.0.4",
     "@types/ws": "^8.5.5",
-    "doctoc": "^2.2.1",
     "eslint": "^9.12.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-import-resolver-typescript": "^4.4.4",
@@ -136,7 +134,6 @@
       }
     },
     "modulePathIgnorePatterns": [
-      "<rootDir>/.pc",
       "<rootDir>/release-packages",
       "<rootDir>/release",
       "<rootDir>/release-standalone",
