@@ -179,18 +179,28 @@ export function getIPadHardwareEnterData(
  * 汉字走 compositionend 那条路、英文 keydown 自带字符，所以都不受影响。
  *
  * `keyDownSeen` 是我们自己按同样规则（keydown 置位、keyup 复位）镜像出来的，⛔ 不去摸 xterm 私有字段。
- * 它为 true 恰好等价于「xterm 的 input 兜底一定会丢弃这一发」；同时 xterm 只要真的处理了某个 keydown
- * 就会 `preventDefault()`，那种情况下 `beforeinput` 根本不会发生 —— 所以这里接管不可能造成重复输入。
+ * 它为 true 恰好等价于「xterm 的 input 兜底一定会丢弃这一发」。
+ *
+ * `keyPressSeen` 是第二面镜子，对应 xterm 的 `_keyPressHandled`（keypress 置位，keydown/keyup 复位）。
+ * ⛔ 别删：「xterm 只要处理了 keydown 就会 preventDefault」并不成立，`_keyDown` 有四个在 preventDefault
+ * 之前 `return true` 的出口 —— A–Z HACK（CoreBrowserTerminal.ts:897-903，Shift+字母 / CapsLock 下的
+ * 大写字母被故意留给 keypress 发）、`_isThirdLevelShift`（:885）、`!result.key`（:893）、
+ * `_unprocessedDeadKey`（:906）。走这些出口时 keydown 没被取消，浏览器照常派发 `beforeinput`，而
+ * `_keyPress`（:978-1018）在这之前已经 `triggerDataEvent` 发过一遍了。上游 `_inputEvent`
+ * （:1032-1033）正是靠 `_keyPressHandled` 兜住这种重复，我们不跟上就会往 PTY 多写一遍：iPad 外接键盘
+ * 打 `LS` 会变成 `LLSS`。
  */
 export function getIPadImeBeforeInputData(
 	inputType: string,
 	data: string | null,
 	isComposing: boolean,
 	keyDownSeen: boolean,
+	keyPressSeen: boolean,
 	isiOS: boolean = isIOS
 ): string | undefined {
 	// 合成中（拼音候选未确定）一律不碰，那条路 xterm 自己走得通。
-	if (!isiOS || isComposing || !keyDownSeen) {
+	// keypress 已经发过数据的那一发也一律放行，否则就是重复输入（见上面 `keyPressSeen` 的说明）。
+	if (!isiOS || isComposing || !keyDownSeen || keyPressSeen) {
 		return undefined;
 	}
 	// ⛔ 只接管这两种 inputType：粘贴（insertFromPaste）、删除（deleteContentBackward）、
@@ -1246,15 +1256,28 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 			// 那一发上取消 `beforeinput` 并自己写进 PTY。⛔ 必须挂 `beforeinput` 不能挂 `input`：
 			// 只有 beforeinput 可取消，取消之后 `input` 根本不会派发，xterm 的处理器也就不会再发一遍。
 			let iPadKeyDownSeen = false;
-			this._register(dom.addDisposableListener(xterm.raw.textarea, 'keydown', () => iPadKeyDownSeen = true, true));
-			this._register(dom.addDisposableListener(xterm.raw.textarea, 'keyup', () => iPadKeyDownSeen = false, true));
+			// 同一个 textarea 上再镜像一个 keypress 标志（对应 xterm 的 `_keyPressHandled`）。
+			// 事件顺序恒为 keydown → keypress → beforeinput，所以 keydown 复位、keypress 置位就够；keyup
+			// 也复位一次，跟 xterm `_keyUp`（CoreBrowserTerminal.ts:969）保持同一生命周期。这几个监听器注册在
+			// xterm 自己的（同文件 :414-416，同一个 textarea、同为 capture）之后，而事件在目标节点上按注册
+			// 顺序派发，所以 beforeinput 读到的一定是 xterm 处理完这一发之后的状态。
+			let iPadKeyPressSeen = false;
+			this._register(dom.addDisposableListener(xterm.raw.textarea, 'keydown', () => {
+				iPadKeyDownSeen = true;
+				iPadKeyPressSeen = false;
+			}, true));
+			this._register(dom.addDisposableListener(xterm.raw.textarea, 'keypress', () => iPadKeyPressSeen = true, true));
+			this._register(dom.addDisposableListener(xterm.raw.textarea, 'keyup', () => {
+				iPadKeyDownSeen = false;
+				iPadKeyPressSeen = false;
+			}, true));
 			const pendingIPadImeWrites = this._register(new DisposableStore());
 			this._register(dom.addDisposableListener(xterm.raw.textarea, 'beforeinput', (event: InputEvent) => {
 				// 屏幕阅读器模式下 xterm 依赖 textarea 里的真实文本来朗读，取消插入会破坏它。
 				if (xterm.raw.options.screenReaderMode) {
 					return;
 				}
-				const data = getIPadImeBeforeInputData(event.inputType, event.data, event.isComposing, iPadKeyDownSeen, isIOS);
+				const data = getIPadImeBeforeInputData(event.inputType, event.data, event.isComposing, iPadKeyDownSeen, iPadKeyPressSeen, isIOS);
 				if (data === undefined) {
 					return;
 				}
