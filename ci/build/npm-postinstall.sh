@@ -93,7 +93,7 @@ main() {
 
   if ! vscode_install; then
     echo "You may not have the required dependencies to build the native modules."
-    echo "Please see the README.md at the root of this repository."
+    echo "Please see the README.md next to this script."
     exit 1
   fi
 
