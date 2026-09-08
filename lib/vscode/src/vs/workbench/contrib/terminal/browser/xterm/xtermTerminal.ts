@@ -126,6 +126,8 @@ export class XtermTerminal extends Disposable implements IXtermTerminal, IDetach
 	private static _suggestedRendererType: 'dom' | undefined = undefined;
 	private _attached?: { container: HTMLElement; options: IXtermAttachToElementOptions };
 	private _isPhysicalMouseWheel = MouseWheelClassifier.INSTANCE.isPhysicalMouseWheel();
+	/** 上一次算出来的「有没有可滚内容」，只为了不在每块输出后都去碰 DOM。 */
+	private _hasScrollback = false;
 	private _lastInputEvent: string | undefined;
 	get lastInputEvent(): string | undefined { return this._lastInputEvent; }
 	private _progressState: IProgressState = { state: 0, value: 0 };
@@ -526,6 +528,30 @@ export class XtermTerminal extends Disposable implements IXtermTerminal, IDetach
 				this._updateSmoothScrolling();
 			}
 		}, { passive: true }));
+
+		/*
+		 * 触摸设备上竖向滚动条是常显的（media/xterm.css 里 any-pointer: coarse 那段），但只有真的
+		 * 有东西可滚时才该显示：缓冲区不满一屏时 xterm 会把滑块摊成满高，常显就成了右侧一条动不了
+		 * 的灰柱。xterm 用同一个 .xterm-invisible 表达「不需要滚动条」和「鼠标没悬停」两件事，CSS
+		 * 分不出来，所以这里把「有没有可滚内容」显式打成一个 class 交给 CSS。
+		 *
+		 * 判据取 buffer.length > rows，跟 xterm 自己算 isNeeded 的口径一致：Viewport 把 scrollHeight
+		 * 设成 cellHeight * buffer.lines.length、height 设成一屏高（scrollbarState 再比这两个数），
+		 * 所以「需要滚动条」就是行数超过一屏。baseY > 0 是它的等价推论，这里取更直接的那个。
+		 *
+		 * ⛔ onWriteParsed 每解析完一块输出就来一次，回调里只许有这一次比较；值没变不碰 DOM。
+		 */
+		const syncScrollback = () => {
+			const scrollable = this.raw.buffer.active.length > this.raw.rows;
+			if (scrollable !== this._hasScrollback) {
+				this._hasScrollback = scrollable;
+				this.raw.element?.classList.toggle('tomoshibi-has-scrollback', scrollable);
+			}
+		};
+		ad.add(this.raw.onWriteParsed(syncScrollback));
+		ad.add(this.raw.onResize(syncScrollback));
+		ad.add(this.raw.onScroll(syncScrollback));
+		syncScrollback();
 
 		this._refreshLigaturesAddon();
 
