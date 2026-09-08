@@ -21,6 +21,12 @@ import { IViewDescriptorService } from '../../../common/views.js';
 import { INote, ITomoshibiNoteService } from './tomoshibiNoteService.js';
 import { TOMOSHIBI_INSERT_TEXT_COMMAND_ID } from './tomoshibiInsertText.js';
 
+/** How long the delete button stays armed after the first tap. */
+const REMOVE_ARM_MS = 3000;
+
+const REMOVE_TITLE = '删除这条便签';
+const REMOVE_ARMED_TITLE = '再点一次删除';
+
 export class TomoshibiNoteView extends ViewPane {
 
 	static readonly ID = 'workbench.view.tomoshibiNote.list';
@@ -31,6 +37,11 @@ export class TomoshibiNoteView extends ViewPane {
 
 	private readonly _rowDisposables = this._register(new DisposableStore());
 	private readonly _textAreas = new Map<string, HTMLTextAreaElement>();
+	private readonly _removeButtons = new Map<string, HTMLButtonElement>();
+
+	/** The note whose delete button has been tapped once; a second tap on it removes the note. */
+	private _armedRemoveId: string | undefined;
+	private _removeTimer: ReturnType<typeof setTimeout> | undefined;
 
 	private _ready = false;
 	private _disposed = false;
@@ -85,6 +96,15 @@ export class TomoshibiNoteView extends ViewPane {
 		pasteButton.textContent = '粘贴当前便签到终端';
 		this._register(addDisposableListener(pasteButton, EventType.CLICK, () => this._insertCurrentNote()));
 
+		this._register({
+			dispose: () => {
+				if (this._removeTimer !== undefined) {
+					clearTimeout(this._removeTimer);
+					this._removeTimer = undefined;
+				}
+			}
+		});
+
 		this._render();
 	}
 
@@ -116,8 +136,10 @@ export class TomoshibiNoteView extends ViewPane {
 		}
 
 		const scrollTop = list.scrollTop;
+		this._disarmRemove();
 		this._rowDisposables.clear();
 		this._textAreas.clear();
+		this._removeButtons.clear();
 		clearNode(list);
 
 		const readOnlyReason = this._noteService.readOnlyReason;
@@ -174,7 +196,8 @@ export class TomoshibiNoteView extends ViewPane {
 
 		const remove = append(wrapper, $<HTMLButtonElement>('button.x'));
 		remove.textContent = '✕';
-		remove.title = '删除这条便签';
+		remove.title = REMOVE_TITLE;
+		this._removeButtons.set(note.id, remove);
 
 		this._rowDisposables.add(addDisposableListener(textArea, EventType.INPUT, () => {
 			autoSize(textArea);
@@ -186,6 +209,14 @@ export class TomoshibiNoteView extends ViewPane {
 			this._currentId = note.id;
 		}));
 		this._rowDisposables.add(addDisposableListener(remove, EventType.CLICK, () => {
+			// Deleting a note is irreversible and there is no undo, so it gets the same two tap
+			// shape the clipboard's clear button already uses. The button is also 28px and sits on
+			// top of the textarea, which is exactly where a finger lands by accident.
+			if (this._armedRemoveId !== note.id) {
+				this._armRemove(note.id);
+				return;
+			}
+			this._disarmRemove();
 			if (this._currentId === note.id) {
 				this._currentId = undefined;
 			}
@@ -193,6 +224,35 @@ export class TomoshibiNoteView extends ViewPane {
 		}));
 
 		autoSize(textArea);
+	}
+
+	private _armRemove(id: string): void {
+		this._disarmRemove();
+		const button = this._removeButtons.get(id);
+		if (!button) {
+			return;
+		}
+		this._armedRemoveId = id;
+		button.classList.add('armed');
+		button.title = REMOVE_ARMED_TITLE;
+		this._removeTimer = setTimeout(() => this._disarmRemove(), REMOVE_ARM_MS);
+	}
+
+	private _disarmRemove(): void {
+		if (this._removeTimer !== undefined) {
+			clearTimeout(this._removeTimer);
+			this._removeTimer = undefined;
+		}
+		const id = this._armedRemoveId;
+		this._armedRemoveId = undefined;
+		if (id === undefined) {
+			return;
+		}
+		const button = this._removeButtons.get(id);
+		if (button) {
+			button.classList.remove('armed');
+			button.title = REMOVE_TITLE;
+		}
 	}
 
 	override dispose(): void {

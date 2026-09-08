@@ -103,10 +103,19 @@
 	padding-top: 1px;
 }
 
+/* Touch target. A finger pad is far wider than an 11px glyph, and a miss here is not free: the
+ * row underneath inserts its text into the terminal. 28px is what the UI shell uses for its
+ * toolbar icon buttons (docs/ui-shell/codet-shell.html). */
 .monaco-workbench .tomoshibi-clip > .b {
 	flex: none;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 28px;
+	min-height: 28px;
 	padding: 0 4px;
 	border: none;
+	border-radius: 3px;
 	background: transparent;
 	color: var(--vscode-descriptionForeground);
 	font-family: inherit;
@@ -115,6 +124,7 @@
 }
 
 .monaco-workbench .tomoshibi-clip > .b:hover {
+	background: var(--vscode-list-hoverBackground);
 	color: inherit;
 }
 
@@ -141,7 +151,7 @@
 	box-sizing: border-box;
 	width: 100%;
 	min-height: 64px;
-	padding: 6px 22px 6px 8px;
+	padding: 6px 34px 6px 8px;
 	border: 1px solid var(--vscode-input-border, transparent);
 	border-radius: 4px;
 	background: var(--vscode-input-background);
@@ -158,20 +168,25 @@
 	outline-offset: -1px;
 }
 
+/* Same 28px target, and it needs it more than the clipboard button does: this one sits on top of
+ * the textarea, so a miss either opens the keyboard or deletes a note. */
 .monaco-workbench .tomoshibi-note > .x {
 	position: absolute;
-	top: 3px;
-	right: 3px;
-	width: 18px;
-	height: 18px;
+	top: 2px;
+	right: 2px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 28px;
+	height: 28px;
 	padding: 0;
 	border: none;
 	border-radius: 3px;
 	background: transparent;
 	color: var(--vscode-descriptionForeground);
 	font-family: inherit;
-	font-size: 11px;
-	line-height: 18px;
+	font-size: 12px;
+	line-height: 1;
 	cursor: pointer;
 }
 
@@ -182,5 +197,14 @@
 
 .monaco-workbench .tomoshibi-note > .x:focus-visible {
 	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: -1px;
+}
+
+/* Armed by the first tap; the second one deletes. Same two step shape as the clipboard's clear
+ * button, because deleting a note is just as irreversible and has no undo either. */
+.monaco-workbench .tomoshibi-note > .x.armed {
+	background: var(--vscode-list-hoverBackground);
+	color: var(--vscode-errorForeground);
+	outline: 1px solid var(--vscode-inputValidation-errorBorder);
 	outline-offset: -1px;
 }
