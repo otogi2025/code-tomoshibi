@@ -1,4 +1,5 @@
 import { field, logger } from "@coder/logger"
+import * as crypto from "crypto"
 import * as express from "express"
 import * as http from "http"
 import * as net from "net"
@@ -112,6 +113,60 @@ export const ensureAuthenticated = async (
 }
 
 /**
+ * Short-lived memo for cookie checks.
+ *
+ * Without a password hash in the config, `isCookieValid` runs a full argon2 verify (64MiB, ~50-70ms
+ * on a libuv thread) for *every* authenticated request: the half-second performance poll, and every
+ * asset the workbench asks for through the catch-all router in routes/vscode.ts. That blocks the
+ * same thread pool the file watcher and the editor's file reads use. Remembering the answer for a
+ * few dozen seconds removes the repeat work without adding a new way in: a cookie that was never
+ * valid is never cached as valid, and the key covers the configured password, so changing the
+ * password (or the hash) in the config invalidates every entry immediately.
+ */
+const authCacheTtlMs = 45_000
+const authCacheMaxEntries = 64
+
+interface AuthCacheEntry {
+  isValid: boolean
+  expiresAt: number
+}
+
+const authCache = new Map<string, AuthCacheEntry>()
+/** Requests that arrive while a check is still running share its promise instead of starting another. */
+const authChecksInFlight = new Map<string, Promise<boolean>>()
+
+/** Hash the cookie together with the configured password so neither is kept around in plain text. */
+const getAuthCacheKey = (args: IsCookieValidArgs): string =>
+  crypto
+    .createHash("sha256")
+    .update(args.passwordMethod)
+    .update("\u0000")
+    .update(args.cookieKey)
+    .update("\u0000")
+    .update(args.passwordFromArgs || "")
+    .update("\u0000")
+    .update(args.hashedPasswordFromArgs || "")
+    .digest("hex")
+
+const rememberAuthResult = (key: string, isValid: boolean): void => {
+  const now = Date.now()
+  for (const [cachedKey, entry] of authCache) {
+    if (entry.expiresAt <= now) {
+      authCache.delete(cachedKey)
+    }
+  }
+  authCache.set(key, { isValid, expiresAt: now + authCacheTtlMs })
+  // Map iterates in insertion order, so this drops the oldest entries first.
+  while (authCache.size > authCacheMaxEntries) {
+    const oldest = authCache.keys().next()
+    if (oldest.done) {
+      break
+    }
+    authCache.delete(oldest.value)
+  }
+}
+
+/**
  * Return true if authenticated via cookies.
  */
 export const authenticated = async (req: express.Request): Promise<boolean> => {
@@ -130,7 +185,21 @@ export const authenticated = async (req: express.Request): Promise<boolean> => {
         hashedPasswordFromArgs: req.args["hashed-password"],
       }
 
-      return await isCookieValid(isCookieValidArgs)
+      const cacheKey = getAuthCacheKey(isCookieValidArgs)
+      const cached = authCache.get(cacheKey)
+      if (cached && cached.expiresAt > Date.now()) {
+        return cached.isValid
+      }
+
+      let check = authChecksInFlight.get(cacheKey)
+      if (!check) {
+        check = isCookieValid(isCookieValidArgs).finally(() => authChecksInFlight.delete(cacheKey))
+        authChecksInFlight.set(cacheKey, check)
+      }
+
+      const isValid = await check
+      rememberAuthResult(cacheKey, isValid)
+      return isValid
     }
     default: {
       throw new Error(`Unsupported auth type ${req.args.auth}`)
