@@ -822,6 +822,13 @@ class SwitchTerminalActionViewItem extends BaseActionViewItem {
 	private _lastActiveInstanceId: number | undefined;
 	/** Set while a drop is being written back, so the reorder does not destroy its own pills. */
 	private _suppressSync = false;
+	/**
+	 * action bar 的 roving tabindex 契约：整条工具栏只能有一个 Tab 落点，这个 view item 的落点是
+	 * 激活的那颗胶囊。ActionBar.push() 渲染完只让第一个 enabled item 保持可聚焦、其余全 setFocusable(false)，
+	 * 方向键换焦点时又会 blur 上一个。⛔ 状态必须存下来 —— 不存的话任意一次 _sync() 都会把
+	 * tabIndex 改回 0，标题栏里凭空多出一个时有时无的 Tab 停留点。
+	 */
+	private _focusable = true;
 	private _suppressClickUntil = 0;
 	private _press: ITomoshibiPress | undefined;
 	private _drag: { pointerId: number; key: string; pill: HTMLElement; fly: HTMLElement; dx: number; dy: number; dropGroupId: string | undefined } | undefined;
@@ -998,13 +1005,32 @@ class SwitchTerminalActionViewItem extends BaseActionViewItem {
 	}
 
 	override focus(): void {
+		this._focusable = true;
+		this._applyTabIndex();
 		this._activePill()?.element.focus();
 	}
 
+	/**
+	 * 基类的 blur()（actionViewItems.ts）只把容器的 tabIndex 置 -1，碰不到真正当 Tab 落点的胶囊。
+	 * 不重写它，ActionBar 用方向键把焦点移到别的 item 之后胶囊仍然是 tabIndex 0，一条工具栏就有了
+	 * 两个 Tab 落点 —— 这条路跟 locale 无关，跟 setFocusable 那条一样要堵。
+	 */
+	override blur(): void {
+		super.blur();
+		this._focusable = false;
+		this._applyTabIndex();
+	}
+
 	override setFocusable(focusable: boolean): void {
-		const active = this._activePill()?.element;
-		if (active) {
-			active.tabIndex = focusable ? 0 : -1;
+		this._focusable = focusable;
+		this._applyTabIndex();
+	}
+
+	/** tabIndex 只有这一处口径：激活 ∧ 本 item 可聚焦 才是 0。_updatePill / _syncActiveState 同此。 */
+	private _applyTabIndex(): void {
+		const activeInstanceId = this._terminalGroupService.activeInstance?.instanceId;
+		for (const pill of this._pills.values()) {
+			pill.element.tabIndex = this._focusable && pill.instanceId === activeInstanceId ? 0 : -1;
 		}
 	}
 
@@ -1395,7 +1421,7 @@ class SwitchTerminalActionViewItem extends BaseActionViewItem {
 		pill.element.classList.toggle('is-pinned', pinned);
 		pill.element.classList.toggle('is-active', active);
 		pill.element.setAttribute('aria-selected', active ? 'true' : 'false');
-		pill.element.tabIndex = active ? 0 : -1;
+		pill.element.tabIndex = active && this._focusable ? 0 : -1;
 	}
 
 	private _sync(): void {
@@ -1525,7 +1551,7 @@ class SwitchTerminalActionViewItem extends BaseActionViewItem {
 			const active = pill.instanceId === activeInstanceId;
 			pill.element.classList.toggle('is-active', active);
 			pill.element.setAttribute('aria-selected', active ? 'true' : 'false');
-			pill.element.tabIndex = active ? 0 : -1;
+			pill.element.tabIndex = active && this._focusable ? 0 : -1;
 		}
 	}
 
