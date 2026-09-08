@@ -171,6 +171,37 @@ function isNamespacedSessionKey(key: string): boolean {
 	return key.startsWith(SESSION_KEY_UUID_PREFIX) || key.startsWith(SESSION_KEY_PTY_PREFIX) || key.startsWith(SESSION_KEY_LOCAL_PREFIX);
 }
 
+/**
+ * 「agent 这一轮跑完了」的标记。⛔ 缺席不代表在跑，见 `_recordActivity`。
+ */
+const AGENT_COMPLETE_NEEDLES: readonly string[] = ['ask codex to do anything', 'worked for'];
+
+/**
+ * 「agent 正在跑」的标记。只有明确命中这里的东西才算在跑。
+ * `working` 必须单独成词、并且排掉 git 的 "working tree clean" / "working directory" / "working copy"
+ * —— 跑一次 `git status` 就会误命中，那是把普通 shell 画成「正在运行」的第二个成因。
+ */
+const AGENT_RUNNING_PATTERNS: readonly RegExp[] = [
+	/esc to interrupt/g,
+	/\bthinking\b/g,
+	/\bworking\b(?!\s+(?:tree|directory|dir|copy|set|on)\b)/g,
+];
+
+/** 任意一个模式在 `text` 里最后一次出现的下标；一个都没命中返回 -1。 */
+function lastIndexOfAnyPattern(text: string, patterns: readonly RegExp[]): number {
+	let last = -1;
+	for (const pattern of patterns) {
+		pattern.lastIndex = 0;
+		for (let match = pattern.exec(text); match !== null; match = pattern.exec(text)) {
+			last = Math.max(last, match.index);
+			if (pattern.lastIndex === match.index) {
+				pattern.lastIndex++;
+			}
+		}
+	}
+	return last;
+}
+
 function createEmptyModel(): ITomoshibiSessionModel {
 	return { version: 2, groups: [], sessions: {} };
 }
@@ -898,19 +929,22 @@ export class TomoshibiSessionService extends Disposable implements ITomoshibiSes
 		state.tail = (state.tail + visible).slice(-2400);
 		const lower = state.tail.toLowerCase();
 		const completeAt = Math.max(
-			lower.lastIndexOf('ask codex to do anything'),
-			lower.lastIndexOf('worked for'),
+			...AGENT_COMPLETE_NEEDLES.map(needle => lower.lastIndexOf(needle)),
 			state.tail.lastIndexOf('\n❯'),
 			state.tail.lastIndexOf('\r❯'),
 		);
-		const runningAt = Math.max(
-			lower.lastIndexOf('working'),
-			lower.lastIndexOf('esc to interrupt'),
-			lower.lastIndexOf('thinking'),
-		);
-		state.agentIdle = completeAt >= 0 && completeAt > runningAt;
-		state.running = !state.agentIdle;
+		const runningAt = lastIndexOfAnyPattern(lower, AGENT_RUNNING_PATTERNS);
+		// ⛔「没看到完成标记」不等于「正在跑」。老写法 `running = !agentIdle` 是拿完成标记的缺失反推
+		// 运行中，于是：默认 bash/zsh 的 `$`/`%` 提示符下敲任何一个键都会被画成「正在运行」并亮 12 秒；
+		// Claude Code 的完成标记一条都不长这样（它的行首 ❯ 是选项箭头不是提示符），整个会话常亮不灭。
+		// 现在两个标记都没命中就保持原状（初值是「没在跑」），只有明确命中运行标记才置 running。
+		if (runningAt >= 0 || completeAt >= 0) {
+			state.agentIdle = completeAt > runningAt;
+			state.running = runningAt > completeAt;
+		}
 		this._activityStates.set(instanceId, state);
+		// `wasRunning` 现在只可能来自「命中过运行标记」，所以这一条自带手册要求的
+		// 「这一轮确实在跑过才通知」，不会再被一条 git 输出骗出「已完成」。
 		if (wasRunning && state.agentIdle) {
 			this._notifyAgentComplete(instance);
 		}
