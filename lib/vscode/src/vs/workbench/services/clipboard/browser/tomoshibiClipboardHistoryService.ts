@@ -81,6 +81,13 @@ export class TomoshibiClipboardHistoryService extends Disposable implements ITom
 		super();
 
 		this._history = this._load();
+		// _trim() only ever ran from record() and from the limit's own change event, so a history
+		// saved under a higher cap came back whole when the cap had been lowered while no workbench
+		// was running (editing settings.json from a shell). The header then printed the new cap
+		// while the list showed the old count, and the dropped entries stayed on disk.
+		if (this._trim()) {
+			this._save();
+		}
 
 		this._register(this._configurationService.onDidChangeConfiguration(e => {
 			if (!e.affectsConfiguration(LIMIT_CONFIG_KEY)) {
