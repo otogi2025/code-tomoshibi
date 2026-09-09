@@ -62,7 +62,7 @@ import { InstanceContext } from './terminalContextMenu.js';
 import { getColorClass, getIconId, getUriClasses } from './terminalIcon.js';
 import { killTerminalIcon, newTerminalIcon } from './terminalIcons.js';
 import { ITerminalQuickPickItem } from './terminalProfileQuickpick.js';
-import { expandOnlyTomoshibiGroup, ITomoshibiPopoverChoice, pickTomoshibiChoice, promptTomoshibiInput } from './terminalView.js';
+import { expandOnlyTomoshibiGroup, ITomoshibiPopoverChoice, openTomoshibiSessionManager, pickTomoshibiChoice, promptTomoshibiInput } from './terminalView.js';
 import { ResourceContextKey } from '../../../common/contextkeys.js';
 
 const category = terminalStrings.actionCategory;
@@ -453,59 +453,18 @@ export function registerTerminalActions() {
 			when: ContextKeyExpr.equals('view', TERMINAL_VIEW_ID),
 		},
 		precondition: sharedWhenClause.terminalAvailable,
+		// ⛔ 实现只有 terminalView.ts 里那一份 —— 这里只是把面板标题栏这个入口接上去。
+		// 以前这里另写了一套（选完还会多弹一层管理菜单），跟胶囊长按菜单里的同名项行为不一样。
+		// 拿不到具体按钮，所以 getAnchor 返回 undefined，浮层自己会退回面板标题栏；胶囊由
+		// 分组服务的事件重画，这个入口不需要额外 refresh。
 		run: async (c, accessor) => {
-			const sessionService = accessor.get(ITomoshibiSessionService);
-
-			const candidates = c.groupService.groups.flatMap(group => group.activeInstance ? [group.activeInstance] : []);
-			const sessions: ITomoshibiPopoverChoice[] = candidates.map(instance => {
-				const sessionGroup = sessionService.getGroupOf(instance);
-				const active = instance === c.groupService.activeInstance;
-				return {
-					id: String(instance.instanceId),
-					icon: active ? 'check' : 'terminal',
-					label: sessionService.getTitle(instance) || instance.title,
-					description: sessionGroup ? localize('tomoshibi.sessionManager.group', "分组：{0}", sessionGroup.name) : localize('tomoshibi.sessionManager.ungrouped', "未分组"),
-					current: active,
-				};
-			});
-			const selected = await pickTomoshibiChoice(undefined, localize('tomoshibi.sessionManager.select', "选择要切换或管理的 Session"), sessions);
-			const instance = selected === undefined ? undefined : candidates.find(candidate => String(candidate.instanceId) === selected);
-			if (!instance) {
-				return;
-			}
-			const group = c.groupService.getGroupForInstance(instance);
-			if (!group) {
-				return;
-			}
-			c.groupService.activeGroup = group;
-			c.groupService.setActiveInstance(instance);
-			await c.groupService.showPanel(true);
-
-			const currentGroup = sessionService.getGroupOf(instance);
-			const pinned = sessionService.isPinned(instance);
-			const manage = await pickTomoshibiChoice(undefined, sessionService.getTitle(instance) || instance.title, [
-				{ id: 'switch', icon: 'arrow-swap', label: localize('tomoshibi.sessionManager.switch', "切换到此 Session") },
-				{ id: 'rename', icon: 'edit', label: localize('tomoshibi.sessionManager.rename', "重命名") },
-				{ id: 'group', icon: 'folder', label: currentGroup ? localize('tomoshibi.sessionManager.changeGroup', "更改分组（{0}）", currentGroup.name) : localize('tomoshibi.sessionManager.addGroup', "加入分组") },
-				{ id: 'pin', icon: pinned ? 'pinned' : 'pin', label: pinned ? localize('tomoshibi.sessionManager.unpin', "取消固定") : localize('tomoshibi.sessionManager.pin', "固定到最前") },
-				{ id: 'close', icon: 'trash', label: localize('tomoshibi.sessionManager.close', "关闭 Session") },
-			]);
-			if (manage === undefined || manage === 'switch') {
-				return;
-			}
-			if (manage === 'rename') {
-				await renameTomoshibiSession(instance, sessionService);
-				return;
-			}
-			if (manage === 'group') {
-				await chooseTomoshibiSessionGroup(instance, sessionService);
-				return;
-			}
-			if (manage === 'pin') {
-				setTomoshibiSessionPinned(instance, !pinned, sessionService, c.groupService);
-				return;
-			}
-			await closeTomoshibiSession(instance, sessionService, c.service, c.groupService);
+			await openTomoshibiSessionManager({
+				sessionService: accessor.get(ITomoshibiSessionService),
+				terminalService: c.service,
+				groupService: c.groupService,
+				getAnchor: () => undefined,
+				refresh: () => { },
+			}, true);
 		},
 	});
 

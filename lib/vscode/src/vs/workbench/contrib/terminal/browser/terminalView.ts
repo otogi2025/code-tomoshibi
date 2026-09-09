@@ -630,7 +630,7 @@ interface ITomoshibiTreeHeader {
  * Everything the shared Session actions need. The strip and the Session tree pass different
  * refresh callbacks but must otherwise offer exactly the same menu.
  */
-interface ITomoshibiSessionActionHost {
+export interface ITomoshibiSessionActionHost {
 	readonly sessionService: ITomoshibiSessionService;
 	readonly terminalService: ITerminalService;
 	readonly groupService: ITerminalGroupService;
@@ -753,7 +753,15 @@ function tomoshibiVisibleInstances(groupService: ITerminalGroupService): ITermin
 	return instances;
 }
 
-async function openTomoshibiSessionManager(host: ITomoshibiSessionActionHost): Promise<void> {
+/**
+ * 「Session 管理中心」的唯一实现。⛔ 别再在别处复刻一份 —— 面板标题栏的
+ * `workbench.action.terminal.tomoshibiSessionManager` 和胶囊长按菜单里的同名项都调这里，
+ * 同一个名字必须给同一个结果（以前 terminalActions.ts 另写了一套，选完还会多弹一层管理菜单，
+ * 用户从两个入口点同一个名字会得到两种结果）。
+ *
+ * `manageAfterPick` 为真时，切过去之后再弹一层重命名 / 分组 / 固定 / 关闭。
+ */
+export async function openTomoshibiSessionManager(host: ITomoshibiSessionActionHost, manageAfterPick: boolean): Promise<void> {
 	const activeInstance = host.groupService.activeInstance;
 	const instances = tomoshibiVisibleInstances(host.groupService);
 	const choices: ITomoshibiPopoverChoice[] = instances.map(instance => {
@@ -774,6 +782,37 @@ async function openTomoshibiSessionManager(host: ITomoshibiSessionActionHost): P
 	}
 	activateTomoshibiSession(instance, host.groupService);
 	host.refresh();
+	if (!manageAfterPick) {
+		return;
+	}
+	await manageTomoshibiSession(instance, host);
+}
+
+/** 管理中心的第二层：对刚选中的那个 Session 做重命名 / 分组 / 固定 / 关闭。 */
+async function manageTomoshibiSession(instance: ITerminalInstance, host: ITomoshibiSessionActionHost): Promise<void> {
+	const sessionGroup = host.sessionService.getGroupOf(instance);
+	const pinned = host.sessionService.isPinned(instance);
+	const picked = await pickTomoshibiChoice(host.getAnchor(), host.sessionService.getTitle(instance) || instance.title, [
+		{ id: 'switch', icon: 'arrow-swap', label: nls.localize('tomoshibi.session.manager.switch', "切换到此 Session") },
+		{ id: 'rename', icon: 'edit', label: nls.localize('tomoshibi.session.manager.rename', "重命名") },
+		{ id: 'group', icon: 'folder', label: sessionGroup ? nls.localize('tomoshibi.session.manager.changeGroup', "更改分组（{0}）", sessionGroup.name) : nls.localize('tomoshibi.session.manager.addGroup', "加入分组") },
+		{ id: 'pin', icon: pinned ? 'pinned' : 'pin', label: pinned ? nls.localize('tomoshibi.session.manager.unpin', "取消固定") : nls.localize('tomoshibi.session.manager.pin', "固定到最前") },
+		{ id: 'close', icon: 'trash', label: nls.localize('tomoshibi.session.manager.close', "关闭 Session") },
+	]);
+	// 选中的那个 Session 在上一层已经切过去了，所以 switch 和取消一样什么都不用做。
+	if (picked === undefined || picked === 'switch') {
+		return;
+	}
+	if (picked === 'rename') {
+		await renameTomoshibiSession(instance, host.sessionService, host.getAnchor());
+	} else if (picked === 'group') {
+		await chooseTomoshibiSessionGroup(instance, host.sessionService, host.getAnchor());
+	} else if (picked === 'pin') {
+		setTomoshibiSessionPinned(instance, !pinned, host.sessionService, host.groupService);
+	} else {
+		await closeTomoshibiSession(instance, host.sessionService, host.terminalService, host.groupService);
+	}
+	host.refresh();
 }
 
 /**
@@ -784,7 +823,7 @@ function createTomoshibiSessionActions(instance: ITerminalInstance, host: ITomos
 	const pinned = host.sessionService.isPinned(instance);
 	const sessionGroup = host.sessionService.getGroupOf(instance)?.name;
 	return [
-		new Action('tomoshibi.session.manager', nls.localize('tomoshibi.session.manager', "Session 管理中心"), undefined, true, () => openTomoshibiSessionManager(host)),
+		new Action('tomoshibi.session.manager', nls.localize('tomoshibi.session.manager', "Session 管理中心"), undefined, true, () => openTomoshibiSessionManager(host, true)),
 		new Action('tomoshibi.session.activate', nls.localize('tomoshibi.session.activate', "切换到此 Session"), undefined, true, async () => {
 			activateTomoshibiSession(instance, host.groupService);
 			host.refresh();
