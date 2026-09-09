@@ -1208,7 +1208,7 @@ const uploadFileHandler = async (accessor: ServicesAccessor, options?: IUploadFi
 			uploadedResources.push(...await browserUpload.upload(target.item, files, { openUploadedFile: true }));
 		}
 
-		if (targetActiveTerminal && terminalAtClick?.isDisposed) {
+		if (targetActiveTerminal && options?.insertIntoTerminal && terminalAtClick?.isDisposed) {
 			notificationService.warn(nls.localize('uploadTerminalClosed', "文件已上传，但原来的终端在插入路径之前已关闭。"));
 		} else if (targetActiveTerminal && terminalAtClick && options?.insertIntoTerminal && uploadedResources.length) {
 			const insertableResources = uploadedResources.filter(resource => !/[\x00-\x1F\x7F]/.test(resource.fsPath));
@@ -1233,8 +1233,8 @@ const uploadFileHandler = async (accessor: ServicesAccessor, options?: IUploadFi
 					await terminalAtClick.sendText(`${preparedPaths.join(' ')} `, false, true);
 				}
 			}
-		} else if (targetActiveTerminal && !terminalAtClick) {
-			notificationService.warn(nls.localize('uploadNoTerminal', "文件已上传到工作区，但没有打开的终端来接收路径。"));
+		} else if (targetActiveTerminal && options?.insertIntoTerminal && !terminalAtClick) {
+			notificationService.warn(nls.localize('uploadNoTerminal', "文件已上传到 ~/上传图片 或 ~/上传，但没有打开的终端来接收路径。"));
 		}
 
 		if (targetActiveTerminal && usedUploadFallback) {
