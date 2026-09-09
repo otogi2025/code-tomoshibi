@@ -13,14 +13,13 @@ import { URI } from '../../../../base/common/uri.js';
 import { ILanguageService } from '../../../../editor/common/languages/language.js';
 import { ConfigurationTarget, getLanguageTagSettingPlainKey, IConfigurationValue } from '../../../../platform/configuration/common/configuration.js';
 import { ConfigurationDefaultValueSource, ConfigurationScope, EditPresentationTypes, Extensions, IConfigurationRegistry } from '../../../../platform/configuration/common/configurationRegistry.js';
-import { IProductService } from '../../../../platform/product/common/productService.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { USER_LOCAL_AND_REMOTE_SETTINGS } from '../../../../platform/request/common/request.js';
 import { APPLICATION_SCOPES, FOLDER_SCOPES, IWorkbenchConfigurationService, LOCAL_MACHINE_SCOPES, REMOTE_MACHINE_SCOPES, WORKSPACE_SCOPES } from '../../../services/configuration/common/configuration.js';
 import { IWorkbenchEnvironmentService } from '../../../services/environment/common/environmentService.js';
-import { IExtensionSetting, ISearchResult, ISetting, ISettingMatch, SettingMatchType, SettingValueType } from '../../../services/preferences/common/preferences.js';
+import { ISearchResult, ISetting, ISettingMatch, SettingMatchType, SettingValueType } from '../../../services/preferences/common/preferences.js';
 import { IUserDataProfileService } from '../../../services/userDataProfile/common/userDataProfile.js';
-import { AGENTS_WINDOW_SETTING_TAG, ENABLE_EXTENSION_TOGGLE_SETTINGS, ENABLE_LANGUAGE_FILTER, MODIFIED_SETTING_TAG, POLICY_SETTING_TAG, REQUIRE_TRUSTED_WORKSPACE_SETTING_TAG, compareTwoNullableNumbers, wordifyKey } from '../common/preferences.js';
+import { AGENTS_WINDOW_SETTING_TAG, ENABLE_LANGUAGE_FILTER, MODIFIED_SETTING_TAG, POLICY_SETTING_TAG, REQUIRE_TRUSTED_WORKSPACE_SETTING_TAG, compareTwoNullableNumbers, wordifyKey } from '../common/preferences.js';
 import { SettingsTarget } from './preferencesWidgets.js';
 import { ITOCEntry, tocData } from './settingsLayout.js';
 
@@ -61,7 +60,7 @@ export abstract class SettingsTreeElement extends Disposable {
 	}
 }
 
-export type SettingsTreeGroupChild = (SettingsTreeGroupElement | SettingsTreeSettingElement | SettingsTreeNewExtensionsElement);
+export type SettingsTreeGroupChild = (SettingsTreeGroupElement | SettingsTreeSettingElement);
 
 export class SettingsTreeGroupElement extends SettingsTreeElement {
 	count?: number;
@@ -101,12 +100,6 @@ export class SettingsTreeGroupElement extends SettingsTreeElement {
 	 */
 	containsSetting(key: string): boolean {
 		return this._childSettingKeys.has(key);
-	}
-}
-
-export class SettingsTreeNewExtensionsElement extends SettingsTreeElement {
-	constructor(_id: string, public readonly extensionIds: string[]) {
-		super(_id);
 	}
 }
 
@@ -178,7 +171,6 @@ export class SettingsTreeSettingElement extends SettingsTreeElement {
 		private readonly isWorkspaceTrusted: boolean,
 		private readonly languageFilter: string | undefined,
 		private readonly languageService: ILanguageService,
-		private readonly productService: IProductService,
 		private readonly userDataProfileService: IUserDataProfileService,
 		private readonly configurationService: IWorkbenchConfigurationService,
 		private readonly isSessionsWindow: boolean,
@@ -230,9 +222,7 @@ export class SettingsTreeSettingElement extends SettingsTreeElement {
 	}
 
 	private initSettingValueType() {
-		if (isExtensionToggleSetting(this.setting, this.productService)) {
-			this.valueType = SettingValueType.ExtensionToggle;
-		} else if (this.setting.enum && (!this.setting.type || settingTypeEnumRenderable(this.setting.type))) {
+		if (this.setting.enum && (!this.setting.type || settingTypeEnumRenderable(this.setting.type))) {
 			this.valueType = SettingValueType.Enum;
 		} else if (this.setting.type === 'string') {
 			if (this.setting.editPresentation === EditPresentationTypes.Multiline) {
@@ -590,7 +580,6 @@ export class SettingsTreeModel implements IDisposable {
 		@IWorkbenchConfigurationService private readonly _configurationService: IWorkbenchConfigurationService,
 		@ILanguageService private readonly _languageService: ILanguageService,
 		@IUserDataProfileService private readonly _userDataProfileService: IUserDataProfileService,
-		@IProductService private readonly _productService: IProductService,
 		@IWorkbenchEnvironmentService private readonly _environmentService: IWorkbenchEnvironmentService,
 	) {
 	}
@@ -705,7 +694,6 @@ export class SettingsTreeModel implements IDisposable {
 			this._isWorkspaceTrusted,
 			this._viewState.languageFilter,
 			this._languageService,
-			this._productService,
 			this._userDataProfileService,
 			this._configurationService,
 			this._environmentService.isSessionsWindow);
@@ -849,12 +837,6 @@ function trimCategoryForGroup(category: string, groupId: string): string {
 	return trimmed;
 }
 
-function isExtensionToggleSetting(setting: ISetting, productService: IProductService): boolean {
-	return ENABLE_EXTENSION_TOGGLE_SETTINGS &&
-		!!productService.extensionRecommendations &&
-		!!setting.displayExtensionId;
-}
-
 function isExcludeSetting(setting: ISetting): boolean {
 	return setting.key === 'files.exclude' ||
 		setting.key === 'search.exclude' ||
@@ -982,14 +964,12 @@ function settingTypeEnumRenderable(_type: string | string[]) {
 
 export const enum SearchResultIdx {
 	Local = 0,
-	Remote = 1,
-	NewExtensions = 2
+	Remote = 1
 }
 
 export class SearchResultModel extends SettingsTreeModel {
 	private rawSearchResults: ISearchResult[] | null = null;
 	private cachedUniqueSearchResults: ISearchResult | null = null;
-	private newExtensionSearchResults: ISearchResult | null = null;
 	private searchResultCount: number | null = null;
 	private settingsOrderByTocIndex: Map<string, number> | null;
 
@@ -1002,10 +982,9 @@ export class SearchResultModel extends SettingsTreeModel {
 		@IWorkbenchConfigurationService configurationService: IWorkbenchConfigurationService,
 		@IWorkbenchEnvironmentService private readonly environmentService: IWorkbenchEnvironmentService,
 		@ILanguageService languageService: ILanguageService,
-		@IUserDataProfileService userDataProfileService: IUserDataProfileService,
-		@IProductService productService: IProductService
+		@IUserDataProfileService userDataProfileService: IUserDataProfileService
 	) {
-		super(viewState, isWorkspaceTrusted, configurationService, languageService, userDataProfileService, productService, environmentService);
+		super(viewState, isWorkspaceTrusted, configurationService, languageService, userDataProfileService, environmentService);
 		this.settingsOrderByTocIndex = settingsOrderByTocIndex;
 		this.update({ id: 'searchResultModel', label: '' });
 	}
@@ -1072,8 +1051,6 @@ export class SearchResultModel extends SettingsTreeModel {
 		if (remoteResult) {
 			remoteResult.filterMatches = remoteResult.filterMatches.filter(m => !localMatchKeys.has(m.setting.key));
 			combinedFilterMatches = combinedFilterMatches.concat(remoteResult.filterMatches);
-
-			this.newExtensionSearchResults = this.rawSearchResults[SearchResultIdx.NewExtensions];
 		}
 		combinedFilterMatches = this.sortResults(combinedFilterMatches);
 		const result = {
@@ -1118,25 +1095,10 @@ export class SearchResultModel extends SettingsTreeModel {
 		}
 		this.root.children = newChildren;
 		this.searchResultCount = this.root.children.length;
-
-		if (this.newExtensionSearchResults?.filterMatches.length) {
-			let resultExtensionIds = this.newExtensionSearchResults.filterMatches
-				.map(result => (<IExtensionSetting>result.setting))
-				.filter(setting => setting.extensionName && setting.extensionPublisher)
-				.map(setting => `${setting.extensionPublisher}.${setting.extensionName}`);
-			resultExtensionIds = arrays.distinct(resultExtensionIds);
-
-			if (resultExtensionIds.length) {
-				const newExtElement = new SettingsTreeNewExtensionsElement('newExtensions', resultExtensionIds);
-				newExtElement.parent = this._root;
-				this._root.children.push(newExtElement);
-			}
-		}
 	}
 
 	setResult(order: SearchResultIdx, result: ISearchResult | null): void {
 		this.cachedUniqueSearchResults = null;
-		this.newExtensionSearchResults = null;
 
 		if (this.rawSearchResults && order === SearchResultIdx.Local) {
 			// To prevent the Settings editor from showing

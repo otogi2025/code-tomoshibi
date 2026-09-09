@@ -11,7 +11,6 @@ import { StandardKeyboardEvent } from '../../../../base/browser/keyboardEvent.js
 import { renderAsPlaintext } from '../../../../base/browser/markdownRenderer.js';
 import { IMouseEvent } from '../../../../base/browser/mouseEvent.js';
 import * as aria from '../../../../base/browser/ui/aria/aria.js';
-import { Button } from '../../../../base/browser/ui/button/button.js';
 import { SimpleIconLabel } from '../../../../base/browser/ui/iconLabel/simpleIconLabel.js';
 import { IInputOptions, InputBox } from '../../../../base/browser/ui/inputbox/inputBox.js';
 import { CachedListVirtualDelegate } from '../../../../base/browser/ui/list/list.js';
@@ -39,7 +38,6 @@ import { IMarkdownRendererService } from '../../../../platform/markdown/browser/
 import { ILanguageService } from '../../../../editor/common/languages/language.js';
 import { localize } from '../../../../nls.js';
 import { IClipboardService } from '../../../../platform/clipboard/common/clipboardService.js';
-import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { ConfigurationTarget, IConfigurationService, getLanguageTagSettingPlainKey } from '../../../../platform/configuration/common/configuration.js';
 import { ConfigurationScope } from '../../../../platform/configuration/common/configurationRegistry.js';
 import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
@@ -51,8 +49,7 @@ import { IListService, WorkbenchObjectTree } from '../../../../platform/list/bro
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IOpenerService } from '../../../../platform/opener/common/opener.js';
 import { IProductService } from '../../../../platform/product/common/productService.js';
-import { ITelemetryService } from '../../../../platform/telemetry/common/telemetry.js';
-import { defaultButtonStyles, getInputBoxStyle, getListStyles, getSelectBoxStyles } from '../../../../platform/theme/browser/defaultStyles.js';
+import { getInputBoxStyle, getListStyles, getSelectBoxStyles } from '../../../../platform/theme/browser/defaultStyles.js';
 import { editorBackground, foreground } from '../../../../platform/theme/common/colorRegistry.js';
 import { IThemeService } from '../../../../platform/theme/common/themeService.js';
 import { IUserDataProfilesService } from '../../../../platform/userDataProfile/common/userDataProfile.js';
@@ -68,7 +65,7 @@ import { settingsMoreActionIcon } from './preferencesIcons.js';
 import { SettingsTarget } from './preferencesWidgets.js';
 import { ISettingOverrideClickEvent, SettingsTreeIndicatorsLabel, getIndicatorsLabelAriaLabel } from './settingsEditorSettingIndicators.js';
 import { ITOCEntry, ITOCFilter } from './settingsLayout.js';
-import { ISettingsEditorViewState, SettingsTreeElement, SettingsTreeGroupChild, SettingsTreeGroupElement, SettingsTreeNewExtensionsElement, SettingsTreeSettingElement, inspectSetting, objectSettingSupportsRemoveDefaultValue, settingKeyToDisplayFormat } from './settingsTreeModels.js';
+import { ISettingsEditorViewState, SettingsTreeElement, SettingsTreeGroupChild, SettingsTreeGroupElement, SettingsTreeSettingElement, inspectSetting, objectSettingSupportsRemoveDefaultValue, settingKeyToDisplayFormat } from './settingsTreeModels.js';
 import { ExcludeSettingWidget, IBoolObjectDataItem, IIncludeExcludeDataItem, IListDataItem, IObjectDataItem, IObjectEnumOption, IObjectKeySuggester, IObjectValueSuggester, IncludeSettingWidget, ListSettingWidget, ObjectSettingCheckboxWidget, ObjectSettingDropdownWidget, ObjectValue, SettingListEvent } from './settingsWidgets.js';
 
 const $ = DOM.$;
@@ -735,11 +732,6 @@ interface ISettingBoolItemTemplate extends ISettingItemTemplate<boolean> {
 	checkbox: Toggle;
 }
 
-interface ISettingExtensionToggleItemTemplate extends ISettingItemTemplate<undefined> {
-	actionButton: Button;
-	dismissButton: Button;
-}
-
 interface ISettingTextItemTemplate extends ISettingItemTemplate<string> {
 	inputBox: InputBox;
 	validationErrorMessageElement: HTMLElement;
@@ -777,11 +769,6 @@ interface ISettingObjectItemTemplate extends ISettingItemTemplate<Record<string,
 	validationErrorMessageElement: HTMLElement;
 }
 
-interface ISettingNewExtensionsTemplate extends IDisposableTemplate {
-	button: Button;
-	context?: SettingsTreeNewExtensionsElement;
-}
-
 interface IGroupTitleTemplate extends IDisposableTemplate {
 	context?: SettingsTreeGroupElement;
 	parent: HTMLElement;
@@ -799,9 +786,7 @@ const SETTINGS_OBJECT_TEMPLATE_ID = 'settings.object.template';
 const SETTINGS_BOOL_OBJECT_TEMPLATE_ID = 'settings.boolObject.template';
 const SETTINGS_COMPLEX_TEMPLATE_ID = 'settings.complex.template';
 const SETTINGS_COMPLEX_OBJECT_TEMPLATE_ID = 'settings.complexObject.template';
-const SETTINGS_NEW_EXTENSIONS_TEMPLATE_ID = 'settings.newExtensions.template';
 const SETTINGS_ELEMENT_TEMPLATE_ID = 'settings.group.template';
-const SETTINGS_EXTENSION_TOGGLE_TEMPLATE_ID = 'settings.extensionToggle.template';
 
 export interface ISettingChangeEvent {
 	key: string;
@@ -893,13 +878,11 @@ export abstract class AbstractSettingRenderer extends Disposable implements ITre
 		@IContextViewService protected readonly _contextViewService: IContextViewService,
 		@IOpenerService protected readonly _openerService: IOpenerService,
 		@IInstantiationService protected readonly _instantiationService: IInstantiationService,
-		@ICommandService protected readonly _commandService: ICommandService,
 		@IContextMenuService protected readonly _contextMenuService: IContextMenuService,
 		@IKeybindingService protected readonly _keybindingService: IKeybindingService,
 		@IConfigurationService protected readonly _configService: IConfigurationService,
 		@IExtensionService protected readonly _extensionsService: IExtensionService,
 		@IProductService protected readonly _productService: IProductService,
-		@ITelemetryService protected readonly _telemetryService: ITelemetryService,
 		@IHoverService protected readonly _hoverService: IHoverService,
 		@IMarkdownRendererService private readonly _markdownRendererService: IMarkdownRendererService,
 	) {
@@ -1139,46 +1122,6 @@ class SettingGroupRenderer implements ITreeRenderer<SettingsTreeGroupElement, ne
 
 	disposeTemplate(templateData: IGroupTitleTemplate): void {
 		templateData.toDispose.dispose();
-	}
-}
-
-export class SettingNewExtensionsRenderer implements ITreeRenderer<SettingsTreeNewExtensionsElement, never, ISettingNewExtensionsTemplate> {
-	templateId = SETTINGS_NEW_EXTENSIONS_TEMPLATE_ID;
-
-	constructor(
-		@ICommandService private readonly _commandService: ICommandService,
-	) {
-	}
-
-	renderTemplate(container: HTMLElement): ISettingNewExtensionsTemplate {
-		const toDispose = new DisposableStore();
-
-		container.classList.add('setting-item-new-extensions');
-
-		const button = new Button(container, { title: true, ...defaultButtonStyles });
-		toDispose.add(button);
-		toDispose.add(button.onDidClick(() => {
-			if (template.context) {
-				this._commandService.executeCommand('workbench.extensions.action.showExtensionsWithIds', template.context.extensionIds);
-			}
-		}));
-		button.label = localize('newExtensionsButtonLabel', "显示匹配的扩展");
-		button.element.classList.add('settings-new-extensions-button');
-
-		const template: ISettingNewExtensionsTemplate = {
-			button,
-			toDispose
-		};
-
-		return template;
-	}
-
-	renderElement(element: ITreeNode<SettingsTreeNewExtensionsElement, never>, index: number, templateData: ISettingNewExtensionsTemplate): void {
-		templateData.context = element.element;
-	}
-
-	disposeTemplate(template: IDisposableTemplate): void {
-		template.toDispose.dispose();
 	}
 }
 
@@ -2118,74 +2061,11 @@ class SettingBoolRenderer extends AbstractSettingRenderer implements ITreeRender
 	}
 }
 
-type ManageExtensionClickTelemetryClassification = {
-	extensionId: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'The extension the user went to manage.' };
-	owner: 'rzhao271';
-	comment: 'Event used to gain insights into when users interact with an extension management setting';
-};
-
-class SettingsExtensionToggleRenderer extends AbstractSettingRenderer implements ITreeRenderer<SettingsTreeSettingElement, never, ISettingExtensionToggleItemTemplate> {
-	templateId = SETTINGS_EXTENSION_TOGGLE_TEMPLATE_ID;
-
-	private readonly _onDidDismissExtensionSetting = this._register(new Emitter<string>());
-	readonly onDidDismissExtensionSetting = this._onDidDismissExtensionSetting.event;
-
-	renderTemplate(_container: HTMLElement): ISettingExtensionToggleItemTemplate {
-		const common = super.renderCommonTemplate(null, _container, 'extension-toggle');
-
-		const actionButton = new Button(common.containerElement, {
-			title: false,
-			...defaultButtonStyles
-		});
-		actionButton.element.classList.add('setting-item-extension-toggle-button');
-		actionButton.label = localize('showExtension', "显示扩展");
-
-		const dismissButton = new Button(common.containerElement, {
-			title: false,
-			secondary: true,
-			...defaultButtonStyles
-		});
-		dismissButton.element.classList.add('setting-item-extension-dismiss-button');
-		dismissButton.label = localize('dismiss', "关闭");
-
-		const template: ISettingExtensionToggleItemTemplate = {
-			...common,
-			actionButton,
-			dismissButton
-		};
-
-		this.addSettingElementFocusHandler(template);
-
-		return template;
-	}
-
-	renderElement(element: ITreeNode<SettingsTreeSettingElement, never>, index: number, templateData: ISettingExtensionToggleItemTemplate): void {
-		super.renderSettingElement(element, index, templateData);
-	}
-
-	protected renderValue(dataElement: SettingsTreeSettingElement, template: ISettingExtensionToggleItemTemplate, onChange: (_: undefined) => void): void {
-		template.elementDisposables.clear();
-
-		const extensionId = dataElement.setting.displayExtensionId!;
-		template.elementDisposables.add(template.actionButton.onDidClick(async () => {
-			this._telemetryService.publicLog2<{ extensionId: String }, ManageExtensionClickTelemetryClassification>('ManageExtensionClick', { extensionId });
-			this._commandService.executeCommand('extension.open', extensionId);
-		}));
-
-		template.elementDisposables.add(template.dismissButton.onDidClick(async () => {
-			this._telemetryService.publicLog2<{ extensionId: String }, ManageExtensionClickTelemetryClassification>('DismissExtensionClick', { extensionId });
-			this._onDidDismissExtensionSetting.fire(extensionId);
-		}));
-	}
-}
-
 export class SettingTreeRenderers extends Disposable {
 	readonly onDidClickOverrideElement: Event<ISettingOverrideClickEvent>;
 
 	private readonly _onDidChangeSetting = this._register(new Emitter<ISettingChangeEvent>());
 	readonly onDidChangeSetting: Event<ISettingChangeEvent>;
-
-	readonly onDidDismissExtensionSetting: Event<string>;
 
 	readonly onDidOpenSettings: Event<string>;
 
@@ -2228,8 +2108,6 @@ export class SettingTreeRenderers extends Disposable {
 		];
 
 		const actionFactory = (setting: ISetting, settingTarget: SettingsTarget) => this.getActionsForSetting(setting, settingTarget);
-		const emptyActionFactory = (_: ISetting) => [];
-		const extensionRenderer = this._instantiationService.createInstance(SettingsExtensionToggleRenderer, [], emptyActionFactory);
 		const settingRenderers = [
 			this._instantiationService.createInstance(SettingBoolRenderer, this.settingActions, actionFactory),
 			this._instantiationService.createInstance(SettingNumberRenderer, this.settingActions, actionFactory),
@@ -2242,8 +2120,7 @@ export class SettingTreeRenderers extends Disposable {
 			this._instantiationService.createInstance(SettingIncludeRenderer, this.settingActions, actionFactory),
 			this._instantiationService.createInstance(SettingEnumRenderer, this.settingActions, actionFactory),
 			this._instantiationService.createInstance(SettingObjectRenderer, this.settingActions, actionFactory),
-			this._instantiationService.createInstance(SettingBoolObjectRenderer, this.settingActions, actionFactory),
-			extensionRenderer
+			this._instantiationService.createInstance(SettingBoolObjectRenderer, this.settingActions, actionFactory)
 		];
 
 		this.onDidClickOverrideElement = Event.any(...settingRenderers.map(r => r.onDidClickOverrideElement));
@@ -2251,7 +2128,6 @@ export class SettingTreeRenderers extends Disposable {
 			...settingRenderers.map(r => r.onDidChangeSetting),
 			this._onDidChangeSetting.event
 		);
-		this.onDidDismissExtensionSetting = extensionRenderer.onDidDismissExtensionSetting;
 		this.onDidOpenSettings = Event.any(...settingRenderers.map(r => r.onDidOpenSettings));
 		this.onDidClickSettingLink = Event.any(...settingRenderers.map(r => r.onDidClickSettingLink));
 		this.onDidFocusSetting = Event.any(...settingRenderers.map(r => r.onDidFocusSetting));
@@ -2261,7 +2137,6 @@ export class SettingTreeRenderers extends Disposable {
 		this.allRenderers = [
 			...settingRenderers,
 			this._instantiationService.createInstance(SettingGroupRenderer),
-			this._instantiationService.createInstance(SettingNewExtensionsRenderer),
 		];
 	}
 
@@ -2452,13 +2327,6 @@ export class SettingsTreeFilter implements ITreeFilter<SettingsTreeElement> {
 			return TreeVisibility.Recurse;
 		}
 
-		// Filtered "new extensions" button
-		if (element instanceof SettingsTreeNewExtensionsElement) {
-			if (this.viewState.tagFilters?.size || this.viewState.categoryFilter) {
-				return false;
-			}
-		}
-
 		return true;
 	}
 
@@ -2508,16 +2376,12 @@ export class SettingsTreeFilter implements ITreeFilter<SettingsTreeElement> {
 
 class SettingsTreeDelegate extends CachedListVirtualDelegate<SettingsTreeGroupChild> {
 
-	getTemplateId(element: SettingsTreeGroupElement | SettingsTreeSettingElement | SettingsTreeNewExtensionsElement): string {
+	getTemplateId(element: SettingsTreeGroupElement | SettingsTreeSettingElement): string {
 		if (element instanceof SettingsTreeGroupElement) {
 			return SETTINGS_ELEMENT_TEMPLATE_ID;
 		}
 
 		if (element instanceof SettingsTreeSettingElement) {
-			if (element.valueType === SettingValueType.ExtensionToggle) {
-				return SETTINGS_EXTENSION_TOGGLE_TEMPLATE_ID;
-			}
-
 			const invalidTypeError = element.isConfigured && getInvalidTypeError(element.value, element.setting.type);
 			if (invalidTypeError) {
 				return SETTINGS_COMPLEX_TEMPLATE_ID;
@@ -2577,14 +2441,10 @@ class SettingsTreeDelegate extends CachedListVirtualDelegate<SettingsTreeGroupCh
 			return SETTINGS_COMPLEX_TEMPLATE_ID;
 		}
 
-		if (element instanceof SettingsTreeNewExtensionsElement) {
-			return SETTINGS_NEW_EXTENSIONS_TEMPLATE_ID;
-		}
-
 		throw new Error('unknown element type: ' + element);
 	}
 
-	hasDynamicHeight(element: SettingsTreeGroupElement | SettingsTreeSettingElement | SettingsTreeNewExtensionsElement): boolean {
+	hasDynamicHeight(element: SettingsTreeGroupElement | SettingsTreeSettingElement): boolean {
 		return !(element instanceof SettingsTreeGroupElement);
 	}
 

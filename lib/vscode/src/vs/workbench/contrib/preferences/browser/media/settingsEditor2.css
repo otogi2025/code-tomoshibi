@@ -188,17 +188,6 @@
 	color: var(--vscode-settings-headerForeground);
 }
 
-.settings-editor > .settings-body .settings-tree-container .setting-item-extension-toggle .setting-item-extension-toggle-button {
-	display: inline-block;
-	width: fit-content;
-}
-
-.settings-editor > .settings-body .settings-tree-container .setting-item-extension-toggle .setting-item-extension-dismiss-button {
-	display: inline-block;
-	width: fit-content;
-	margin-left: 8px;
-}
-
 .settings-editor.no-results > .settings-body .settings-toc-container,
 .settings-editor.no-results > .settings-body .settings-tree-container {
 	display: none;
@@ -711,17 +700,6 @@
 .monaco-select-box-dropdown-container > .select-box-details-pane > .select-box-description-markdown a:hover > code,
 .monaco-select-box-dropdown-container > .select-box-details-pane > .select-box-description-markdown a:active > code {
 	color: var(--vscode-textLink-activeForeground);
-}
-
-.settings-editor > .settings-body .settings-tree-container .setting-item-new-extensions {
-	display: flex;
-}
-
-.settings-editor > .settings-body .settings-tree-container .setting-item-new-extensions .settings-new-extensions-button {
-	margin: auto;
-	margin-bottom: 15px;
-	width: initial;
-	padding: 4px 10px;
 }
 
 .settings-editor > .settings-body .settings-tree-container .group-title {
