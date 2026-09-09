@@ -9,7 +9,12 @@ import i18n from "../i18n"
 import { getPasswordMethod, handlePasswordValidation, sanitizeString, escapeHtml } from "../util"
 
 // RateLimiter wraps around the limiter library for logins.
-// It allows 2 logins every minute plus 12 logins every hour.
+// It allows 2 logins every minute and at most 12 logins every hour.
+//
+// Both buckets have to agree, in both directions.  With "or" the hourly budget
+// was decorative: once it ran out the minute bucket kept dripping a token every
+// thirty seconds and `canTry` kept saying yes, so an attacker got unlimited
+// attempts at 2/min forever instead of being cut off after 12 in the hour.
 export class RateLimiter {
   private readonly minuteLimiter = new Limiter({ tokensPerInterval: 2, interval: "minute" })
   private readonly hourLimiter = new Limiter({ tokensPerInterval: 12, interval: "hour" })
@@ -18,11 +23,15 @@ export class RateLimiter {
     // Note: we must check using >= 1 because technically when there are no tokens left
     // you get back a number like 0.00013333333333333334
     // which would cause fail if the logic were > 0
-    return this.minuteLimiter.getTokensRemaining() >= 1 || this.hourLimiter.getTokensRemaining() >= 1
+    return this.minuteLimiter.getTokensRemaining() >= 1 && this.hourLimiter.getTokensRemaining() >= 1
   }
 
   public removeToken(): boolean {
-    return this.minuteLimiter.tryRemoveTokens(1) || this.hourLimiter.tryRemoveTokens(1)
+    // Deliberately not short-circuited: an attempt has to cost a token in both
+    // buckets, otherwise the hourly budget never drains.
+    const removedMinute = this.minuteLimiter.tryRemoveTokens(1)
+    const removedHour = this.hourLimiter.tryRemoveTokens(1)
+    return removedMinute && removedHour
   }
 }
 

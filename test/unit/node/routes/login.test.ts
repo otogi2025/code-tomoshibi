@@ -17,23 +17,27 @@ describe("login", () => {
     it("should pull tokens from both limiters (minute & hour)", () => {
       const limiter = new RateLimiter()
 
-      // Try twice, which pulls two from the minute bucket
+      // Try twice, which pulls two from each bucket
       limiter.removeToken()
       limiter.removeToken()
 
-      // Check that we can still try
-      // which should be true since there are 12 remaining in the hour bucket
-      expect(limiter.canTry()).toBe(true)
-      expect(limiter.removeToken()).toBe(true)
+      // The minute bucket is empty even though the hour bucket still holds 10.
+      // This used to be allowed: `canTry` was an "or", so the hour bucket alone
+      // was enough to let the attempt through and neither budget was ever
+      // really enforced.  Both buckets must have a token now.
+      expect(limiter.canTry()).toBe(false)
+      expect(limiter.removeToken()).toBe(false)
     })
 
-    it("should not allow more than 14 tries in less than an hour", () => {
+    it("should not allow more than 2 tries before the minute bucket drips", () => {
       const limiter = new RateLimiter()
 
-      // The limiter allows 2 tries per minute plus 12 per hour
-      // so if we run it 15 times, 14 should return true and the last
-      // should return false
-      for (let i = 1; i <= 14; i++) {
+      // The limiter allows 2 tries per minute and 12 per hour, and an attempt
+      // has to be affordable in both.  2 is therefore the burst ceiling; the
+      // hour bucket is charged in step with it, which is what stops the minute
+      // bucket's drip from adding up to unlimited attempts once the hourly
+      // budget is gone (that was the old "or" behaviour).
+      for (let i = 1; i <= 2; i++) {
         expect(limiter.removeToken()).toBe(true)
       }
 
