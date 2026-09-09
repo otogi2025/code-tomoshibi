@@ -311,10 +311,6 @@ export class EditorPart extends Part<IEditorPartMemento> implements IEditorPart,
 	private readonly whenRestoredPromise = new DeferredPromise<void>();
 	readonly whenRestored = this.whenRestoredPromise.p;
 
-	get hasRestorableState(): boolean {
-		return !!this.workspaceMemento[EditorPart.EDITOR_PART_UI_STATE_STORAGE_KEY];
-	}
-
 	private _willRestoreState = false;
 	get willRestoreState(): boolean { return this._willRestoreState; }
 

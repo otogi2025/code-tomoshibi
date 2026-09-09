@@ -283,12 +283,6 @@ export interface IEditorGroupsContainer {
 	readonly whenRestored: Promise<void>;
 
 	/**
-	 * Find out if the container has UI state to restore
-	 * from a previous session.
-	 */
-	readonly hasRestorableState: boolean;
-
-	/**
 	 * An active group is the default location for new editors to open.
 	 */
 	readonly activeGroup: IEditorGroup;

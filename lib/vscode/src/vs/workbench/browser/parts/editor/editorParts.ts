@@ -544,10 +544,6 @@ export class EditorParts extends MultiWindowParts<EditorPart, IEditorPartsMement
 		}
 	}
 
-	get hasRestorableState(): boolean {
-		return this.parts.some(part => part.hasRestorableState);
-	}
-
 	private onDidChangeMementoState(e: IStorageValueChangeEvent): void {
 		if (e.external && e.scope === StorageScope.WORKSPACE) {
 			this.reloadMemento(e.scope);
