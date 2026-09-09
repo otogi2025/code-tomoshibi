@@ -1,6 +1,6 @@
 import { logger } from "@coder/logger"
 import * as express from "express"
-import { promises as fs, statfsSync } from "fs"
+import { promises as fs } from "fs"
 import * as os from "os"
 import * as path from "path"
 
@@ -106,8 +106,9 @@ interface Sampler {
 /** Below this the window is not measurable, so rates report null instead of a made up number. */
 const MIN_RATE_WINDOW_MS = 100
 
-/* The host name never changes while the process lives, so it is resolved once. */
+/* Neither of these changes while the process lives, so they are resolved once. */
 const hostname = os.hostname()
+const homeDirectory = os.homedir()
 
 const basicSampler: Sampler = {}
 const detailSampler: Sampler = {}
@@ -184,6 +185,21 @@ const readMemoryInfo = async (): Promise<Map<string, number> | undefined> => {
       }
     }
     return values
+  } catch {
+    return undefined
+  }
+}
+
+interface DiskUsage {
+  readonly usedBytes: number
+  readonly totalBytes: number
+}
+
+const readDiskUsage = async (): Promise<DiskUsage | undefined> => {
+  try {
+    // bfree, not bavail: the root-reserved blocks count as used in what df prints.
+    const stats = await fs.statfs(homeDirectory)
+    return { usedBytes: (stats.blocks - stats.bfree) * stats.bsize, totalBytes: stats.blocks * stats.bsize }
   } catch {
     return undefined
   }
@@ -331,7 +347,12 @@ const readTopProcesses = async (cpuTotal: number | undefined, now: number): Prom
 
 const sample = async (sampler: Sampler, detail: boolean): Promise<PerformanceSnapshot> => {
   const now = Date.now()
-  const [cpu, network, memoryInfo] = await Promise.all([readCpuCounters(), readNetworkCounters(), readMemoryInfo()])
+  const [cpu, network, memoryInfo, disk] = await Promise.all([
+    readCpuCounters(),
+    readNetworkCounters(),
+    readMemoryInfo(),
+    readDiskUsage(),
+  ])
 
   const previous = sampler.counters
   const elapsedMs = previous ? now - previous.at : 0
@@ -369,18 +390,6 @@ const sample = async (sampler: Sampler, detail: boolean): Promise<PerformanceSna
   const swapTotalBytes = kilobytesToBytes(memoryInfo, "SwapTotal")
   const swapFreeBytes = kilobytesToBytes(memoryInfo, "SwapFree")
 
-  let diskUsedBytes: number | null = null
-  let diskTotalBytes: number | null = null
-  try {
-    // bfree, not bavail: the root-reserved blocks count as used in what df prints.
-    const stats = statfsSync(os.homedir())
-    diskTotalBytes = stats.blocks * stats.bsize
-    diskUsedBytes = (stats.blocks - stats.bfree) * stats.bsize
-  } catch {
-    diskUsedBytes = null
-    diskTotalBytes = null
-  }
-
   const snapshot: PerformanceSnapshot = {
     hostname,
     cpuCores: os.cpus().length,
@@ -393,8 +402,8 @@ const sample = async (sampler: Sampler, detail: boolean): Promise<PerformanceSna
     swapUsedBytes:
       swapTotalBytes !== undefined && swapFreeBytes !== undefined ? Math.max(0, swapTotalBytes - swapFreeBytes) : null,
     swapTotalBytes: swapTotalBytes ?? null,
-    diskUsedBytes,
-    diskTotalBytes,
+    diskUsedBytes: disk?.usedBytes ?? null,
+    diskTotalBytes: disk?.totalBytes ?? null,
     downloadBytesPerSecond,
     uploadBytesPerSecond,
     sampledAt: now,
