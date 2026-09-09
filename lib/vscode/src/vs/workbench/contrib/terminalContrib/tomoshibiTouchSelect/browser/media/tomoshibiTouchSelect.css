@@ -54,15 +54,31 @@
 	background: #007aff;
 }
 
-/* Transparent hit area, at least 32x32, so the thin bar stays reachable. */
+/*
+ * Transparent hit area, 40x32 per handle, so the 2px bar stays reachable.
+ * A selection of one or two cells puts the two bars about a character apart, and a
+ * hit area centred on each bar would then cover the other handle's dot as well --
+ * the end handle is appended last, so it would win every one of those taps and the
+ * start handle would be undraggable. The areas are therefore split at the bar's
+ * midline instead of stacked on it: each handle takes the side its own dot sits on
+ * (start above the row, end below it), so the two can overlap horizontally without
+ * either stealing the other's dot.
+ */
 .monaco-workbench .tomoshibi-touch-handle::before {
 	content: '';
 	position: absolute;
 	left: 50%;
-	top: 50%;
 	width: 40px;
-	height: 44px;
-	transform: translate(-50%, -50%);
+	height: 32px;
+	transform: translateX(-50%);
+}
+
+.monaco-workbench .tomoshibi-touch-handle.is-start::before {
+	bottom: 50%;
+}
+
+.monaco-workbench .tomoshibi-touch-handle.is-end::before {
+	top: 50%;
 }
 
 .monaco-workbench .tomoshibi-touch-handle-dot {
