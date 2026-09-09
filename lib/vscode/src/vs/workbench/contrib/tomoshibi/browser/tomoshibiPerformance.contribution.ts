@@ -146,6 +146,15 @@ function formatRateLong(bytesPerSecond: number | null): string {
 	return `${(bytesPerSecond / (1024 * 1024)).toFixed(1)} MB/s`;
 }
 
+/**
+ * 刷新间隔是毫秒（设置页的档位是 250 / 500 / 1000 / 2000 / 5000，默认 500，手改 settings.json
+ * 还能填 300 这类值）。除以 1000 取整会把默认档印成「1 秒」、实时档印成「0 秒」，跟设置页写的
+ * 「0.5 秒 / 0.25 秒」对不上，所以不足一秒的照实印小数。
+ */
+function formatSeconds(ms: number): string {
+	return String(Number((ms / 1000).toFixed(2)));
+}
+
 function formatPercent(value: number | null): string {
 	return value === null ? dash : `${Math.round(value)}%`;
 }
@@ -488,7 +497,7 @@ export class TomoshibiPerformanceContribution extends Disposable implements IWor
 		const latency = this._latency();
 
 		if (this._detailTitle) {
-			setText(this._detailTitle, localize('tomoshibi.performance.detail.host', "VPS {0} · 每 {1} 秒刷新", snapshot?.hostname ?? dash, Math.round(this._pollInterval() / 1000)));
+			setText(this._detailTitle, localize('tomoshibi.performance.detail.host', "VPS {0} · 每 {1} 秒刷新", snapshot?.hostname ?? dash, formatSeconds(this._pollInterval())));
 		}
 
 		const cores = snapshot?.cpuCores ?? null;
