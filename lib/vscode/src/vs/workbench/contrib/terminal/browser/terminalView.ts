@@ -1317,7 +1317,7 @@ class SwitchTerminalActionViewItem extends BaseActionViewItem {
 		try {
 			const instances = new Map<string, ITerminalInstance>();
 			for (const instance of tomoshibiVisibleInstances(this._terminalGroupService)) {
-				instances.set(this._sessionService.sessionKey(instance), instance);
+				instances.set(this._sessionService.peekSessionKey(instance), instance);
 			}
 			for (const placement of placements) {
 				const instance = instances.get(placement.key);
@@ -1352,7 +1352,7 @@ class SwitchTerminalActionViewItem extends BaseActionViewItem {
 
 	private _openManagement(instanceId: number): void {
 		const instance = this._terminalService.getInstanceFromId(instanceId);
-		const pill = instance ? this._pills.get(this._sessionService.sessionKey(instance)) : undefined;
+		const pill = instance ? this._pills.get(this._sessionService.peekSessionKey(instance)) : undefined;
 		if (!instance || !pill) {
 			return;
 		}
@@ -1489,7 +1489,7 @@ class SwitchTerminalActionViewItem extends BaseActionViewItem {
 		// getTitle / getGroupOf / isPinned 内部也各走一次 sessionKey，光挪 map 里这一处没用；
 		// 结算这一段用 _suppressSync 包起来，重入的那次 _sync 直接短路，而紧跟着的渲染读到的已经是
 		// 迁移完的模型。⛔ 这一段里除了 sessionKey 什么都不许做 —— 它的短路是靠「这期间不会有别的
-		// 变更」成立的。
+		// 变更」成立的。⛔ 只有这里用带副作用的 sessionKey()，渲染路径一律用只读的 peekSessionKey()。
 		this._suppressSync = true;
 		try {
 			for (const instance of instances) {
@@ -1499,7 +1499,7 @@ class SwitchTerminalActionViewItem extends BaseActionViewItem {
 			this._suppressSync = false;
 		}
 		const slots: ITomoshibiSlot[] = instances.map(instance => ({
-			key: this._sessionService.sessionKey(instance),
+			key: this._sessionService.peekSessionKey(instance),
 			instance,
 			group: this._sessionService.getGroupOf(instance),
 		}));
