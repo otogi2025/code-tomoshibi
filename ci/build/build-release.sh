@@ -143,6 +143,22 @@ bundle_vscode() {
   rsync "$VSCODE_SRC_PATH/extensions/postinstall.mjs" "$VSCODE_OUT_PATH/extensions/postinstall.mjs"
 }
 
+# If create_shrinkwraps dies partway through (e.g. npm shrinkwrap itself
+# fails), it can leave package-lock.json.temp lying around with
+# package-lock.json missing or rewritten (npm shrinkwrap repurposes it into
+# npm-shrinkwrap.json). This puts back whatever .temp backups are still on
+# disk in any of the three directories create_shrinkwraps touches, regardless
+# of which pushd we were inside of when it died -- paths are anchored on the
+# directory create_shrinkwraps started in, not on $PWD at trap time.
+restore_lockfiles() {
+  local root="${_shrinkwrap_root:-$PWD}" dir
+  for dir in "$root" "$root/$VSCODE_SRC_PATH/remote" "$root/$VSCODE_SRC_PATH/extensions"; do
+    if [ -f "$dir/package-lock.json.temp" ]; then
+      mv "$dir/package-lock.json.temp" "$dir/package-lock.json"
+    fi
+  done
+}
+
 create_shrinkwraps() {
   # package-lock.json files (used to ensure deterministic versions of
   # dependencies) are not packaged when publishing to the NPM registry.
@@ -154,6 +170,9 @@ create_shrinkwraps() {
   # installed by end-users.  These will include devDependencies, but those will
   # be ignored when installing globally (for code-server), and because we use
   # --omit=dev (for VS Code).
+
+  _shrinkwrap_root="$PWD"
+  trap restore_lockfiles EXIT
 
   # We first generate the shrinkwrap file for code-server itself - which is the
   # current directory.
@@ -173,6 +192,8 @@ create_shrinkwraps() {
   npm shrinkwrap
   mv package-lock.json.temp package-lock.json
   popd
+
+  trap - EXIT
 }
 
 main "$@"
