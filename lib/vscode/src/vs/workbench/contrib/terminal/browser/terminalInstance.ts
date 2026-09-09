@@ -1313,7 +1313,11 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 				// xterm 的 compositionend 处理器（注册早于本监听器）会排一个 setTimeout(0) 补发合成结果。
 				// iOS 上「提交候选 + 插入标点」可能落在同一个任务里，同步写会让标点跑到汉字前面；
 				// 定时器按排队顺序触发，所以这里同样排一个 0ms 的队，必然落在 xterm 那一发之后。
-				disposableTimeout(() => void this._handleOnData(data), 0, pendingIPadImeWrites);
+				// ⛔ 走 xterm.raw.input() 而不是直接 _handleOnData()：input() 内部就是
+				// coreService.triggerDataEvent(data, true)，顺带把正常输入该有的三件事一起做了 ——
+				// scrollOnUserInput 时滚回底部、fire onUserInput（清掉当前选区、让输出尽快刷出）、
+				// disableStdin 为真时（PTY 断开后）直接丢弃。数据仍然经 onData 回到 _handleOnData，不会发两遍。
+				disposableTimeout(() => xterm.raw.input(data, true), 0, pendingIPadImeWrites);
 			}, true));
 
 			const targetWindow = dom.getWindow(xterm.raw.textarea);
@@ -1384,7 +1388,9 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 				event.preventDefault();
 				event.stopPropagation();
 				if (iPadHardwareEnterData !== null) {
-					void this._handleOnData(iPadHardwareEnterData);
+					// ⛔ 同上：必须走 xterm 自己的入口，否则回车之后视口不会滚回底部（新提示符看不见）、
+					// 选区不会被清掉、PTY 已断开时还会往死连接里写一次。
+					xterm.raw.input(iPadHardwareEnterData, true);
 				}
 				return false;
 			}
