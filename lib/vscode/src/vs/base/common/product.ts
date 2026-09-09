@@ -101,10 +101,6 @@ export interface IProductConfiguration {
 	readonly rootEndpoint?: string;
 	readonly logoutEndpoint?: string;
 	readonly proxyEndpointTemplate?: string;
-	readonly serviceWorker?: {
-		readonly path: string;
-		readonly scope: string;
-	};
 	readonly telemetryEndpoint?: string;
 
 	readonly version: string;

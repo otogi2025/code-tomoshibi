@@ -7,13 +7,12 @@
  * window's startup path and talks to an embedding parent frame over `window` / `parent`, so
  * the multi-window (`mainWindow` / `targetWindow`) rules do not apply to it. Kept verbatim
  * from upstream code-server apart from deliberate Code-Tomoshibi removals. */
-/* eslint-disable no-restricted-globals, no-restricted-syntax, local/code-no-in-operator, local/code-no-unexternalized-strings, @typescript-eslint/no-explicit-any */
+/* eslint-disable no-restricted-globals, no-restricted-syntax, local/code-no-unexternalized-strings */
 
 import { Disposable } from "../../base/common/lifecycle.js";
 import { localize } from '../../nls.js';
 import { MenuId, MenuRegistry } from '../../platform/actions/common/actions.js';
 import { CommandsRegistry } from '../../platform/commands/common/commands.js';
-import { ILogService } from '../../platform/log/common/log.js';
 import { INotificationService, Severity } from '../../platform/notification/common/notification.js';
 import { IProductService } from '../../platform/product/common/productService.js';
 
@@ -21,7 +20,6 @@ export class CodeServerClient extends Disposable {
 	static LOGOUT_COMMAND_ID = 'code-server.logout';
 
 	constructor(
-		@ILogService private logService: ILogService,
 		@INotificationService private notificationService: INotificationService,
 		@IProductService private productService: IProductService,
 	) {
@@ -94,10 +92,6 @@ export class CodeServerClient extends Disposable {
 		if (this.productService.logoutEndpoint) {
 			this.addLogoutCommand(this.productService.logoutEndpoint);
 		}
-
-		if (this.productService.serviceWorker) {
-			await this.registerServiceWorker(this.productService.serviceWorker);
-		}
 	}
 
 	private addLogoutCommand(logoutEndpoint: string) {
@@ -118,19 +112,6 @@ export class CodeServerClient extends Disposable {
 					title: localize('logout', "Sign out of {0}", 'code-server'),
 				},
 			});
-		}
-	}
-
-	private async registerServiceWorker(serviceWorker: { path: string; scope: string }) {
-		if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
-			try {
-				await navigator.serviceWorker.register(serviceWorker.path, {
-					scope: serviceWorker.scope,
-				});
-				this.logService.info('[Service Worker] registered');
-			} catch (error: any) {
-				this.logService.error('[Service Worker] registration', error as Error);
-			}
 		}
 	}
 }

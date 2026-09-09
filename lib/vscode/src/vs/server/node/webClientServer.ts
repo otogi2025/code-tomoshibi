@@ -373,10 +373,6 @@ export class WebClientServer {
 			rootEndpoint: rootBase,
 			logoutEndpoint: this._environmentService.args['auth'] && this._environmentService.args['auth'] !== 'none' ? rootBase + '/logout' : undefined,
 			proxyEndpointTemplate: process.env.VSCODE_PROXY_URI ?? rootBase + '/proxy/{{port}}/',
-			serviceWorker: {
-				scope: vscodeBase + '/',
-				path: rootBase + '/_static/out/browser/serviceWorker.js',
-			},
 			enableTelemetry: this._productService.enableTelemetry,
 			telemetryEndpoint: this._productService.telemetryEndpoint,
 			embedderIdentifier: 'server-distro',
