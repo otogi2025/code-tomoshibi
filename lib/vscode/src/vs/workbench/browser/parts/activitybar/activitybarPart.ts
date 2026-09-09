@@ -73,6 +73,22 @@ export class ActivitybarPart extends Part {
 	static readonly placeholderViewContainersKey = 'workbench.activity.placeholderViewlets';
 	static readonly viewContainersWorkspaceStateKey = 'workbench.activity.viewletsWorkspaceState';
 
+	/**
+	 * Code-Tomoshibi exposes only these four surfaces: the two workspace navigation ones plus
+	 * clipboard history and scratch notes. Git, debugging and extension services stay available
+	 * through commands, but do not register activity-bar actions or DOM.
+	 *
+	 * 侧边栏在活动栏移到顶部 / 底部时托管的是同一个 ActivityBarCompositeBar，还共用上面那三个
+	 * 存储键，所以两条路径必须用同一份白名单：只有一边过滤的话，白名单外的容器会在一种布局下
+	 * 冒出来、另一种下消失，而且两边的 saveCachedViewContainers() 会互相覆写 pinned / order 缓存。
+	 */
+	static readonly TOMOSHIBI_VIEW_CONTAINERS: ReadonlySet<string> = new Set([
+		'workbench.view.explorer',
+		'workbench.view.search',
+		'workbench.view.tomoshibiClipboard',
+		'workbench.view.tomoshibiNote'
+	]);
+
 	//#region IView
 
 	get minimumWidth(): number { return this.baseWidth + this.floatingGutter; }
@@ -193,11 +209,7 @@ export class ActivitybarPart extends Part {
 				dragAndDropBorder: theme.getColor(ACTIVITY_BAR_DRAG_AND_DROP_BORDER),
 				activeBackgroundColor: undefined, inactiveBackgroundColor: undefined, activeBorderBottomColor: undefined,
 			}),
-			// Code-Tomoshibi exposes only these four surfaces here: the two workspace
-			// navigation ones plus clipboard history and scratch notes.
-			// Git, debugging and extension services stay available through commands,
-			// but do not register activity-bar actions or DOM.
-			viewContainerFilter: id => id === 'workbench.view.explorer' || id === 'workbench.view.search' || id === 'workbench.view.tomoshibiClipboard' || id === 'workbench.view.tomoshibiNote',
+			viewContainerFilter: id => ActivitybarPart.TOMOSHIBI_VIEW_CONTAINERS.has(id),
 			overflowActionSize: actionHeight,
 		}, Parts.ACTIVITYBAR_PART, this.paneCompositePart, true);
 	}

@@ -201,6 +201,9 @@ export class SidebarPart extends AbstractPaneCompositePart {
 			pinnedViewContainersKey: ActivitybarPart.pinnedViewContainersKey,
 			placeholderViewContainersKey: ActivitybarPart.placeholderViewContainersKey,
 			viewContainersWorkspaceStateKey: ActivitybarPart.viewContainersWorkspaceStateKey,
+			// 活动栏那一路的白名单，这里也必须带上：同一个类、同一批存储键，只过滤一边的话
+			// 白名单外的容器在「活动栏位置 = 顶部/底部」时会冒出来，两边还会互相覆写 pinned 缓存。
+			viewContainerFilter: id => ActivitybarPart.TOMOSHIBI_VIEW_CONTAINERS.has(id),
 			icon: true,
 			orientation: ActionsOrientation.HORIZONTAL,
 			recomputeSizes: true,
