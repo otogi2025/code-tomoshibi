@@ -8,7 +8,6 @@ import './media/tunnelView.css';
 import * as nls from '../../../../nls.js';
 import * as dom from '../../../../base/browser/dom.js';
 import { IViewDescriptor, IEditableData, IViewDescriptorService } from '../../../common/views.js';
-import { IViewsService } from '../../../services/views/common/viewsService.js';
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
 import { IContextMenuService, IContextViewService } from '../../../../platform/contextview/browser/contextView.js';
 import { IContextKeyService, IContextKey, RawContextKey, ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
@@ -1224,10 +1223,8 @@ export namespace ForwardPortAction {
 		return async (accessor, arg) => {
 			const remoteExplorerService = accessor.get(IRemoteExplorerService);
 			const notificationService = accessor.get(INotificationService);
-			const viewsService = accessor.get(IViewsService);
 			const quickInputService = accessor.get(IQuickInputService);
 			const tunnelService = accessor.get(ITunnelService);
-			await viewsService.openView(TunnelPanel.ID, true);
 			const value = await quickInputService.input({
 				prompt: forwardPrompt,
 				validateInput: (value) => Promise.resolve(validateInput(remoteExplorerService, tunnelService, value, tunnelService.canElevate))
