@@ -311,6 +311,9 @@ export class ActivitybarPart extends Part {
 	 */
 	private createTomoshibiSoftKeys(): void {
 		this.createTomoshibiSoftKey('Esc', localize('tomoshibi.escapeKey', "给当前终端发送 Esc"), 'tomoshibi.escape');
+		// 活动栏被隐藏（活动栏位置改成顶部 / 底部 / 隐藏，或进禅模式）时它不再参与网格布局，
+		// layout() 也就不会再被调到，软键会停在上一次算出来的坐标上。盯着部件可见性重排一次。
+		this._register(this.layoutService.onDidChangePartVisibility(() => this.layoutTomoshibiSoftKeys()));
 		this.layoutTomoshibiSoftKeys();
 	}
 
@@ -352,13 +355,15 @@ export class ActivitybarPart extends Part {
 		}
 		const root = this.layoutService.mainContainer.getBoundingClientRect();
 		const bar = this.element.getBoundingClientRect();
-		if (!bar.width || !bar.height) {
-			return;
-		}
-		const top = Math.round(bar.top - root.top);
 		const onRight = this.layoutService.getSideBarPosition() === Position.RIGHT;
+		// 活动栏藏起来时矩形全是 0。以前这里直接早退，软键就搁浅在上一次算出来的坐标上
+		// （或者从没算过时 CSS 默认的 top:0/left:48px），z-index:60 盖着侧边栏标题 / 编辑器
+		// 左上角，还吞掉那块的点击，除了把活动栏切回「默认」没有任何办法让它归位。
+		// 不隐藏它 —— 藏活动栏正是为了省地方，这时候更需要 Esc —— 改成贴容器上角兜底。
+		const stranded = !bar.width || !bar.height;
+		const top = stranded ? 0 : Math.round(bar.top - root.top);
 		// Lay the keys out away from the activity bar, each one past the previous key's width.
-		let offset = onRight ? Math.round(root.right - bar.left) : Math.round(bar.right - root.left);
+		let offset = stranded ? 0 : (onRight ? Math.round(root.right - bar.left) : Math.round(bar.right - root.left));
 		for (const key of this.tomoshibiSoftKeys) {
 			key.style.top = `${top}px`;
 			if (onRight) {
