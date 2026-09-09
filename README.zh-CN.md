@@ -124,11 +124,15 @@ npm run build                          # code-server（tsc）
 sudo systemd-run --scope --unit=tomoshibi-code-build -p MemoryMax=12G \
   -- runuser -u "$USER" -- env PATH="$PATH" HOME="$HOME" \
      VERSION=4.132.0-tomoshibi.2 VSCODE_TARGET=linux-x64 TOMOSHIBI_ISOLATED_BUILD=1 \
+     DISABLE_V8_COMPILE_CACHE=1 ELECTRON_SKIP_BINARY_DOWNLOAD=1 \
      bash -c "cd '$PWD' && npm run build:vscode"
 
-npm run release                        # 组装 ./release
-tar -C release -czf codet.tar.gz .
+# 组装 ./release。KEEP_MODULES=1 才是能独立启动的完整包，见下。
+KEEP_MODULES=1 npm run release
+tar -C release -czf code-tomoshibi-4.132.0-tomoshibi.2-linux-amd64.tar.gz .
 ```
+
+**`npm run release` 有两种形态。** 不带 `KEEP_MODULES=1` 时，`ci/build/build-release.sh` 会剥掉所有 `node_modules`，不放 `bin/code-server` 启动脚本，也不拷 `node` 二进制——出来的只有 JavaScript，自己起不来，只能叠在一份已经装好、运行时匹配的旧安装上。带 `KEEP_MODULES=1` 才会有 `bin/code-server`、`lib/node` 和只留生产依赖的 `node_modules`，换一台干净机器要的是这一份。工作流两份都传：`codet-release`（只有 JS，留 14 天）和 `codet-runtime-full`（完整，留 7 天）。
 
 **闸门。** VS Code 的编译要吃远超 8 GB 的内存，在小 VPS 上会把别的一起拖死。所以 `ci/build/build-vscode.sh` 拒绝在以下条件之外运行：在一个名字含 `tomoshibi-code-build` 的 cgroup 里、有 6 到 12 GiB 之间的有限内存上限、宿主机至少 12 GiB、并且设了 `TOMOSHIBI_ISOLATED_BUILD=1`。macOS 上只查环境变量和 12 GiB。GitHub 工作流用上面那条 `systemd-run` 满足它。GitHub 给公开仓库的免费 runner（4 核 16 GB）过得了；给私有仓库的（2 核 7 GB）过不了。
 

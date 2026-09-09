@@ -124,11 +124,15 @@ npm run build                          # code-server (tsc)
 sudo systemd-run --scope --unit=tomoshibi-code-build -p MemoryMax=12G \
   -- runuser -u "$USER" -- env PATH="$PATH" HOME="$HOME" \
      VERSION=4.132.0-tomoshibi.2 VSCODE_TARGET=linux-x64 TOMOSHIBI_ISOLATED_BUILD=1 \
+     DISABLE_V8_COMPILE_CACHE=1 ELECTRON_SKIP_BINARY_DOWNLOAD=1 \
      bash -c "cd '$PWD' && npm run build:vscode"
 
-npm run release                        # assembles ./release
-tar -C release -czf codet.tar.gz .
+# Assembles ./release. KEEP_MODULES=1 keeps it self-contained; see below.
+KEEP_MODULES=1 npm run release
+tar -C release -czf code-tomoshibi-4.132.0-tomoshibi.2-linux-amd64.tar.gz .
 ```
+
+**The two shapes of `npm run release`.** Without `KEEP_MODULES=1`, `ci/build/build-release.sh` strips every `node_modules`, skips the `bin/code-server` launcher and does not copy the `node` binary. What is left is JavaScript only: it cannot start on its own and is meant to be laid over an installation that already has a matching runtime. With `KEEP_MODULES=1` you get `bin/code-server`, `lib/node` and the pruned production `node_modules`, which is what you want for a fresh machine. The workflow uploads both: `codet-release` (JS only, 14 days) and `codet-runtime-full` (complete, 7 days).
 
 **The guard.** The VS Code build needs well over 8 GB of RAM, and on a small VPS it takes everything else down with it. So `ci/build/build-vscode.sh` refuses to run unless it is inside a cgroup whose name contains `tomoshibi-code-build`, with a finite memory limit between 6 and 12 GiB, on a host with at least 12 GiB, and with `TOMOSHIBI_ISOLATED_BUILD=1` set. On macOS it only checks the variable and the 12 GiB. The GitHub workflow satisfies it with the `systemd-run` scope above. GitHub's free runners for public repositories (4 cores, 16 GB) pass; the ones for private repositories (2 cores, 7 GB) do not.
 
