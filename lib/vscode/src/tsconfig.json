@@ -41,7 +41,6 @@
 		"vs/platform/agentHost/browser/**",
 		"vs/platform/agentHost/common/webPubSub/**",
 		"vs/platform/browserView/node/**",
-		"vs/workbench/contrib/authentication/**",
 		"vs/workbench/contrib/issue/browser/issueQuickAccess.ts",
 		"vs/workbench/contrib/issue/browser/issueReporterEditorInput.ts",
 		"vs/workbench/contrib/issue/browser/issueReporterOverlay.ts",
