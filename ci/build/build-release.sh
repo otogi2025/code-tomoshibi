@@ -154,7 +154,7 @@ restore_lockfiles() {
   local root="${_shrinkwrap_root:-$PWD}" dir
   for dir in "$root" "$root/$VSCODE_SRC_PATH/remote" "$root/$VSCODE_SRC_PATH/extensions"; do
     if [ -f "$dir/package-lock.json.temp" ]; then
-      mv "$dir/package-lock.json.temp" "$dir/package-lock.json"
+      mv "$dir/package-lock.json.temp" "$dir/package-lock.json" || echo "warning: could not restore $dir/package-lock.json" >&2
     fi
   done
 }
