@@ -13,6 +13,7 @@ import { delimiter, join } from '../../base/common/path.js';
 import { IProcessEnvironment, isWindows } from '../../base/common/platform.js';
 import { removeDangerousEnvVariables } from '../../base/common/processes.js';
 import { createRandomIPCHandle, NodeSocket, WebSocketNodeSocket } from '../../base/parts/ipc/node/ipc.net.js';
+import { ProtocolConstants } from '../../base/parts/ipc/common/ipc.net.js';
 import { IConfigurationService } from '../../platform/configuration/common/configuration.js';
 import { ILogService } from '../../platform/log/common/log.js';
 import { IRemoteExtensionHostStartParams } from '../../platform/remote/common/remoteAgentConnection.js';
@@ -63,8 +64,10 @@ export async function buildUserEnvironment(startParamsEnv: { [key: string]: stri
 		env.BROWSER = join(binFolder, 'helpers', isWindows ? 'browser.cmd' : 'browser.sh'); // a command that opens a browser on the local machine
 	}
 
-	env.VSCODE_RECONNECTION_GRACE_TIME = String(environmentService.reconnectionGraceTime);
-	logService.trace(`[reconnection-grace-time] Setting VSCODE_RECONNECTION_GRACE_TIME env var for extension host: ${environmentService.reconnectionGraceTime}ms (${Math.floor(environmentService.reconnectionGraceTime / 1000)}s)`);
+	// The extension host's own disconnect timer follows the management connection's grace
+	// time (20min), not the persistent-terminal grace time in environmentService.reconnectionGraceTime.
+	env.VSCODE_RECONNECTION_GRACE_TIME = String(ProtocolConstants.ManagementReconnectionGraceTime);
+	logService.trace(`[reconnection-grace-time] Setting VSCODE_RECONNECTION_GRACE_TIME env var for extension host: ${ProtocolConstants.ManagementReconnectionGraceTime}ms (${Math.floor(ProtocolConstants.ManagementReconnectionGraceTime / 1000)}s)`);
 
 	removeNulls(env);
 	return env;

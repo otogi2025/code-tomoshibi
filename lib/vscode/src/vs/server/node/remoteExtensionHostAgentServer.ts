@@ -24,7 +24,7 @@ import { generateUuid } from '../../base/common/uuid.js';
 import { getOSReleaseInfo } from '../../base/node/osReleaseInfo.js';
 import { findFreePort } from '../../base/node/ports.js';
 import { addUNCHostToAllowlist, disableUNCAccessRestrictions } from '../../base/node/unc.js';
-import { PersistentProtocol } from '../../base/parts/ipc/common/ipc.net.js';
+import { PersistentProtocol, ProtocolConstants } from '../../base/parts/ipc/common/ipc.net.js';
 import { NodeSocket, upgradeToISocket, WebSocketNodeSocket } from '../../base/parts/ipc/node/ipc.net.js';
 import { IConfigurationService } from '../../platform/configuration/common/configuration.js';
 import { IInstantiationService } from '../../platform/instantiation/common/instantiation.js';
@@ -99,7 +99,10 @@ class RemoteExtensionHostAgentServer extends Disposable implements IServerAPI {
 				: null
 		);
 		this._logService.info(`Extension host agent started.`);
-		this._reconnectionGraceTime = this._environmentService.reconnectionGraceTime;
+		// Management/extension-host connections use a fixed, short grace time (unlike the
+		// persistent terminal grace time in environmentService.reconnectionGraceTime, which
+		// stays configurable via --reconnection-grace-time and defaults to 3h).
+		this._reconnectionGraceTime = ProtocolConstants.ManagementReconnectionGraceTime;
 	}
 
 	public async handleRequest(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {

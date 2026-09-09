@@ -310,6 +310,14 @@ export const enum ProtocolConstants {
 	 * Send a message every 5 seconds to avoid that the connection is closed by the OS.
 	 */
 	KeepAliveSendTime = 5000, // 5 seconds
+	/**
+	 * Upper bound on how long the server waits for a disconnected browser tab to reconnect
+	 * before tearing down its management connection and the associated extension host /
+	 * file watchers etc. The grace period for long-running terminal processes is separate
+	 * and configured via `--reconnection-grace-time` (default remains 3h, see
+	 * ServerEnvironmentService#reconnectionGraceTime).
+	 */
+	ManagementReconnectionGraceTime = 20 * 60 * 1000, // 20min
 }
 
 class ProtocolMessage {

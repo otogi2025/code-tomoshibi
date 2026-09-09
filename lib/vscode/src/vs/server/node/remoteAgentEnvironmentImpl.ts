@@ -22,6 +22,7 @@ import { IExtensionHostStatusService } from './extensionHostStatusService.js';
 import { IUserDataProfilesService } from '../../platform/userDataProfile/common/userDataProfile.js';
 import { joinPath } from '../../base/common/resources.js';
 import { ILogService } from '../../platform/log/common/log.js';
+import { ProtocolConstants } from '../../base/parts/ipc/common/ipc.net.js';
 
 export class RemoteAgentEnvironmentChannel implements IServerChannel {
 
@@ -107,7 +108,10 @@ export class RemoteAgentEnvironmentChannel implements IServerChannel {
 			const minorVersion = glibcVersion ? parseInt(glibcVersion.split('.')[1]) : 28;
 			isUnsupportedGlibc = (minorVersion <= 27) || !!process.env['VSCODE_SERVER_CUSTOM_GLIBC_LINKER'];
 		}
-		this._logService.trace(`[reconnection-grace-time] Server sending grace time to client: ${this._environmentService.reconnectionGraceTime}ms (${Math.floor(this._environmentService.reconnectionGraceTime / 1000)}s)`);
+		// This tells the client how long *this* management connection will wait for a
+		// reconnect (20min, ProtocolConstants.ManagementReconnectionGraceTime) — unrelated
+		// to environmentService.reconnectionGraceTime, which only governs persistent terminals.
+		this._logService.trace(`[reconnection-grace-time] Server sending grace time to client: ${ProtocolConstants.ManagementReconnectionGraceTime}ms (${Math.floor(ProtocolConstants.ManagementReconnectionGraceTime / 1000)}s)`);
 		return {
 			pid: process.pid,
 			connectionToken: (this._connectionToken.type !== ServerConnectionTokenType.None ? this._connectionToken.value : ''),
@@ -131,7 +135,7 @@ export class RemoteAgentEnvironmentChannel implements IServerChannel {
 				all: [...this._userDataProfilesService.profiles].map(profile => ({ ...profile }))
 			},
 			isUnsupportedGlibc,
-			reconnectionGraceTime: this._environmentService.reconnectionGraceTime
+			reconnectionGraceTime: ProtocolConstants.ManagementReconnectionGraceTime
 		};
 	}
 
