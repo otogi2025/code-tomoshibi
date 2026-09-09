@@ -69,9 +69,6 @@ export const vscodeWebResourceIncludes = [
 	// Accessibility Signals
 	'out-build/vs/platform/accessibilitySignal/browser/media/*.mp3',
 
-	// Welcome
-	'out-build/vs/workbench/contrib/welcomeGettingStarted/common/media/**/*.{svg,png}',
-
 	// Webview
 	'out-build/vs/workbench/contrib/webview/browser/pre/*.{js,html}',
 
