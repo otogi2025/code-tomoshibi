@@ -416,6 +416,8 @@ export class TomoshibiWatchdogContribution extends Disposable implements IWorkbe
 			if (!response.ok) {
 				throw new Error(`HTTP ${response.status}`);
 			}
+			this._cancelling = false;
+			this._syncCancelButton();
 			this._setNotice(localize('tomoshibiWatchdog.cancelSent', "已发送停止请求；看门狗会阻止后续步骤并暂停 1 小时，已经提交的单个系统动作可能继续完成。"), false);
 		} catch (error) {
 			// 这里不能再走 _show(current)：current 是发请求之前抓的，await 期间轮询可能已经拿到
