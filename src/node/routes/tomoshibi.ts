@@ -106,9 +106,12 @@ interface Sampler {
 /** Below this the window is not measurable, so rates report null instead of a made up number. */
 const MIN_RATE_WINDOW_MS = 100
 
-/* Neither of these changes while the process lives, so they are resolved once. */
+/* None of these change while the process lives, so they are resolved once. os.cpus() in
+ * particular is not free: it opens a sysfs frequency file per core and costs a couple of
+ * hundred microseconds of blocked event loop every time, all to return the same integer. */
 const hostname = os.hostname()
 const homeDirectory = os.homedir()
+const cpuCores = os.cpus().length
 
 const basicSampler: Sampler = {}
 const detailSampler: Sampler = {}
@@ -392,7 +395,7 @@ const sample = async (sampler: Sampler, detail: boolean): Promise<PerformanceSna
 
   const snapshot: PerformanceSnapshot = {
     hostname,
-    cpuCores: os.cpus().length,
+    cpuCores,
     cpuPercent,
     memoryUsedBytes:
       memoryTotalBytes !== undefined && memoryAvailableBytes !== undefined
@@ -452,7 +455,7 @@ export const performance = async (req: express.Request, res: express.Response): 
     logger.warn(`Tomoshibi performance sample failed: ${error instanceof Error ? error.message : String(error)}`)
     res.json({
       hostname,
-      cpuCores: os.cpus().length,
+      cpuCores,
       cpuPercent: null,
       memoryUsedBytes: null,
       memoryTotalBytes: null,
