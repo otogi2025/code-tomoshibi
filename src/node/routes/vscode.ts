@@ -6,6 +6,7 @@ import * as http from "http"
 import * as net from "net"
 import * as os from "os"
 import * as path from "path"
+import type { ParsedQs } from "qs"
 import { logError } from "../../common/util"
 import { CodeArgs, toCodeArgs } from "../cli"
 import { isDevMode, vsRootPath } from "../constants"
@@ -164,9 +165,19 @@ router.get("/", ensureVSCodeLoaded, async (req, res, next) => {
     }
   }
 
-  // Store the query parameters so we can use them on the next load.  This
-  // also allows users to create functionality around query parameters.
-  await req.settings.write({ query: req.query })
+  // Store the query parameters so we can use them on the next load, but only
+  // the ones this route acts on.  The whole query object used to go in, which
+  // meant anyone who could get a browser to open a link wrote arbitrary keys
+  // and values of arbitrary size into coder.json, none of which was ever read
+  // back out.  (Of these three only folder and workspace are read again above;
+  // ew is kept because it is part of the same folder/workspace state.)
+  const rememberedQuery: ParsedQs = {}
+  for (const key of ["folder", "workspace", "ew"]) {
+    if (typeof req.query[key] !== "undefined") {
+      rememberedQuery[key] = req.query[key]
+    }
+  }
+  await req.settings.write({ query: rememberedQuery })
 
   next()
 })
