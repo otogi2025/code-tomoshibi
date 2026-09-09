@@ -1,3 +1,14 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/* This is the code-server integration shim, not workbench code: it runs once on the main
+ * window's startup path and talks to an embedding parent frame over `window` / `parent`, so
+ * the multi-window (`mainWindow` / `targetWindow`) rules do not apply to it. Kept verbatim
+ * from upstream code-server apart from deliberate Code-Tomoshibi removals. */
+/* eslint-disable no-restricted-globals, no-restricted-syntax, local/code-no-in-operator, local/code-no-unexternalized-strings, @typescript-eslint/no-explicit-any */
+
 import { Disposable } from "../../base/common/lifecycle.js";
 import { localize } from '../../nls.js';
 import { MenuId, MenuRegistry } from '../../platform/actions/common/actions.js';
@@ -5,16 +16,14 @@ import { CommandsRegistry } from '../../platform/commands/common/commands.js';
 import { ILogService } from '../../platform/log/common/log.js';
 import { INotificationService, Severity } from '../../platform/notification/common/notification.js';
 import { IProductService } from '../../platform/product/common/productService.js';
-import { IStorageService, StorageScope, StorageTarget } from '../../platform/storage/common/storage.js';
 
 export class CodeServerClient extends Disposable {
 	static LOGOUT_COMMAND_ID = 'code-server.logout';
 
-	constructor (
+	constructor(
 		@ILogService private logService: ILogService,
 		@INotificationService private notificationService: INotificationService,
 		@IProductService private productService: IProductService,
-		@IStorageService private storageService: IStorageService,
 	) {
 		super();
 	}
@@ -82,10 +91,6 @@ export class CodeServerClient extends Disposable {
 			});
 		}
 
-		if (this.productService.updateEndpoint) {
-			this.checkUpdates(this.productService.updateEndpoint)
-		}
-
 		if (this.productService.logoutEndpoint) {
 			this.addLogoutCommand(this.productService.logoutEndpoint);
 		}
@@ -93,56 +98,6 @@ export class CodeServerClient extends Disposable {
 		if (this.productService.serviceWorker) {
 			await this.registerServiceWorker(this.productService.serviceWorker);
 		}
-	}
-
-	private checkUpdates(updateEndpoint: string) {
-		const getUpdate = async (updateCheckEndpoint: string): Promise<void> => {
-			this.logService.debug('Checking for update...');
-
-			const response = await fetch(updateCheckEndpoint, {
-				headers: { Accept: 'application/json' },
-			});
-			if (!response.ok) {
-				throw new Error(response.statusText);
-			}
-			const json = await response.json();
-			if (json.error) {
-				throw new Error(json.error);
-			}
-			if (json.isLatest) {
-				return;
-			}
-
-			const lastNoti = this.storageService.getNumber('csLastUpdateNotification', StorageScope.APPLICATION);
-			if (lastNoti) {
-				// Only remind them again after 1 week.
-				const timeout = 1000 * 60 * 60 * 24 * 7;
-				const threshold = lastNoti + timeout;
-				if (Date.now() < threshold) {
-					return;
-				}
-			}
-
-			this.storageService.store('csLastUpdateNotification', Date.now(), StorageScope.APPLICATION, StorageTarget.MACHINE);
-
-			this.notificationService.notify({
-				severity: Severity.Info,
-				message: `[code-server v${json.latest}](https://github.com/cdr/code-server/releases/tag/v${json.latest}) has been released!`,
-			});
-		};
-
-		const updateLoop = (): void => {
-			getUpdate(updateEndpoint)
-				.catch(error => {
-					this.logService.debug(`failed to check for update: ${error}`);
-				})
-				.finally(() => {
-					// Check again every 6 hours.
-					setTimeout(updateLoop, 1000 * 60 * 60 * 6);
-				});
-		};
-
-		updateLoop();
 	}
 
 	private addLogoutCommand(logoutEndpoint: string) {

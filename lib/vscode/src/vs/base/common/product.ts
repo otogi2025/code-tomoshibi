@@ -99,7 +99,6 @@ export interface IDictationRuntimeProductConfig {
 export interface IProductConfiguration {
 	readonly codeServerVersion?: string;
 	readonly rootEndpoint?: string;
-	readonly updateEndpoint?: string;
 	readonly logoutEndpoint?: string;
 	readonly proxyEndpointTemplate?: string;
 	readonly serviceWorker?: {

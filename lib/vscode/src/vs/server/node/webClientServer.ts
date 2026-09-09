@@ -371,7 +371,6 @@ export class WebClientServer {
 			nameShort: appName,
 			nameLong: appName,
 			rootEndpoint: rootBase,
-			updateEndpoint: !this._environmentService.args['disable-update-check'] ? rootBase + '/update/check' : undefined,
 			logoutEndpoint: this._environmentService.args['auth'] && this._environmentService.args['auth'] !== 'none' ? rootBase + '/logout' : undefined,
 			proxyEndpointTemplate: process.env.VSCODE_PROXY_URI ?? rootBase + '/proxy/{{port}}/',
 			serviceWorker: {
