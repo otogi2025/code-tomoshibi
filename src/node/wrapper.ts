@@ -282,7 +282,10 @@ export class ParentProcess extends Process {
   }
 
   private async relaunch(): Promise<void> {
-    this.disposeChild()
+    // Must be awaited: disposeChild() only kills the child and then waits for
+    // its "exit".  Without the await we spawned the replacement while the old
+    // process was still running and still holding the port.
+    await this.disposeChild()
     try {
       this.started = this._start()
       await this.started
