@@ -95,10 +95,6 @@
 			"project": "vscode-workbench"
 		},
 		{
-			"name": "vs/workbench/contrib/issue",
-			"project": "vscode-workbench"
-		},
-		{
 			"name": "vs/workbench/contrib/inlayHints",
 			"project": "vscode-workbench"
 		},

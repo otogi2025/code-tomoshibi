@@ -143,9 +143,6 @@ import './contrib/tasks/browser/taskService.js';
 // Tags
 import './contrib/tags/browser/workspaceTagsService.js';
 
-// Issues
-import './contrib/issue/browser/issue.contribution.js';
-
 // Surveys
 import './contrib/surveys/browser/survey.contribution.js';
 
