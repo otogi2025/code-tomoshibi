@@ -13,7 +13,6 @@ export const getStartedIcon = registerIcon('remote-explorer-get-started', Codico
 export const documentationIcon = registerIcon('remote-explorer-documentation', Codicon.book, nls.localize('documentationIcon', '远程资源管理器视图中的文档图标。'));
 export const feedbackIcon = registerIcon('remote-explorer-feedback', Codicon.twitter, nls.localize('feedbackIcon', '远程资源管理器视图中的反馈图标。'));
 export const reviewIssuesIcon = registerIcon('remote-explorer-review-issues', Codicon.issues, nls.localize('reviewIssuesIcon', '远程资源管理器视图中的“审阅问题”图标。'));
-export const reportIssuesIcon = registerIcon('remote-explorer-report-issues', Codicon.comment, nls.localize('reportIssuesIcon', '远程资源管理器视图中的“报告问题”图标。'));
 export const remoteExplorerViewIcon = registerIcon('remote-explorer-view-icon', Codicon.remoteExplorer, nls.localize('remoteExplorerViewIcon', '查看远程资源管理器视图的图标。'));
 
 export const portsViewIcon = registerIcon('ports-view-icon', Codicon.plug, nls.localize('portsViewIcon', '查看远程端口视图的图标。'));

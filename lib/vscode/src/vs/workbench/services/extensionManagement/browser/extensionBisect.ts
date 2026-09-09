@@ -271,7 +271,6 @@ registerAction2(class extends Action2 {
 		const bisectService = accessor.get(IExtensionBisectService);
 		const productService = accessor.get(IProductService);
 		const extensionEnablementService = accessor.get(IGlobalExtensionEnablementService);
-		const commandService = accessor.get(ICommandService);
 
 		if (!bisectService.isActive) {
 			return;
@@ -303,19 +302,18 @@ registerAction2(class extends Action2 {
 
 		} else {
 			// DONE and identified extension
-			const res = await dialogService.confirm({
+			const { checkboxChecked } = await dialogService.prompt<void>({
 				type: Severity.Info,
 				message: localize('done.msg', "扩展二等分"),
-				primaryButton: localize({ key: 'report', comment: ['&& denotes a mnemonic'] }, "报告问题并继续(&&R)"),
-				cancelButton: localize('continue', "继续"),
+				buttons: [{
+					label: localize('continue', "继续"),
+					run: () => { }
+				}],
 				detail: localize('done.detail', "扩展二等分已完成，已将 {0} 标识为导致问题的扩展。", done.id),
 				checkbox: { label: localize('done.disbale', "保持禁用此扩展"), checked: true }
 			});
-			if (res.checkboxChecked) {
+			if (checkboxChecked) {
 				await extensionEnablementService.disableExtension({ id: done.id }, undefined);
-			}
-			if (res.confirmed) {
-				await commandService.executeCommand('workbench.action.openIssueReporter', done.id);
 			}
 		}
 		await bisectService.reset();
