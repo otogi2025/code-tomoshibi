@@ -549,9 +549,12 @@ export function registerTerminalActions() {
 
 	// The Session tree flyout is owned by its action view item in terminalView.ts; this action only
 	// exists to reserve a slot in the panel title bar and to carry its icon.
+	// ⛔ f1: false 不能少 —— run 是空的，进了命令面板就是「点了没反应」的死项
+	// （registerTerminalAction 默认 f1 为 true，写了 ViewTitle 菜单也不会取消命令面板注册）。
 	registerTerminalAction({
 		id: TOMOSHIBI_SESSION_TREE_ACTION_ID,
 		title: localize2('tomoshibi.session.tree', 'Session 与分组'),
+		f1: false,
 		icon: Codicon.listTree,
 		menu: {
 			id: MenuId.ViewTitle,
