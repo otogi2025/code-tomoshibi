@@ -690,6 +690,25 @@ export class TomoshibiSettingsOverlay extends Disposable {
 		));
 
 		append(container, optRow(
+			localize('tomoshibi.settings.acct.reload', "重新加载页面"),
+			localize('tomoshibi.settings.acct.reloadSmall', "界面卡住、掉线自救的第一招，不重启服务器"),
+			buttonControl(store, localize('tomoshibi.settings.acct.reloadButton', "重新加载"), '', () => {
+				void this._commandService.executeCommand('workbench.action.reloadWindow');
+			})
+		));
+
+		// 上游的 workbench.action.openLogFile / openLogsFolder 是桌面版命令，这份分叉里没有；
+		// 网页版留下的等价入口是 workbench.action.openSessionLogFile（contrib/logs/browser 注册），
+		// 它先让你挑一次会话再挑日志文件，然后在编辑器里打开。
+		append(container, optRow(
+			localize('tomoshibi.settings.acct.logs', "打开日志文件"),
+			localize('tomoshibi.settings.acct.logsSmall', "先选会话再选文件，出问题时把日志翻出来看"),
+			buttonControl(store, localize('tomoshibi.settings.acct.logsButton', "打开"), '', () => {
+				void this._commandService.executeCommand('workbench.action.openSessionLogFile');
+			})
+		));
+
+		append(container, optRow(
 			localize('tomoshibi.settings.acct.version', "版本"),
 			undefined,
 			monospaceValue(this._productService.codeServerVersion ?? this._productService.version)
