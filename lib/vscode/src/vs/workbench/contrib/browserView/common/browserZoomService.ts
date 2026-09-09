@@ -6,7 +6,6 @@
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
-import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { browserZoomDefaultIndex, browserZoomFactors } from '../../../../platform/browserView/common/browserView.js';
 import { zoomLevelToZoomFactor } from '../../../../platform/window/common/window.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
@@ -93,6 +92,14 @@ const ZOOM_LABEL_TO_INDEX = new Map<string, number>(
 	browserZoomFactors.map((f, i) => [`${Math.round(f * 100)}%`, i])
 );
 
+/**
+ * The default zoom label. This used to come from the `workbench.browser.pageZoom` setting, but that
+ * schema was registered in the electron-only browser zoom feature which no longer exists, so nothing
+ * declares the key any more: reading it always returned `undefined` and fell back to the default
+ * zoom. Kept as an internal constant instead of reading a setting that cannot be changed anywhere.
+ */
+const DEFAULT_ZOOM_LABEL: string = `${Math.round(browserZoomFactors[browserZoomDefaultIndex] * 100)}%`;
+
 export class BrowserZoomService extends Disposable implements IBrowserZoomService {
 	declare readonly _serviceBrand: undefined;
 
@@ -111,18 +118,11 @@ export class BrowserZoomService extends Disposable implements IBrowserZoomServic
 	private _windowZoomFactor: number = zoomLevelToZoomFactor(0); // default: zoom level 0 → factor 1.0
 
 	constructor(
-		@IConfigurationService private readonly configurationService: IConfigurationService,
 		@IStorageService private readonly storageService: IStorageService,
 	) {
 		super();
 
 		this._persistentZoomMap = this._readPersistentZoomMap();
-
-		this._register(this.configurationService.onDidChangeConfiguration(e => {
-			if (e.affectsConfiguration('workbench.browser.pageZoom')) {
-				this._onDidChangeZoom.fire({ host: undefined, isEphemeralChange: false });
-			}
-		}));
 	}
 
 	getEffectiveZoomIndex(host: string | undefined, isEphemeral: boolean): number {
@@ -194,8 +194,7 @@ export class BrowserZoomService extends Disposable implements IBrowserZoomServic
 
 	notifyWindowZoomChanged(windowZoomFactor: number): void {
 		this._windowZoomFactor = windowZoomFactor;
-		const label = this.configurationService.getValue<string>('workbench.browser.pageZoom');
-		if (label === MATCH_WINDOW_ZOOM_LABEL) {
+		if (DEFAULT_ZOOM_LABEL === MATCH_WINDOW_ZOOM_LABEL) {
 			this._onDidChangeZoom.fire({ host: undefined, isEphemeralChange: false });
 		}
 	}
@@ -205,11 +204,10 @@ export class BrowserZoomService extends Disposable implements IBrowserZoomServic
 	// ---------------------------------------------------------------------------
 
 	private _getDefaultZoomIndex(): number {
-		const label = this.configurationService.getValue<string>('workbench.browser.pageZoom');
-		if (label === MATCH_WINDOW_ZOOM_LABEL) {
+		if (DEFAULT_ZOOM_LABEL === MATCH_WINDOW_ZOOM_LABEL) {
 			return this._getMatchWindowZoomIndex();
 		}
-		return ZOOM_LABEL_TO_INDEX.get(label) ?? browserZoomDefaultIndex;
+		return ZOOM_LABEL_TO_INDEX.get(DEFAULT_ZOOM_LABEL) ?? browserZoomDefaultIndex;
 	}
 
 	/**
