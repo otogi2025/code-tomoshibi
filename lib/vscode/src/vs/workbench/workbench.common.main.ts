@@ -280,10 +280,6 @@ import './contrib/limitIndicator/browser/limitIndicator.contribution.js';
 // Inlay Hint Accessibility
 import './contrib/inlayHints/browser/inlayHintsAccessibilty.js';
 
-// Surveys
-import './contrib/surveys/browser/nps.contribution.js';
-import './contrib/surveys/browser/languageSurveys.contribution.js';
-
 // Minimal welcome support (no walkthrough, agent onboarding, or settings sync).
 import './contrib/welcomeViews/common/viewsWelcome.contribution.js';
 import './contrib/welcomeViews/common/newFile.contribution.js';

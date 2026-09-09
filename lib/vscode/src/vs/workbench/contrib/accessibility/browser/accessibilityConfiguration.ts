@@ -61,8 +61,7 @@ export const enum AccessibilityVerbositySettingId {
 	Comments = 'accessibility.verbosity.comments',
 	DiffEditorActive = 'accessibility.verbosity.diffEditorActive',
 	Walkthrough = 'accessibility.verbosity.walkthrough',
-	Find = 'accessibility.verbosity.find',
-	Survey = 'accessibility.verbosity.survey'
+	Find = 'accessibility.verbosity.find'
 }
 
 const baseVerbosityProperty: IConfigurationPropertySchema = {
@@ -166,10 +165,6 @@ const configuration: IConfigurationNode = {
 		},
 		[AccessibilityVerbositySettingId.Find]: {
 			description: localize('verbosity.find', '提供有关在以查找输入为焦点时如何访问查找辅助功能帮助菜单的信息。'),
-			...baseVerbosityProperty
-		},
-		[AccessibilityVerbositySettingId.Survey]: {
-			description: localize('verbosity.survey', '提供有关如何导航问卷编辑器窗格并与其交互的信息。'),
 			...baseVerbosityProperty
 		},
 		'accessibility.signalOptions.volume': {
