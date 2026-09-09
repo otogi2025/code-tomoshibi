@@ -20,6 +20,12 @@ const pollInterval = 5000;
 const heartbeatInterval = 15000;
 
 /**
+ * 一路连着失败时它自己的重试间隔的上限。⛔ 没故障时的 5 秒稳态间隔不动：看门狗要在终端失控时
+ * 快速弹窗，把稳态调大等于削它的本职功能；该省的是「打不通还照 5 秒硬打」那部分。
+ */
+const maxSourceRetryInterval = 60000;
+
+/**
  * 「确认并关闭」压下的那把去重键最多活这么久。清空它本来只有一个时机（一次所有端点都成功、
  * 且都报 inactive 的轮询），标签页在后台那一拍没轮询、或者故障窗口首尾相接，这个时机就整场
  * 都碰不到，看门狗对同一类故障从此哑掉。加个失效时间当兜底。
@@ -70,6 +76,8 @@ export class TomoshibiWatchdogContribution extends Disposable implements IWorkbe
 	private _countdownTimer = 0;
 	private _pollTimer = 0;
 	private _heartbeatTimer = 0;
+	private readonly _sourceFailures = new Map<WatchdogSource, number>();
+	private readonly _sourceNextAttempt = new Map<WatchdogSource, number>();
 	private _cancelling = false;
 	private _polling = false;
 	private _tokenLoading = false;
@@ -115,6 +123,8 @@ export class TomoshibiWatchdogContribution extends Disposable implements IWorkbe
 			const visible = this._targetWindow.document.visibilityState === 'visible';
 			void this._heartbeat(visible);
 			if (visible) {
+				// 回到前台往往就是换了网，先把退避清掉给每一路一次立即重试的机会。
+				this._sourceNextAttempt.clear();
 				void this._poll();
 			}
 		}));
@@ -261,6 +271,28 @@ export class TomoshibiWatchdogContribution extends Disposable implements IWorkbe
 		return { ...result.value, source };
 	}
 
+	private _sourceReady(source: WatchdogSource): boolean {
+		return Date.now() >= (this._sourceNextAttempt.get(source) ?? 0);
+	}
+
+	/**
+	 * 打不通的那一路自己退避：第一次失败仍按 5 秒重试，之后 10 / 20 / 40 秒，60 秒封顶；成功
+	 * 一次立刻复位。LA 那一路走东京 Caddy 反代到洛杉矶，502 或者两机 token 漂移导致的 401 可
+	 * 以持续几小时，原来的写法会照着 12 次/分一直跨太平洋打下去。
+	 */
+	private _recordSourceResult(source: WatchdogSource, ok: boolean): void {
+		if (ok) {
+			this._sourceFailures.delete(source);
+			this._sourceNextAttempt.delete(source);
+			return;
+		}
+		const failures = (this._sourceFailures.get(source) ?? 0) + 1;
+		this._sourceFailures.set(source, failures);
+		if (failures > 1) {
+			this._sourceNextAttempt.set(source, Date.now() + Math.min(maxSourceRetryInterval, pollInterval * Math.pow(2, failures - 1)));
+		}
+	}
+
 	private async _loadExternalToken(): Promise<void> {
 		if (this._tokenLoading || Date.now() - this._lastTokenAttempt < 15000) {
 			return;
@@ -292,13 +324,22 @@ export class TomoshibiWatchdogContribution extends Disposable implements IWorkbe
 			if (!this._externalToken) {
 				await this._loadExternalToken();
 			}
-			const sources: WatchdogSource[] = ['tokyo'];
-			const requests: Promise<IWatchdogStatus | undefined>[] = [this._readStatus(localStatusUrl, {}, 'tokyo')];
-			if (this._externalToken) {
+			const sources: WatchdogSource[] = [];
+			const requests: Promise<IWatchdogStatus | undefined>[] = [];
+			if (this._sourceReady('tokyo')) {
+				sources.push('tokyo');
+				requests.push(this._readStatus(localStatusUrl, {}, 'tokyo'));
+			}
+			if (this._externalToken && this._sourceReady('la')) {
 				sources.push('la');
 				requests.push(this._readStatus(`${externalBaseUrl}/status`, { 'X-Tomoshibi-Watchdog-Token': this._externalToken }, 'la'));
 			}
+			if (!requests.length) {
+				// 两路都在退避里，这一拍什么也不问。
+				return;
+			}
 			const settled = await Promise.allSettled(requests);
+			settled.forEach((item, index) => this._recordSourceResult(sources[index], item.status === 'fulfilled'));
 			const values = settled
 				.filter((item): item is PromiseFulfilledResult<IWatchdogStatus | undefined> => item.status === 'fulfilled')
 				.map(item => item.value)
