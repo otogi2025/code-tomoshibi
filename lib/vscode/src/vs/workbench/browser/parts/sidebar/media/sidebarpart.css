@@ -30,6 +30,19 @@
 	padding-left: 64px;
 }
 
+/* ...and once the side bar is closed, the editor part starts at that very x instead, so the
+ * same key lands on the first tab: it hides the icon, the start of the file name and the close
+ * button, and taps meant for the tab hit the key and send an Esc to the terminal. Give the
+ * top-left editor group's title the same 64px allowance. The two selectors are the root grid's
+ * first view and — when that one is itself split — its first view, i.e. up to two levels of
+ * splits; deeper layouts are not something the iPad target ever gets into. (With the side bar
+ * moved to the right the key is anchored to the right edge and this allowance is dead space,
+ * but that layout is not reachable without a keyboard on the target device.) */
+.monaco-workbench.nosidebar .part.editor .monaco-grid-view > .monaco-grid-branch-node > .monaco-split-view2 > .split-view-container > .split-view-view:first-child > .editor-group-container > .title,
+.monaco-workbench.nosidebar .part.editor .monaco-grid-view > .monaco-grid-branch-node > .monaco-split-view2 > .split-view-container > .split-view-view:first-child > .monaco-grid-branch-node > .monaco-split-view2 > .split-view-container > .split-view-view:first-child > .editor-group-container > .title {
+	padding-left: 64px;
+}
+
 .monaco-workbench .viewlet .collapsible.header .title {
 	overflow: hidden;
 	text-overflow: ellipsis;
