@@ -150,6 +150,26 @@ function formatPercent(value: number | null): string {
 	return value === null ? dash : `${Math.round(value)}%`;
 }
 
+/**
+ * 给 textContent 赋值会换掉子文本节点、把元素标脏，赋一模一样的值也一样脏。半秒一拍、服务器
+ * 闲着时这些字符串大多根本没变，所以写之前先比一下。
+ */
+function setText(element: HTMLElement, text: string): void {
+	if (element.textContent !== text) {
+		element.textContent = text;
+	}
+}
+
+/**
+ * 弹层里一行进程只渲染名字和取整后的百分比，两者都一样就没有重建的必要。top 每两秒才可能换
+ * 一次，而这段渲染跟着 500ms 的基础节奏走，四次里有三次是照原样把 DOM 拆了再建一遍。
+ */
+function sameProcessList(left: readonly IPerformanceProcess[], right: readonly IPerformanceProcess[]): boolean {
+	return left === right || (left.length === right.length && left.every((item, index) =>
+		item.name === right[index].name
+		&& formatPercent(toFiniteOrNull(item.cpuPercent)) === formatPercent(toFiniteOrNull(right[index].cpuPercent))));
+}
+
 function ratio(used: number | null, total: number | null): number {
 	return used !== null && total !== null && total > 0 ? Math.max(0, Math.min(100, (used / total) * 100)) : 0;
 }
@@ -181,6 +201,7 @@ export class TomoshibiPerformanceContribution extends Disposable implements IWor
 	private _detailHost: HTMLElement | undefined;
 	private _detailProcesses: HTMLElement | undefined;
 	private _detailTitle: HTMLElement | undefined;
+	private _renderedTop: readonly IPerformanceProcess[] | undefined;
 	private _detailOpen = false;
 	private _detailHiddenAt = 0;
 	private _lastActivation = 0;
@@ -439,11 +460,11 @@ export class TomoshibiPerformanceContribution extends Disposable implements IWor
 	private _render(): void {
 		const snapshot = this._snapshot;
 		const latency = this._latency();
-		this._cpuValue.textContent = formatPercent(snapshot?.cpuPercent ?? null);
-		this._memoryValue.textContent = formatBytesShort(snapshot?.memoryUsedBytes ?? null);
-		this._downloadValue.textContent = formatRateShort(snapshot?.downloadBytesPerSecond ?? null);
-		this._uploadValue.textContent = formatRateShort(snapshot?.uploadBytesPerSecond ?? null);
-		this._latencyValue.textContent = latency === null ? dash : `${Math.round(latency)}ms`;
+		setText(this._cpuValue, formatPercent(snapshot?.cpuPercent ?? null));
+		setText(this._memoryValue, formatBytesShort(snapshot?.memoryUsedBytes ?? null));
+		setText(this._downloadValue, formatRateShort(snapshot?.downloadBytesPerSecond ?? null));
+		setText(this._uploadValue, formatRateShort(snapshot?.uploadBytesPerSecond ?? null));
+		setText(this._latencyValue, latency === null ? dash : `${Math.round(latency)}ms`);
 		this._updateStale();
 		this._renderDetail();
 	}
@@ -467,7 +488,7 @@ export class TomoshibiPerformanceContribution extends Disposable implements IWor
 		const latency = this._latency();
 
 		if (this._detailTitle) {
-			this._detailTitle.textContent = localize('tomoshibi.performance.detail.host', "VPS {0} · 每 {1} 秒刷新", snapshot?.hostname ?? dash, Math.round(this._pollInterval() / 1000));
+			setText(this._detailTitle, localize('tomoshibi.performance.detail.host', "VPS {0} · 每 {1} 秒刷新", snapshot?.hostname ?? dash, Math.round(this._pollInterval() / 1000)));
 		}
 
 		const cores = snapshot?.cpuCores ?? null;
@@ -481,15 +502,18 @@ export class TomoshibiPerformanceContribution extends Disposable implements IWor
 
 		const processes = this._detailProcesses;
 		if (processes) {
-			clearNode(processes);
 			const top = snapshot?.top ?? [];
-			if (!top.length) {
-				append(processes, $('span', undefined, dash));
-				append(processes, $('span.tomoshibi-perf-v', undefined, dash));
-			}
-			for (const item of top) {
-				append(processes, $('span', undefined, item.name));
-				append(processes, $('span.tomoshibi-perf-v', undefined, formatPercent(toFiniteOrNull(item.cpuPercent))));
+			if (!this._renderedTop || !sameProcessList(this._renderedTop, top)) {
+				this._renderedTop = top;
+				clearNode(processes);
+				if (!top.length) {
+					append(processes, $('span', undefined, dash));
+					append(processes, $('span.tomoshibi-perf-v', undefined, dash));
+				}
+				for (const item of top) {
+					append(processes, $('span', undefined, item.name));
+					append(processes, $('span.tomoshibi-perf-v', undefined, formatPercent(toFiniteOrNull(item.cpuPercent))));
+				}
 			}
 		}
 	}
@@ -498,8 +522,11 @@ export class TomoshibiPerformanceContribution extends Disposable implements IWor
 		if (!row) {
 			return;
 		}
-		row.fill.style.width = `${Math.max(0, Math.min(100, percent))}%`;
-		row.value.textContent = text;
+		const width = `${Math.max(0, Math.min(100, percent))}%`;
+		if (row.fill.style.width !== width) {
+			row.fill.style.width = width;
+		}
+		setText(row.value, text);
 	}
 
 	private _activate(): void {
@@ -543,6 +570,7 @@ export class TomoshibiPerformanceContribution extends Disposable implements IWor
 
 				append(detail, $('h4', undefined, localize('tomoshibi.performance.detail.busiest', "占 CPU 最多")));
 				this._detailProcesses = append(detail, $('.tomoshibi-perf-kv.procs'));
+				this._renderedTop = undefined;
 
 				this._detailRows = rows;
 				this._detailHost = detail;
@@ -571,6 +599,7 @@ export class TomoshibiPerformanceContribution extends Disposable implements IWor
 					this._detailHost = undefined;
 					this._detailProcesses = undefined;
 					this._detailTitle = undefined;
+					this._renderedTop = undefined;
 					this._detailOpen = false;
 					this._detailHiddenAt = Date.now();
 					this._stopDetailTimer();
