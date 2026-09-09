@@ -423,10 +423,6 @@
 			"project": "vscode-workbench"
 		},
 		{
-			"name": "vs/workbench/contrib/editTelemetry",
-			"project": "vscode-workbench"
-		},
-		{
 			"name": "vs/workbench/contrib/inlineCompletions",
 			"project": "vscode-workbench"
 		},
