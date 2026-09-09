@@ -2,6 +2,7 @@ import { Router, Request } from "express"
 import { promises as fs } from "fs"
 import { RateLimiter as Limiter } from "limiter"
 import * as path from "path"
+import { HttpCode } from "../../common/http"
 import { rootPath } from "../constants"
 import { authenticated, getCookieOptions, redirect, replaceTemplates } from "../http"
 import i18n from "../i18n"
@@ -52,6 +53,36 @@ const getRoot = async (req: Request, error?: Error): Promise<string> => {
   )
 }
 
+/* Being rate limited is not the same as getting the code wrong, and the page has to be able to
+ * say which one happened: someone who is throttled but told "wrong code" just keeps trying and
+ * burns the rest of the hourly budget for nothing. */
+type FailureKind = "rate-limited" | "missing-password" | "incorrect-password"
+
+/** Not in HttpCode, which only carries the codes the rest of the server needs. */
+const TOO_MANY_REQUESTS = 429
+
+const FAILURE_STATUS: Record<FailureKind, number> = {
+  "rate-limited": TOO_MANY_REQUESTS,
+  "missing-password": HttpCode.BadRequest,
+  "incorrect-password": HttpCode.BadRequest,
+}
+
+const FAILURE_MESSAGE: Record<FailureKind, string> = {
+  "rate-limited": "试得太频繁，等半分钟再试",
+  "missing-password": "还没输密码",
+  "incorrect-password": "密码不对",
+}
+
+class LoginFailure extends Error {
+  public constructor(public readonly kind: FailureKind) {
+    super(FAILURE_MESSAGE[kind])
+  }
+}
+
+/* The gate posts with fetch and asks for JSON. A browser with no JavaScript posts the form
+ * itself and gets this page back with the very same message rendered into it. */
+const wantsJson = (req: Request): boolean => (req.get("accept") || "").includes("application/json")
+
 const limiter = new RateLimiter()
 
 export const router = Router()
@@ -68,54 +99,66 @@ router.get("/", async (req, res) => {
   res.send(await getRoot(req))
 })
 
-router.post<{}, string, { password?: string; base?: string } | undefined, { to?: string }>("/", async (req, res) => {
-  const password = sanitizeString(req.body?.password)
-  const hashedPasswordFromArgs = req.args["hashed-password"]
+/* The response is either the page itself or, for the gate's fetch, {"error": "..."}. */
+type LoginResponse = string | { error: string }
 
-  try {
-    // Check to see if they exceeded their login attempts
-    if (!limiter.canTry()) {
-      throw new Error(i18n.t("LOGIN_RATE_LIMIT") as string)
+router.post<{}, LoginResponse, { password?: string; base?: string } | undefined, { to?: string }>(
+  "/",
+  async (req, res) => {
+    const password = sanitizeString(req.body?.password)
+    const hashedPasswordFromArgs = req.args["hashed-password"]
+
+    try {
+      // Check to see if they exceeded their login attempts
+      if (!limiter.canTry()) {
+        throw new LoginFailure("rate-limited")
+      }
+
+      if (!password) {
+        throw new LoginFailure("missing-password")
+      }
+
+      const passwordMethod = getPasswordMethod(hashedPasswordFromArgs)
+      const { isPasswordValid, hashedPassword } = await handlePasswordValidation({
+        passwordMethod,
+        hashedPasswordFromArgs,
+        passwordFromRequestBody: password,
+        passwordFromArgs: req.args.password,
+      })
+
+      if (isPasswordValid) {
+        // The hash does not add any actual security but we do it for
+        // obfuscation purposes (and as a side effect it handles escaping).
+        res.cookie(req.cookieSessionName, hashedPassword, getCookieOptions(req))
+
+        const to = (typeof req.query.to === "string" && req.query.to) || "/"
+        return redirect(req, res, to, { to: undefined })
+      }
+
+      // Note: successful logins should not count against the RateLimiter
+      // which is why this logic must come after the successful login logic
+      limiter.removeToken()
+
+      console.error(
+        "Failed login attempt",
+        JSON.stringify({
+          xForwardedFor: req.headers["x-forwarded-for"],
+          remoteAddress: req.connection.remoteAddress,
+          userAgent: req.headers["user-agent"],
+          timestamp: Math.floor(new Date().getTime() / 1000),
+        }),
+      )
+
+      throw new LoginFailure("incorrect-password")
+    } catch (error: any) {
+      const failure = error instanceof LoginFailure ? error : undefined
+      const status = failure ? FAILURE_STATUS[failure.kind] : HttpCode.ServerError
+      const message = failure ? failure.message : "登录失败，请重试"
+      if (wantsJson(req)) {
+        res.status(status).json({ error: message })
+        return
+      }
+      res.status(status).send(await getRoot(req, failure ?? new Error(message)))
     }
-
-    if (!password) {
-      throw new Error(i18n.t("MISS_PASSWORD") as string)
-    }
-
-    const passwordMethod = getPasswordMethod(hashedPasswordFromArgs)
-    const { isPasswordValid, hashedPassword } = await handlePasswordValidation({
-      passwordMethod,
-      hashedPasswordFromArgs,
-      passwordFromRequestBody: password,
-      passwordFromArgs: req.args.password,
-    })
-
-    if (isPasswordValid) {
-      // The hash does not add any actual security but we do it for
-      // obfuscation purposes (and as a side effect it handles escaping).
-      res.cookie(req.cookieSessionName, hashedPassword, getCookieOptions(req))
-
-      const to = (typeof req.query.to === "string" && req.query.to) || "/"
-      return redirect(req, res, to, { to: undefined })
-    }
-
-    // Note: successful logins should not count against the RateLimiter
-    // which is why this logic must come after the successful login logic
-    limiter.removeToken()
-
-    console.error(
-      "Failed login attempt",
-      JSON.stringify({
-        xForwardedFor: req.headers["x-forwarded-for"],
-        remoteAddress: req.connection.remoteAddress,
-        userAgent: req.headers["user-agent"],
-        timestamp: Math.floor(new Date().getTime() / 1000),
-      }),
-    )
-
-    throw new Error(i18n.t("INCORRECT_PASSWORD") as string)
-  } catch (error: any) {
-    const renderedHtml = await getRoot(req, error)
-    res.send(renderedHtml)
-  }
-})
+  },
+)

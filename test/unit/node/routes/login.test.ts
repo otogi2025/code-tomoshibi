@@ -71,8 +71,21 @@ describe("login", () => {
     it("should return 'Missing password' without body", async () => {
       const resp = await codeServer().fetch("/login", { method: "POST" })
       const htmlContent = await resp.text()
-      expect(resp.status).toBe(200)
-      expect(htmlContent).toContain("Missing password")
+      expect(resp.status).toBe(400)
+      expect(htmlContent).toContain("还没输密码")
+    })
+
+    it("should return JSON when the gate asks for it", async () => {
+      const params = new URLSearchParams()
+      params.append("password", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+      const resp = await codeServer().fetch("/login", {
+        method: "POST",
+        body: params,
+        headers: { Accept: "application/json" },
+      })
+
+      expect(resp.status).toBe(400)
+      expect(await resp.json()).toStrictEqual({ error: "密码不对" })
     })
 
     it("should return HTML with 'Incorrect password' message", async () => {
@@ -83,11 +96,11 @@ describe("login", () => {
         body: params,
       })
 
-      expect(resp.status).toBe(200)
+      expect(resp.status).toBe(400)
 
       const htmlContent = await resp.text()
 
-      expect(htmlContent).toContain("Incorrect password")
+      expect(htmlContent).toContain("密码不对")
     })
 
     it("should render the compact six-digit Code-Tomoshibi gate", async () => {

@@ -28,7 +28,7 @@ describe("login", ["--disable-workspace-trust", "--auth", "password"], {}, () =>
 
   test("should see an error message for incorrect password", async ({ codeServerPage }) => {
     await codeServerPage.page.fill("#code-input", "111111")
-    await expect(codeServerPage.page.locator("#gate-status")).toHaveText("密码错误")
+    await expect(codeServerPage.page.locator("#gate-status")).toHaveText("密码不对")
   })
 
   test("should hit the rate limiter for too many unsuccessful logins", async ({ codeServerPage }) => {
@@ -41,8 +41,8 @@ describe("login", ["--disable-workspace-trust", "--auth", "password"], {}, () =>
       responses.push(await response.text())
     }
 
-    // The visual gate intentionally shows one generic error, while the server
-    // still enforces and reports rate limiting in its authenticated response.
-    expect(responses.some((body) => body.includes("Login rate limited!"))).toBe(true)
+    // Rate limiting now reads differently from a wrong code, both in the response and on
+    // the gate itself, so a throttled user is not told to keep guessing.
+    expect(responses.some((body) => body.includes("试得太频繁，等半分钟再试"))).toBe(true)
   })
 })
