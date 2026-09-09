@@ -46,7 +46,6 @@
 		"vs/workbench/contrib/issue/browser/issueReporterEditorInput.ts",
 		"vs/workbench/contrib/issue/browser/issueReporterOverlay.ts",
 		"vs/workbench/contrib/issue/browser/screenshotAnnotation.ts",
-		"vs/workbench/contrib/welcomeWalkthrough/**",
 		"vs/workbench/services/agentHost/**",
 		"vs/workbench/services/chat/**"
 	]
