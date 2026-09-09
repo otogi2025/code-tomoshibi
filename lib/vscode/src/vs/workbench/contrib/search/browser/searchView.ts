@@ -85,7 +85,7 @@ import { searchMatchComparer } from './searchCompare.js';
 import { AIFolderMatchWorkspaceRootImpl } from './AISearch/aiSearchModel.js';
 import { ITelemetryService } from '../../../../platform/telemetry/common/telemetry.js';
 import { forcedExpandRecursively } from './searchActionsTopBar.js';
-import { ITerminalInstance, ITerminalService } from '../../terminal/browser/terminal.js';
+import { ISearchOptions, ITerminalInstance, ITerminalService } from '../../terminal/browser/terminal.js';
 
 const $ = dom.$;
 
@@ -824,6 +824,11 @@ export class SearchView extends ViewPane {
 			}
 		}));
 		this._register(this.searchWidget.searchInput.onDidOptionChange(() => {
+			if (this.terminalMode) {
+				// 终端模式下 triggerQueryChange 会直接 return，Aa / ab / .* 得自己重跑一次终端查找。
+				this.runTerminalFind(true, false);
+				return;
+			}
 			this.triggerQueryChange({ shouldKeepAIResults: true });
 		}));
 
@@ -1119,7 +1124,13 @@ export class SearchView extends ViewPane {
 
 		// The match / active-match colours are filled in by XtermTerminal.findNext and findPrevious
 		// themselves, exactly like the built-in terminal find widget gets them.
-		const searchOptions = { regex: false, wholeWord: false, caseSensitive: false, incremental };
+		// 三个开关在终端模式下照样能点，值必须透传给 xterm，否则点了完全不起作用。
+		const searchOptions: ISearchOptions = {
+			regex: this.searchWidget.searchInput?.getRegex() ?? false,
+			wholeWord: this.searchWidget.searchInput?.getWholeWords() ?? false,
+			caseSensitive: this.searchWidget.searchInput?.getCaseSensitive() ?? false,
+			incremental
+		};
 		const found = previous
 			? await xterm.findPrevious(term, searchOptions)
 			: await xterm.findNext(term, searchOptions);
