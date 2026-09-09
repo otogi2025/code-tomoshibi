@@ -251,6 +251,9 @@ export class TerminalProcessManager extends Disposable implements ITerminalProce
 		this._dimensions.rows = rows;
 
 		let newProcess: ITerminalChildProcess | undefined;
+		// Whether an already running persistent process was picked up instead of a new one being
+		// launched. Attaching keeps the old process' child process state, launching resets it.
+		let didAttachToExistingProcess = false;
 
 		if (shellLaunchConfig.customPtyImplementation) {
 			this._processType = ProcessType.PsuedoTerminal;
@@ -292,6 +295,7 @@ export class TerminalProcessManager extends Disposable implements ITerminalProce
 					const result = await backend.attachToProcess(shellLaunchConfig.attachPersistentProcess.id);
 					if (result) {
 						newProcess = result;
+						didAttachToExistingProcess = true;
 					} else {
 						// Warn and just create a new terminal if attach failed for some reason
 						this._logService.warn(`Attach to process failed for terminal`, shellLaunchConfig.attachPersistentProcess);
@@ -341,6 +345,7 @@ export class TerminalProcessManager extends Disposable implements ITerminalProce
 					const result = shellLaunchConfig.attachPersistentProcess.findRevivedId ? await backend.attachToRevivedProcess(shellLaunchConfig.attachPersistentProcess.id) : await backend.attachToProcess(shellLaunchConfig.attachPersistentProcess.id);
 					if (result) {
 						newProcess = result;
+						didAttachToExistingProcess = true;
 					} else {
 						// Warn and just create a new terminal if attach failed for some reason
 						this._logService.warn(`Attach to process failed for terminal`, shellLaunchConfig.attachPersistentProcess);
@@ -360,6 +365,16 @@ export class TerminalProcessManager extends Disposable implements ITerminalProce
 		if (this._isDisposed) {
 			newProcess.shutdown(false);
 			return undefined;
+		}
+
+		// A newly launched process starts out with no child processes, but nothing will report
+		// `HasChildProcesses` again until the value changes, so a relaunch would otherwise keep the
+		// previous process' state (this manager is reused across relaunches). Only do this when a
+		// process was actually launched - when attaching, the state of the running process still
+		// applies and is carried by the persistent process snapshot.
+		if (!didAttachToExistingProcess) {
+			this._hasChildProcesses = false;
+			this._onDidChangeProperty.fire({ type: ProcessPropertyType.HasChildProcesses, value: false });
 		}
 
 		this._process = newProcess;
