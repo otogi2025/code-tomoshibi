@@ -30,9 +30,6 @@ interface WatermarkEntry {
 	};
 }
 
-const showChatContextKey = ContextKeyExpr.and(ContextKeyExpr.equals('chatSetupHidden', false), ContextKeyExpr.equals('chatSetupDisabledInWorkspace', false));
-
-const openChat: WatermarkEntry = { text: localize('watermark.openChat', "打开聊天"), id: 'workbench.action.chat.open', when: { native: showChatContextKey, web: showChatContextKey } };
 const showCommands: WatermarkEntry = { text: localize('watermark.showCommands', "显示所有命令"), id: 'workbench.action.showCommands' };
 const gotoFile: WatermarkEntry = { text: localize('watermark.quickAccess', "转到文件"), id: 'workbench.action.quickOpen' };
 const openFile: WatermarkEntry = { text: localize('watermark.openFile', "打开文件"), id: 'workbench.action.files.openFile' };
@@ -45,7 +42,6 @@ const toggleTerminal: WatermarkEntry = { text: localize({ key: 'watermark.toggle
 const openSettings: WatermarkEntry = { text: localize('watermark.openSettings', "打开“设置”"), id: 'workbench.action.openSettings' };
 
 const baseEntries: WatermarkEntry[] = [
-	openChat,
 	showCommands,
 ];
 
