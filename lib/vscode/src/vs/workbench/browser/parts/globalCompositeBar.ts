@@ -13,7 +13,7 @@ import { DisposableStore, Disposable } from '../../../base/common/lifecycle.js';
 import { IColorTheme, IThemeService } from '../../../platform/theme/common/themeService.js';
 import { CompositeBarActionViewItem, CompositeBarAction, IActivityHoverOptions, ICompositeBarActionViewItemOptions, ICompositeBarColors } from './compositeBarActions.js';
 import { ThemeIcon } from '../../../base/common/themables.js';
-import { Action, IAction } from '../../../base/common/actions.js';
+import { Action, IAction, Separator } from '../../../base/common/actions.js';
 import { IMenu, IMenuService, MenuId } from '../../../platform/actions/common/actions.js';
 import { addDisposableListener, EventType, append, clearNode, hide, show, EventHelper, $, getWindow } from '../../../base/browser/dom.js';
 import { StandardKeyboardEvent } from '../../../base/browser/keyboardEvent.js';
@@ -163,10 +163,41 @@ abstract class AbstractGlobalActivityActionViewItem extends CompositeBarActionVi
 			EventHelper.stop(e, true);
 			this.run();
 		}));
+
+		// 手指没有右键：长按由 Gesture 合成一个 contextmenu 手势事件，走和上面同一个菜单。
+		this._register(addDisposableListener(this.container, TouchEventType.Contextmenu, async (e: GestureEvent) => {
+			EventHelper.stop(e, true);
+
+			const disposables = new DisposableStore();
+			const actions = await this.resolveContextMenuActions(disposables);
+
+			this.contextMenuService.showContextMenu({
+				getAnchor: () => this.label,
+				getActions: () => actions,
+				getMenuClassName: () => WORKBENCH_MENU_MOTION_CLASS,
+				onHide: () => disposables.dispose(),
+				closeAnimation: workbenchMenuCloseAnimation
+			});
+		}));
 	}
 
 	protected async resolveContextMenuActions(disposables: DisposableStore): Promise<IAction[]> {
-		return this.contextMenuActionsProvider();
+		const extraActions = this.contextMenuActionsProvider();
+
+		// Code-Tomoshibi：齿轮的左键被改成直接打开自定义设置页（见 GlobalActivityActionViewItem.run），
+		// 于是 MenuId.GlobalActivity 上注册的命令面板 / 键盘快捷方式 / 颜色主题 / 配置文件 / 代码片段
+		// 全部失去了指针可达路径 —— 紧凑菜单里没有这些，自定义设置页也不覆盖，只剩 F1 这类键绑定。
+		// 长按（右键）齿轮走的是这里，把那个菜单原样端出来，纯手指操作也够得着。
+		const menu = disposables.add(this.menuService.createMenu(this.menuId, this.contextKeyService));
+		const menuActions = await this.resolveMainMenuActions(menu, disposables);
+		if (!menuActions.length) {
+			return extraActions;
+		}
+		if (!extraActions.length) {
+			return menuActions;
+		}
+
+		return [...menuActions, new Separator(), ...extraActions];
 	}
 
 	protected async run(): Promise<void> {
