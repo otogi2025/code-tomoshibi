@@ -388,6 +388,7 @@ export const getCookieOptions = (req: express.Request): express.CookieOptions =>
     domain: getCookieDomain(url.host, req.args["proxy-domain"]),
     path: normalize(url.pathname) || "/",
     sameSite: "lax",
+    httpOnly: true,
   }
 }
 
