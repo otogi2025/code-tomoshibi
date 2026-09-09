@@ -17,12 +17,11 @@ export const workerLanguageDetection = createModuleDescription('vs/workbench/ser
 export const workerLocalFileSearch = createModuleDescription('vs/workbench/services/search/worker/localFileSearchMain');
 export const workerBackgroundTokenization = createModuleDescription('vs/workbench/services/textMate/browser/backgroundTokenization/worker/textMateTokenizationWorker.workerMain');
 
-// Node processes that are forked by the server. They are listed here so the
-// mangler leaves their exports alone; the actual bundling entry points live in
-// `codeServer` below.
+// The child processes the server forks at runtime. They are listed here so the
+// mangler leaves their exports alone; `codeServer` below is what actually gets
+// bundled, and it carries the same three entries.
 export const serverProcesses = [
 	createModuleDescription('vs/platform/files/node/watcher/watcherMain'),
-	createModuleDescription('vs/platform/localTranscription/node/localTranscriptionMain'),
 	createModuleDescription('vs/platform/terminal/node/ptyHostMain'),
 	createModuleDescription('vs/workbench/api/node/extensionHostProcess')
 ];
