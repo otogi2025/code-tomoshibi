@@ -191,10 +191,6 @@
 			"project": "vscode-workbench"
 		},
 		{
-			"name": "vs/workbench/contrib/themes",
-			"project": "vscode-workbench"
-		},
-		{
 			"name": "vs/workbench/contrib/update",
 			"project": "vscode-workbench"
 		},

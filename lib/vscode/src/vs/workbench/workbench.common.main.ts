@@ -289,9 +289,6 @@ import './contrib/limitIndicator/browser/limitIndicator.contribution.js';
 // Inlay Hint Accessibility
 import './contrib/inlayHints/browser/inlayHintsAccessibilty.js';
 
-// Themes
-import './contrib/themes/browser/themes.contribution.js';
-
 // Update
 import './contrib/update/browser/update.contribution.js';
 
