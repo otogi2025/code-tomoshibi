@@ -284,8 +284,12 @@ export async function handlePasswordValidation({
       const isValid = passwordFromArgs ? safeCompare(passwordFromRequestBody, passwordFromArgs) : false
       passwordValidation.isPasswordValid = isValid
 
-      const hashedPassword = await hash(passwordFromRequestBody)
-      passwordValidation.hashedPassword = hashedPassword
+      // The hash only ever ends up in the session cookie of a successful login,
+      // so a wrong password should not cost a full argon2 (~100ms of a libuv
+      // thread) before it is thrown away.
+      if (isValid) {
+        passwordValidation.hashedPassword = await hash(passwordFromRequestBody)
+      }
       break
     }
     case "SHA256": {
