@@ -923,9 +923,12 @@ class TomoshibiTouchSelectContribution extends Disposable implements ITerminalCo
 	 * The final range is recorded by hand rather than left to the next clipboard write: once the
 	 * finger is up nothing changes the selection again, so there is no later write to ride on.
 	 *
-	 * Only when `copyOnSelection` is on, though. That setting defaults to off, and with it off a
-	 * selection never reaches the clipboard at all, so recording one would file text the user
-	 * merely dragged a finger over -- a password, a token, a host name -- into a history that is
+	 * Only when `copyOnSelection` is on, though. This product defaults that setting to true (see
+	 * `tomoshibiDefaults.contribution.ts` -- there is no right-click on iPad, so drag-to-select
+	 * doubles as copy), so a selection really did land on the system clipboard and recording it
+	 * is a faithful record, not speculation. It's only when the user turns the setting off that a
+	 * selection never reaches the clipboard, and recording one would file text the user merely
+	 * dragged a finger over -- a password, a token, a host name -- into a history that is
 	 * persisted to IndexedDB. The copy button does not need the help either way: it goes through
 	 * `IClipboardService.writeText`, which records on its own.
 	 */
