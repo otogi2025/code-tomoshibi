@@ -145,13 +145,61 @@ export const hash = async (password: string): Promise<string> => {
 }
 
 /**
+ * Upper bounds for the argon2 cost parameters we are willing to run.
+ *
+ * These are argon2's own defaults, which is what `hash()` above generates, so a
+ * digest we produced ourselves always passes.  The digest is not always ours
+ * though: with a plain-text password `isCookieValid` hands the client's cookie
+ * in as the digest, which lets anyone pick the memory/time/parallelism the
+ * server spends on *every* request.  Anything costlier than what we generate is
+ * refused instead of computed.
+ */
+const argon2MaxMemoryCost = 65536
+const argon2MaxTimeCost = 3
+const argon2MaxParallelism = 4
+
+/**
+ * Pull the m/t/p cost parameters out of an argon2 digest, which looks like
+ * `$argon2id$v=19$m=65536,t=3,p=4$<salt>$<hash>`.  Returns undefined when the
+ * parameter field is missing or unparseable.
+ */
+const parseArgon2Params = (digest: string): { m: number; t: number; p: number } | undefined => {
+  const field = digest.split("$").find((part) => /(?:^|,)m=\d+(?:,|$)/.test(part))
+  if (!field) {
+    return undefined
+  }
+  const read = (name: string): number | undefined => {
+    const match = new RegExp(`(?:^|,)${name}=(\\d+)(?:,|$)`).exec(field)
+    return match ? parseInt(match[1], 10) : undefined
+  }
+  const m = read("m")
+  const t = read("t")
+  const p = read("p")
+  if (m === undefined || t === undefined || p === undefined) {
+    return undefined
+  }
+  return { m, t, p }
+}
+
+/**
  * Used to verify if the password matches the hash
  */
 export const isHashMatch = async (password: string, hash: string) => {
   if (password === "" || hash === "" || !hash.startsWith("$")) {
     return false
   }
-  return await argon2.verify(hash, password)
+  const params = parseArgon2Params(hash)
+  if (!params || params.m > argon2MaxMemoryCost || params.t > argon2MaxTimeCost || params.p > argon2MaxParallelism) {
+    return false
+  }
+  try {
+    return await argon2.verify(hash, password)
+  } catch {
+    // A malformed digest makes verify() throw.  This runs on every request that
+    // needs authentication, including the login page itself, so one bad cookie
+    // must not turn every page into a 500.
+    return false
+  }
 }
 
 /**

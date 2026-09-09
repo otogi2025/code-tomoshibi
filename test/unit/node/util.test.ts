@@ -148,10 +148,27 @@ describe("isHashMatch", () => {
     expect(async () => await util.isHashMatch(password, _hash)).not.toThrow()
     expect(await util.isHashMatch(password, _hash)).toBe(false)
   })
-  it("should reject the promise and throw if error", async () => {
+  // Used to reject the promise, which meant one malformed cookie turned every
+  // authenticated route (including the login page) into a 500.  A digest we
+  // cannot parse is now simply not a match.
+  it("should return false and not throw if the hash is malformed", async () => {
     const password = "hellowpasssword"
     const _hash = "$ar2i"
-    expect(async () => await util.isHashMatch(password, _hash)).rejects.toThrow()
+    await expect(util.isHashMatch(password, _hash)).resolves.toBe(false)
+  })
+  it("should return false if the hash asks for more memory than we generate", async () => {
+    const password = "password123"
+    const _hash = "$argon2id$v=19$m=1048576,t=3,p=1$EAoczTxVki21JDfIZpTUxg$rkXgyrW4RDGoDYrxBFD4H2DlSMEhP4h+Api1hXnGnFY"
+    await expect(util.isHashMatch(password, _hash)).resolves.toBe(false)
+  })
+  it("should return false if the hash asks for more time or threads than we generate", async () => {
+    const password = "password123"
+    const tooMuchTime =
+      "$argon2id$v=19$m=4096,t=100,p=1$EAoczTxVki21JDfIZpTUxg$rkXgyrW4RDGoDYrxBFD4H2DlSMEhP4h+Api1hXnGnFY"
+    const tooManyThreads =
+      "$argon2id$v=19$m=4096,t=3,p=64$EAoczTxVki21JDfIZpTUxg$rkXgyrW4RDGoDYrxBFD4H2DlSMEhP4h+Api1hXnGnFY"
+    await expect(util.isHashMatch(password, tooMuchTime)).resolves.toBe(false)
+    await expect(util.isHashMatch(password, tooManyThreads)).resolves.toBe(false)
   })
 })
 
