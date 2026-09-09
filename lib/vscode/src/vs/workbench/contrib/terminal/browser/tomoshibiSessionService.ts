@@ -173,6 +173,12 @@ const SESSION_RECONCILE_DELAY_MS = 20000;
  * 设备本地镜像里，下一次读成功时被服务端旧文件静默盖回去，用户全程看不到任何提示。
  */
 const LOAD_RETRY_DELAYS_MS = [2000, 5000, 15000, 60000];
+/**
+ * `_retryLoadNow()` 两次真的打文件读之间的最小间隔。⛔ 不许每改一次名就读一次：文件持续读不了的
+ * 时候，用户每改一次名 / 拖一次分组都会清掉正在等的退避定时器、立刻重读，退避档位被反复按回
+ * 「立刻」，等于没有退避。这个窗口里的调用一律交给已经排好的定时器。
+ */
+const RETRY_LOAD_NOW_MIN_INTERVAL_MS = 2000;
 
 /**
  * 老版本的键是裸数字（`String(persistentProcessId ?? instanceId)`），既可能是 pty id 也可能是
@@ -329,6 +335,8 @@ export class TomoshibiSessionService extends Disposable implements ITomoshibiSes
 	private _localChangeBeforeLoad = false;
 	/** 一次只允许一个 `_load()` 在跑，退避重试和「改动时顺手重试」都要过这道闸。 */
 	private _loadInFlight = false;
+	/** 上一次真的开读的时刻（epoch ms），`_retryLoadNow` 的最小间隔靠它算。 */
+	private _lastLoadStartedAt = 0;
 	private _loadRetryAttempt = 0;
 	private _loadRetryTimer: ReturnType<typeof setTimeout> | undefined;
 	/** 只在第一次进入「写不了」状态时提示一次；读通之后复位，下一次真出问题还会再提示。 */
@@ -431,6 +439,7 @@ export class TomoshibiSessionService extends Disposable implements ITomoshibiSes
 			return;
 		}
 		this._loadInFlight = true;
+		this._lastLoadStartedAt = Date.now();
 		void this._load().finally(() => {
 			this._loadInFlight = false;
 			// 读不到文件时不对账：那种状态下写回去只会把内存模型当真值盖到磁盘上。
@@ -457,12 +466,22 @@ export class TomoshibiSessionService extends Disposable implements ITomoshibiSes
 		}, delay);
 	}
 
-	/** 用户刚改了东西但文件还写不了：立刻试一次读，别让他干等退避。 */
+	/**
+	 * 用户刚改了东西但文件还写不了：立刻试一次读，别让他干等退避。
+	 *
+	 * ⛔ 有最小间隔、而且这一次要算进退避次数。老写法无条件清掉正在等的定时器再立刻重读，
+	 * `_loadRetryAttempt` 又不涨，于是连续改名时每一下都打一次文件读、档位被按回「立刻」。
+	 */
 	private _retryLoadNow(): void {
+		if (this._loadInFlight || Date.now() - this._lastLoadStartedAt < RETRY_LOAD_NOW_MIN_INTERVAL_MS) {
+			// 正在读、或者刚读过：交给这次读和它失败后排的定时器，别再打一次。
+			return;
+		}
 		if (this._loadRetryTimer !== undefined) {
 			clearTimeout(this._loadRetryTimer);
 			this._loadRetryTimer = undefined;
 		}
+		this._loadRetryAttempt++;
 		this._loadAndReconcile();
 	}
 
@@ -523,6 +542,8 @@ export class TomoshibiSessionService extends Disposable implements ITomoshibiSes
 		}
 		// ⛔ 不许无条件用文件盖掉内存模型：读失败重试期间的改动都在镜像里，updatedAt 更新的一方赢。
 		// 老文件没有 updatedAt（按 0 算），文件继续赢，跟改动前的行为一致。
+		// 已知取舍（3-47 拍板）：updatedAt 是各设备自己的墙钟，两台设备时钟偏几秒的时候，落后的那台
+		// 写出来的「旧」内容会带着更大的 updatedAt 盖掉「新」内容。没上向量时钟 / 服务端时间戳。
 		if ((loaded.updatedAt ?? 0) < (this._model.updatedAt ?? 0)) {
 			this._logService.warn('[tomoshibi] terminal session file is older than the local mirror, pushing the mirror back out');
 			this._saveScheduler.schedule();
