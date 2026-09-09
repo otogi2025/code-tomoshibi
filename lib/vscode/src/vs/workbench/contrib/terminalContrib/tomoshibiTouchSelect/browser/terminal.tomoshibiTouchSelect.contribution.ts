@@ -13,6 +13,7 @@ import { IClipboardService } from '../../../../../platform/clipboard/common/clip
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { IHoverService } from '../../../../../platform/hover/browser/hover.js';
 import { ILayoutService } from '../../../../../platform/layout/browser/layoutService.js';
+import { TerminalSettingId } from '../../../../../platform/terminal/common/terminal.js';
 import { ITomoshibiClipboardHistoryService } from '../../../../services/clipboard/common/tomoshibiClipboardHistory.js';
 import type { ITerminalContribution, IXtermTerminal } from '../../../terminal/browser/terminal.js';
 import { registerTerminalContribution, type ITerminalContributionContext } from '../../../terminal/browser/terminalExtensions.js';
@@ -822,12 +823,19 @@ class TomoshibiTouchSelectContribution extends Disposable implements ITerminalCo
 	/**
 	 * The final range is recorded by hand rather than left to the next clipboard write: once the
 	 * finger is up nothing changes the selection again, so there is no later write to ride on.
+	 *
+	 * Only when `copyOnSelection` is on, though. That setting defaults to off, and with it off a
+	 * selection never reaches the clipboard at all, so recording one would file text the user
+	 * merely dragged a finger over -- a password, a token, a host name -- into a history that is
+	 * persisted to IndexedDB. The copy button does not need the help either way: it goes through
+	 * `IClipboardService.writeText`, which records on its own.
 	 */
 	private _resumeHistory(recordSelection: boolean): void {
 		if (!this._historyPause.value) {
 			return;
 		}
-		const text = recordSelection ? this._raw?.getSelection() : undefined;
+		const copiedOnSelection = this._configurationService.getValue<boolean>(TerminalSettingId.CopyOnSelection) === true;
+		const text = recordSelection && copiedOnSelection ? this._raw?.getSelection() : undefined;
 		this._historyPause.clear();
 		if (text) {
 			this._clipboardHistoryService.record(text);
