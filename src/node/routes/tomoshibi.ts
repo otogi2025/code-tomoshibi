@@ -13,12 +13,14 @@ import * as path from "path"
  * Every field degrades to null on its own rather than failing the request, because a status
  * bar that shows a dash for one number is far better than one that shows nothing at all. */
 
-/* Two requests closer together than this share one sample. The two caches are separate objects
- * and now have separate windows: the status bar polls the basic snapshot twice a second, so a
- * one second cache would serve every other request a stale sample and compute rates off a stale
- * counter; the detail sample walks every /proc/<pid> and stays deliberately slow. */
-const BASIC_CACHE_MS = 250
-const DETAIL_CACHE_MS = 2000
+/* Two requests closer together than this share one sample. Each window is deliberately shorter
+ * than the poll interval it serves -- the status bar polls the basic snapshot every 500ms (250ms
+ * on the fastest setting) and the open popover polls the detail snapshot every 2000ms. Windows
+ * equal to the poll interval used to sit exactly on the boundary: network jitter of a few
+ * milliseconds decided whether a request was answered with a fresh sample or with the previous
+ * one, so the popover froze for four seconds at a time at random. */
+const BASIC_CACHE_MS = 200
+const DETAIL_CACHE_MS = 1500
 
 /** Counters older than this cannot produce a trustworthy rate, so rates report null instead. */
 const COUNTER_MAX_AGE_MS = 30_000
