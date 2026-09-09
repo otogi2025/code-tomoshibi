@@ -212,18 +212,58 @@ const readProcessSample = async (): Promise<Map<number, ProcessSample>> => {
   return samples
 }
 
-/* `node` on its own says nothing, so the script name is appended: "node gate.js". */
+/* Interpreters say nothing on their own; the script they were handed is the useful half. */
+const INTERPRETERS = new Set(["bash", "dash", "node", "perl", "python", "python2", "python3", "ruby", "sh", "zsh"])
+
+const TYPE_FLAG = "--type="
+
+/* The popover gives the process name a single grid track, so a long unbroken name would push
+ * the whole thing wider than the screen. */
+const MAX_PROCESS_NAME_LENGTH = 28
+
+const shorten = (name: string): string =>
+  name.length > MAX_PROCESS_NAME_LENGTH ? `${name.slice(0, MAX_PROCESS_NAME_LENGTH - 1)}…` : name
+
+/* comm is the fifteen byte thread name out of /proc/<pid>/stat, not the executable. Node calls
+ * its main thread "MainThread", so this server, the extension host, the pty host and the file
+ * watcher all report the very same comm -- the busiest list used to be three identical rows. */
+const isGenericComm = (comm: string, command: string): boolean =>
+  comm === "MainThread" || comm === command || comm === command.slice(0, 15)
+
+/* Only the three processes that made it into the list are described, so reading one more small
+ * file each is affordable. */
 const describeProcess = async (pid: number, comm: string): Promise<string> => {
-  if (comm !== "node") {
-    return comm
-  }
+  let argv: string[] = []
   try {
-    const argv = (await fs.readFile(`/proc/${pid}/cmdline`, "utf8")).split("\0").filter((part) => part.length > 0)
-    const script = argv.length > 1 ? path.basename(argv[1]) : ""
-    return script ? `${comm} ${script}` : comm
+    argv = (await fs.readFile(`/proc/${pid}/cmdline`, "utf8")).split("\0").filter((part) => part.length > 0)
   } catch {
-    return comm
+    // Kernel threads carry no cmdline, and a process can exit between the two reads.
   }
+  if (argv.length === 0) {
+    return shorten(comm)
+  }
+
+  const command = path.basename(argv[0])
+
+  // --type= is the one thing that separates the VS Code forks: the pty host and the file
+  // watcher are both "node .../out/bootstrap-fork" up to that flag.
+  const role = argv.find((part) => part.startsWith(TYPE_FLAG))?.slice(TYPE_FLAG.length)
+  if (role) {
+    return shorten(`${command} ${role}`)
+  }
+
+  // A process that set its own title (claude, codex) has already said what it is.
+  if (!isGenericComm(comm, command)) {
+    return shorten(comm)
+  }
+
+  if (!INTERPRETERS.has(command)) {
+    return shorten(command)
+  }
+
+  // "node --max-old-space-size=4096 gate.js" is "node gate.js", not "node --max-old-space-size".
+  const script = argv.slice(1).find((part) => !part.startsWith("-"))
+  return shorten(script ? `${command} ${path.basename(script)}` : command)
 }
 
 const readTopProcesses = async (cpuTotal: number | undefined, now: number): Promise<PerformanceProcess[]> => {
