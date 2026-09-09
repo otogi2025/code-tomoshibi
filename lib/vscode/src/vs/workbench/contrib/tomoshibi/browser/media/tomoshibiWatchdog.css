@@ -148,14 +148,19 @@
 	opacity: .62;
 }
 
+/* The recovered card used to paint itself from --vscode-testing-iconPassed, and the testing
+ * subsystem is gone from this build: nothing registers that colour any more. The border rule had
+ * no fallback inside color-mix, so var() substitution failed, the whole declaration became
+ * invalid at computed-value time and the border fell back to currentColor -- an opaque
+ * foreground-coloured ring instead of a soft green one. charts.green is still registered. */
 .tomoshibi-watchdog-card.is-ok {
-	border-color: var(--vscode-testing-iconPassed, #64d68a);
-	border-color: color-mix(in srgb, var(--vscode-testing-iconPassed) 48%, transparent);
+	border-color: var(--vscode-charts-green, #64d68a);
+	border-color: color-mix(in srgb, var(--vscode-charts-green, #64d68a) 48%, transparent);
 }
 
 .tomoshibi-watchdog-card.is-ok .tomoshibi-watchdog-dot {
-	background: var(--vscode-testing-iconPassed, #64d68a);
-	box-shadow: 0 0 18px var(--vscode-testing-iconPassed, #64d68a);
+	background: var(--vscode-charts-green, #64d68a);
+	box-shadow: 0 0 18px var(--vscode-charts-green, #64d68a);
 	animation: none;
 }
 
