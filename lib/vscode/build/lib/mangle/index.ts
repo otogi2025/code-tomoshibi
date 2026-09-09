@@ -315,9 +315,8 @@ const skippedExportMangledFiles = [
 		buildfile.workerExtensionHost,
 		buildfile.workerLanguageDetection,
 		buildfile.workerLocalFileSearch,
-		buildfile.workerProfileAnalysis,
 		buildfile.workerBackgroundTokenization,
-		buildfile.workbenchDesktop,
+		buildfile.serverProcesses,
 		buildfile.workbenchWeb,
 		buildfile.code,
 		buildfile.codeWeb

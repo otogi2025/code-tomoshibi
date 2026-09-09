@@ -15,15 +15,16 @@ export const workerEditor = createModuleDescription('vs/editor/common/services/e
 export const workerExtensionHost = createModuleDescription('vs/workbench/api/worker/extensionHostWorkerMain');
 export const workerLanguageDetection = createModuleDescription('vs/workbench/services/languageDetection/browser/languageDetectionWebWorkerMain');
 export const workerLocalFileSearch = createModuleDescription('vs/workbench/services/search/worker/localFileSearchMain');
-export const workerProfileAnalysis = createModuleDescription('vs/platform/profiling/electron-browser/profileAnalysisWorkerMain');
 export const workerBackgroundTokenization = createModuleDescription('vs/workbench/services/textMate/browser/backgroundTokenization/worker/textMateTokenizationWorker.workerMain');
 
-export const workbenchDesktop = [
+// Node processes that are forked by the server. They are listed here so the
+// mangler leaves their exports alone; the actual bundling entry points live in
+// `codeServer` below.
+export const serverProcesses = [
 	createModuleDescription('vs/platform/files/node/watcher/watcherMain'),
 	createModuleDescription('vs/platform/localTranscription/node/localTranscriptionMain'),
 	createModuleDescription('vs/platform/terminal/node/ptyHostMain'),
-	createModuleDescription('vs/workbench/api/node/extensionHostProcess'),
-	createModuleDescription('vs/workbench/workbench.desktop.main')
+	createModuleDescription('vs/workbench/api/node/extensionHostProcess')
 ];
 
 export const workbenchWeb = createModuleDescription('vs/workbench/workbench.web.main.internal');
@@ -56,9 +57,8 @@ const buildfile = {
 	workerExtensionHost,
 	workerLanguageDetection,
 	workerLocalFileSearch,
-	workerProfileAnalysis,
 	workerBackgroundTokenization,
-	workbenchDesktop,
+	serverProcesses,
 	workbenchWeb,
 	keyboardMaps,
 	code,
