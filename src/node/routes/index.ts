@@ -94,12 +94,6 @@ export const register = async (
     next()
   })
 
-  app.router.get(["/security.txt", "/.well-known/security.txt"], async (_, res) => {
-    const resourcePath = path.resolve(rootPath, "src/browser/security.txt")
-    res.set("Content-Type", getMediaMime(resourcePath))
-    res.send(await fs.readFile(resourcePath))
-  })
-
   app.router.get("/robots.txt", async (_, res) => {
     const resourcePath = path.resolve(rootPath, "src/browser/robots.txt")
     res.set("Content-Type", getMediaMime(resourcePath))
