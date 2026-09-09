@@ -523,9 +523,10 @@ export class MenuBar extends Disposable {
 		// Overflow
 		if (this.isCompact) {
 			this.overflowMenu.actions = [];
-			if (this.menus.length === 1 && this.menus[0].label === 'Code-Tomoshibi') {
-				// Code-Tomoshibi's single product menu opens directly from the hamburger. Do not
-				// add a redundant submenu that would require a second tap on iPad.
+			if (this.menus.length === 1) {
+				// Only one top-level menu exists at all (Code-Tomoshibi hardcodes a single product
+				// menu, see menubar.contribution.ts), so it opens directly from the hamburger.
+				// Do not add a redundant submenu that would require a second tap on iPad.
 				this.overflowMenu.actions.push(...(this.menus[0].actions || []));
 			} else {
 				for (let idx = this.numMenusShown; idx < this.menus.length; idx++) {
