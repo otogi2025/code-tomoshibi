@@ -13,7 +13,6 @@ import { ThemeIcon } from '../../../../../base/common/themables.js';
 import { localize } from '../../../../../nls.js';
 import { AccessibilitySignal, IAccessibilitySignalService } from '../../../../../platform/accessibilitySignal/browser/accessibilitySignalService.js';
 import { IClipboardService } from '../../../../../platform/clipboard/common/clipboardService.js';
-import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { IContextMenuService } from '../../../../../platform/contextview/browser/contextView.js';
 import { INotificationService, Severity } from '../../../../../platform/notification/common/notification.js';
@@ -57,7 +56,6 @@ export class DecorationAddon extends Disposable implements ITerminalAddon, IDeco
 		@IOpenerService private readonly _openerService: IOpenerService,
 		@IQuickInputService private readonly _quickInputService: IQuickInputService,
 		@ILifecycleService lifecycleService: ILifecycleService,
-		@ICommandService private readonly _commandService: ICommandService,
 		@IAccessibilitySignalService private readonly _accessibilitySignalService: IAccessibilitySignalService,
 		@INotificationService private readonly _notificationService: INotificationService,
 		@IHoverService private readonly _hoverService: IHoverService
@@ -490,20 +488,6 @@ export class DecorationAddon extends Disposable implements ITerminalAddon, IDeco
 				run: () => this._onDidRequestCopyAsHtml.fire({ command })
 			});
 		}
-		if (actions.length > 0) {
-			actions.push(new Separator());
-		}
-		const labelRunRecent = localize('workbench.action.terminal.runRecentCommand', "运行最近使用的命令");
-		actions.push({
-			class: undefined, tooltip: labelRunRecent, id: 'workbench.action.terminal.runRecentCommand', label: labelRunRecent, enabled: true,
-			run: () => this._commandService.executeCommand('workbench.action.terminal.runRecentCommand')
-		});
-		const labelGoToRecent = localize('workbench.action.terminal.goToRecentDirectory', "转到“最近使用的目录”");
-		actions.push({
-			class: undefined, tooltip: labelRunRecent, id: 'workbench.action.terminal.goToRecentDirectory', label: labelGoToRecent, enabled: true,
-			run: () => this._commandService.executeCommand('workbench.action.terminal.goToRecentDirectory')
-		});
-
 		actions.push(new Separator());
 
 		const labelAbout = localize("terminal.learnShellIntegration", '了解 Shell 集成');
