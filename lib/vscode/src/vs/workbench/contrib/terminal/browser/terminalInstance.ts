@@ -127,6 +127,12 @@ const shellIntegrationSupportedShellTypes: (PosixShellType | GeneralShellType | 
 ];
 
 /**
+ * Cmd+C 之后允许吞掉那一发杂散 `c` 的窗口长度（毫秒）。
+ * ⛔ 只够覆盖同一次按键自己带出来的事件 —— 开长了会连用户随后真敲的 c 一起吞掉。
+ */
+const iPadImeCopyTextSuppressMs = 50;
+
+/**
  * Patterns for detecting agent CLIs from the OSC title they emit.
  */
 const agentCliTitlePatterns: ReadonlyMap<GeneralShellType, RegExp> = new Map([
@@ -1234,18 +1240,31 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 		let suppressIPadImeCopyTextUntil = 0;
 		if (isIOS) {
 			const resetIPadComposition = () => iPadCompositionActive = false;
-			this._register(dom.addDisposableListener(xterm.raw.textarea, 'compositionstart', () => iPadCompositionActive = true));
+			this._register(dom.addDisposableListener(xterm.raw.textarea, 'compositionstart', () => {
+				iPadCompositionActive = true;
+				// 用户已经开始打下一个字了，那一发杂散 `c` 不会再来，窗口就地作废。
+				suppressIPadImeCopyTextUntil = 0;
+			}));
 			this._register(dom.addDisposableListener(xterm.raw.textarea, 'compositionend', resetIPadComposition));
 
 			// With a Chinese IME, Safari reports Cmd+C as key="Process" and may
 			// emit a literal `c` from compositionend even after keydown was handled.
 			// Intercept only that malformed form; normal Cmd+C keeps using VS Code's
 			// keybinding service and therefore cannot copy twice.
+			// ⛔ 判据不能只看「这一发的 data 是 c」：中文输入法每敲一个字母都会发一发
+			// inputType='insertCompositionText' 的 beforeinput，以 c 开头的拼音（ce / chi / cao…）
+			// 第一发就会被吞掉，xterm 在 compositionend 后从 textarea 取出的合成结果缺首字母；
+			// 而且这里的 stopImmediatePropagation 会连下面那个 beforeinput → PTY 兜底一起打掉，
+			// 中文键盘英文态下打 `cd ..` 的 c 是彻底丢失。所以合成中的那几发一律放行。
 			const suppressIPadImeCopyText = (event: Event) => {
 				if (Date.now() > suppressIPadImeCopyTextUntil) {
 					return;
 				}
 				const inputEvent = event as InputEvent | CompositionEvent;
+				// compositionend 上没有 inputType，取到 undefined，照旧拦得住那一发杂散的 `c`。
+				if ((inputEvent as InputEvent).inputType === 'insertCompositionText') {
+					return;
+				}
 				if (String(inputEvent.data ?? '').toLowerCase() !== 'c') {
 					return;
 				}
@@ -1345,7 +1364,7 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 			// through Safari's single native paste event.
 			if (isIOS && event.metaKey && !event.altKey && (event.key === 'Process' || event.keyCode === 229)) {
 				if (event.code === 'KeyC') {
-					suppressIPadImeCopyTextUntil = Date.now() + 700;
+					suppressIPadImeCopyTextUntil = Date.now() + iPadImeCopyTextSuppressMs;
 					event.preventDefault();
 					event.stopPropagation();
 					void this._commandService.executeCommand(TerminalCommandId.CopySelection);
