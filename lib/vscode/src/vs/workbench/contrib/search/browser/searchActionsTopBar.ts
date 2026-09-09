@@ -289,6 +289,8 @@ function cancelSearch(accessor: ServicesAccessor) {
 function refreshSearch(accessor: ServicesAccessor) {
 	const viewsService = accessor.get(IViewsService);
 	const searchView = getSearchView(viewsService);
+	// 终端查找模式下 triggerQueryChange 会直接 return，刷新按钮得先把模式切回文件搜索。
+	searchView?.exitTerminalModeForFileSearch();
 	searchView?.triggerQueryChange({ preserveFocus: false, shouldUpdateAISearch: !searchView.model.searchResult.aiTextSearchResult.hidden });
 }
 

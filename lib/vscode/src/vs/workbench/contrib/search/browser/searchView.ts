@@ -1046,7 +1046,7 @@ export class SearchView extends ViewPane {
 	 * Turns the "find in terminal" mode on or off: hides the file result tree while it is on and
 	 * drops the terminal highlights when it is switched back off. Deliberately not persisted.
 	 */
-	private applyTerminalMode(enabled: boolean): void {
+	private applyTerminalMode(enabled: boolean, triggerSearch: boolean = true): void {
 		this.terminalMode = enabled;
 		this.container.classList.toggle(TERMINAL_MODE_CLASS_NAME, enabled);
 
@@ -1064,8 +1064,10 @@ export class SearchView extends ViewPane {
 			this.clearAllTerminalDecorations();
 			dom.hide(this.messagesElement);
 			this.reLayout();
-			// Back to the ordinary file search with whatever is in the box.
-			this.triggerQueryChange();
+			if (triggerSearch) {
+				// Back to the ordinary file search with whatever is in the box.
+				this.triggerQueryChange();
+			}
 		}
 	}
 
@@ -1710,6 +1712,8 @@ export class SearchView extends ViewPane {
 	}
 
 	setSearchParameters(args: IFindInFilesArgs = {}): void {
+		// 先退出终端模式但不搜索：输入框和过滤条件还是退出前的旧内容，
+		// 真正的搜索交给下面的 args.triggerSearch。
 		this.exitTerminalModeForFileSearch();
 		if (typeof args.isCaseSensitive === 'boolean') {
 			this.searchWidget.searchInput?.setCaseSensitive(args.isCaseSensitive);
@@ -1791,6 +1795,7 @@ export class SearchView extends ViewPane {
 	}
 
 	private _searchWithIncludeOrExclude(include: boolean, folderPaths: string[]) {
+		// 同上：搜索由下面 setValue 触发的 onSubmit 负责，这里只负责把模式切回来。
 		this.exitTerminalModeForFileSearch();
 		if (!folderPaths.length || folderPaths.some(folderPath => folderPath === '.')) {
 			this.inputPatternIncludes.setValue('');
@@ -1808,15 +1813,20 @@ export class SearchView extends ViewPane {
 	}
 
 	/**
-	 * 显式的文件搜索入口（Ctrl+Shift+F / 命令面板的「在文件中查找」/ 资源管理器的「在文件夹中查找」）
-	 * 最后都汇聚到 triggerQueryChange，而它在终端模式下直接 return —— 不先退出终端模式的话，
-	 * 这些入口会静默失效。走 SearchWidget.setTerminalMode 是为了让开关本身、高亮和消息区
-	 * 都沿 applyTerminalMode 那一条路径一起复位。
+	 * 显式的文件搜索入口（Ctrl+Shift+F / 命令面板的「在文件中查找」/ 资源管理器的「在文件夹中查找」/
+	 * 标题栏刷新 / 消息区的「再次搜索」和关键词链接）最后都汇聚到 triggerQueryChange，而它在终端
+	 * 模式下直接 return —— 不先退出终端模式的话，这些入口会静默失效。开关本身、高亮和消息区都沿
+	 * applyTerminalMode 那一条路径复位。
+	 *
+	 * `triggerSearch` 留给调用方：它们自己会在把输入框和过滤条件摆好之后再发起搜索，
+	 * 退出时不要抢先用退出前的旧内容跑一次。
 	 */
-	private exitTerminalModeForFileSearch(): void {
-		if (this.terminalMode) {
-			this.searchWidget.setTerminalMode(false);
+	exitTerminalModeForFileSearch(triggerSearch: boolean = false): void {
+		if (!this.terminalMode) {
+			return;
 		}
+		this.searchWidget.setTerminalMode(false);
+		this.applyTerminalMode(false, triggerSearch);
 	}
 
 	triggerQueryChange(_options?: { preserveFocus?: boolean; triggeredOnType?: boolean; delay?: number; shouldKeepAIResults?: boolean; shouldUpdateAISearch?: boolean }): void {
@@ -2254,6 +2264,7 @@ export class SearchView extends ViewPane {
 	}
 
 	private onSearchAgain(): void {
+		this.exitTerminalModeForFileSearch();
 		this.inputPatternExcludes.setValue('');
 		this.inputPatternIncludes.setValue('');
 		this.inputPatternIncludes.setOnlySearchInOpenEditors(false);
@@ -2326,6 +2337,7 @@ export class SearchView extends ViewPane {
 	}
 
 	private handleKeywordClick(keyword: string, index: number) {
+		this.exitTerminalModeForFileSearch();
 		this.searchWidget.searchInput?.setValue(keyword);
 		this.triggerQueryChange({ preserveFocus: false, triggeredOnType: false, shouldKeepAIResults: false });
 		type KeywordClickClassification = {

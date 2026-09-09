@@ -505,16 +505,14 @@ export class SearchWidget extends Widget {
 	}
 
 	/**
-	 * Flips the "find in terminal" toggle from code and announces it like a click would, so that
-	 * callers leave terminal mode through the very same path a user toggle takes. Setting
-	 * `Toggle.checked` on its own does not fire `onChange`, hence the explicit event.
+	 * Flips the "find in terminal" toggle from code, without announcing it: `Toggle.checked` does
+	 * not fire `onChange`, and the caller drives the rest of the transition itself so that it can
+	 * decide whether leaving terminal mode should immediately kick off a file search.
 	 */
 	setTerminalMode(enabled: boolean): void {
-		if (!this.terminalModeToggle || this.terminalModeToggle.checked === enabled) {
-			return;
+		if (this.terminalModeToggle) {
+			this.terminalModeToggle.checked = enabled;
 		}
-		this.terminalModeToggle.checked = enabled;
-		this._onDidToggleTerminalMode.fire(enabled);
 	}
 
 	private onContextLinesChanged() {
