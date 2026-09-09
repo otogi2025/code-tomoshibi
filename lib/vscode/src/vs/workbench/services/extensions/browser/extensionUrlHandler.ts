@@ -12,7 +12,6 @@ import { IDialogService } from '../../../../platform/dialogs/common/dialogs.js';
 import { createDecorator, ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { IURLHandler, IURLService, IOpenURLOptions } from '../../../../platform/url/common/url.js';
-import { IHostService } from '../../host/browser/host.js';
 import { ActivationKind, IExtensionService } from '../common/extensions.js';
 import { ExtensionIdentifier } from '../../../../platform/extensions/common/extensions.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
@@ -124,7 +123,6 @@ class ExtensionUrlHandler implements IExtensionUrlHandler, IURLHandler {
 		@IURLService urlService: IURLService,
 		@IExtensionService private readonly extensionService: IExtensionService,
 		@IDialogService private readonly dialogService: IDialogService,
-		@IHostService private readonly hostService: IHostService,
 		@IStorageService private readonly storageService: IStorageService,
 		@IConfigurationService private readonly configurationService: IConfigurationService,
 		@INotificationService private readonly notificationService: INotificationService,
@@ -171,7 +169,7 @@ class ExtensionUrlHandler implements IExtensionUrlHandler, IURLHandler {
 			// The extension is not yet activated, so let's check if it is installed and enabled
 			const extension = await this.extensionService.getExtension(extensionId);
 			if (!extension) {
-				await this.handleUnhandledURL(uri, extensionId, options);
+				this.handleUnhandledURL(extensionId);
 				return true;
 			} else {
 				extensionDisplayName = extension.displayName ?? '';
@@ -263,30 +261,9 @@ class ExtensionUrlHandler implements IExtensionUrlHandler, IURLHandler {
 		return await handler.handleURL(uri, options);
 	}
 
-	private async handleUnhandledURL(uri: URI, extensionId: string, options?: IOpenURLOptions): Promise<void> {
+	private handleUnhandledURL(extensionId: string): void {
+		// Code-Tomoshibi: no extension gallery, so an unhandled deep link cannot trigger an install. Tell the user instead.
 		this.notificationService.info(localize('tomoshibi.extensionStoreRemoved', "Code-Tomoshibi 没有扩展商店，无法安装扩展 '{0}'。扩展需要放进服务器的扩展目录。", extensionId));
-		return;
-
-		const extension = await this.extensionService.getExtension(extensionId);
-
-		if (extension) {
-			await this.handleURL(uri, { ...options, trusted: true });
-		}
-
-		/* Extension cannot be added and require window reload */
-		else {
-			const result = await this.dialogService.confirm({
-				message: localize('reloadAndHandle', "扩展“{0}”尚未载入。是否重载此窗口来载入扩展并打开 URL?", extensionId),
-				primaryButton: localize({ key: 'reloadAndOpen', comment: ['&& denotes a mnemonic'] }, "重载窗口并打开(&&R)")
-			});
-
-			if (!result.confirmed) {
-				return;
-			}
-
-			this.storageService.store(URL_TO_HANDLE, JSON.stringify(uri.toJSON()), StorageScope.WORKSPACE, StorageTarget.MACHINE);
-			await this.hostService.reload();
-		}
 	}
 
 	// forget about all uris buffered more than 5 minutes ago
