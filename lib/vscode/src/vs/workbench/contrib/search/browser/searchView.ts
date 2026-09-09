@@ -85,7 +85,7 @@ import { searchMatchComparer } from './searchCompare.js';
 import { AIFolderMatchWorkspaceRootImpl } from './AISearch/aiSearchModel.js';
 import { ITelemetryService } from '../../../../platform/telemetry/common/telemetry.js';
 import { forcedExpandRecursively } from './searchActionsTopBar.js';
-import { ITerminalService } from '../../terminal/browser/terminal.js';
+import { ITerminalInstance, ITerminalService } from '../../terminal/browser/terminal.js';
 
 const $ = dom.$;
 
@@ -163,6 +163,8 @@ export class SearchView extends ViewPane {
 	private terminalModeKey: IContextKey<boolean>;
 
 	private terminalMode = false;
+	/** 上一次被画上查找高亮的终端；切换终端时要靠它把旧终端的高亮清掉。 */
+	private lastDecoratedTerminal: ITerminalInstance | undefined;
 	private readonly terminalFindResultsListener = this._register(new MutableDisposable());
 
 	private tree!: WorkbenchCompressibleAsyncDataTree<ISearchResult, RenderableMatch>;
@@ -1067,7 +1069,7 @@ export class SearchView extends ViewPane {
 			this.runTerminalFind(true, false);
 		} else {
 			this.terminalFindResultsListener.clear();
-			this.terminalService.activeInstance?.xterm?.clearSearchDecorations();
+			this.clearAllTerminalDecorations();
 			dom.hide(this.messagesElement);
 			this.reLayout();
 			// Back to the ordinary file search with whatever is in the box.
@@ -1084,20 +1086,30 @@ export class SearchView extends ViewPane {
 			return;
 		}
 
-		const xterm = this.terminalService.activeInstance?.xterm;
-		if (!xterm) {
+		const instance = this.terminalService.activeInstance;
+		const xterm = instance?.xterm;
+		if (!instance || !xterm) {
 			this.terminalFindResultsListener.clear();
 			this.showTerminalMessage(nls.localize('search.terminal.noTerminal', "没有打开的终端"));
 			return;
 		}
 
+		// 切到别的终端时，旧终端上的高亮只有它自己的 clearSearchDecorations() 能清，
+		// 不在这里清掉就会永远挂在那个终端上。
+		if (this.lastDecoratedTerminal && this.lastDecoratedTerminal !== instance) {
+			this.lastDecoratedTerminal.xterm?.clearSearchDecorations();
+			this.lastDecoratedTerminal = undefined;
+		}
+
 		const term = this.searchWidget.searchInput?.getValue() ?? '';
 		if (!term) {
 			this.terminalFindResultsListener.clear();
-			xterm.clearSearchDecorations();
+			this.clearAllTerminalDecorations();
 			this.showTerminalMessage(nls.localize('search.terminal.hint', "在终端中查找：输入关键词，Enter 下一处，Shift+Enter 上一处"));
 			return;
 		}
+
+		this.lastDecoratedTerminal = instance;
 
 		this.terminalFindResultsListener.value = xterm.onDidChangeFindResults(results => {
 			if (this.terminalMode) {
@@ -1116,6 +1128,14 @@ export class SearchView extends ViewPane {
 			return;
 		}
 		this.renderTerminalFindResult(found ? xterm.findResult : undefined);
+	}
+
+	/** 清掉所有终端上的查找高亮：只清活动终端的话，之前搜过的那些终端会永远留着高亮。 */
+	private clearAllTerminalDecorations(): void {
+		for (const instance of this.terminalService.instances) {
+			instance.xterm?.clearSearchDecorations();
+		}
+		this.lastDecoratedTerminal = undefined;
 	}
 
 	private renderTerminalFindResult(result: { resultIndex: number; resultCount: number } | undefined): void {
@@ -2640,6 +2660,7 @@ export class SearchView extends ViewPane {
 	override dispose(): void {
 		this.isDisposed = true;
 		this.fileNameSearchCts.value?.cancel();
+		this.clearAllTerminalDecorations();
 		this.clearFileNameSearchCache();
 		this.saveState();
 		super.dispose();
