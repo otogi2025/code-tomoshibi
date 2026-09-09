@@ -568,6 +568,11 @@ export const DEFAULT_COMMANDS_TO_SKIP_SHELL: string[] = [
 	AccessibilityCommandId.OpenAccessibilityHelp,
 	TerminalCommandId.StopVoice,
 	TerminalCommandId.SendSignal,
+	// ⛔ 'tomoshibi.newline'（Shift+Enter 插入软换行）必须留在这张表里：终端里的按键只有命令 id
+	// 进了 commandsToSkipShell，terminalInstance.ts 才会 preventDefault 把事件交给键绑定系统。
+	// 不在表里的话 xterm 在捕获阶段就把 keyCode 13 编码成 CR 并 stopPropagation，Shift+Enter 会
+	// 变成直接把半截命令提交执行（桌面 / 安卓浏览器上必现，iPad 走的是另一条硬件回车分支）。
+	'tomoshibi.newline',
 	'workbench.action.tasks.rerunForActiveTerminal',
 	'editor.action.toggleTabFocusMode',
 	'notifications.hideList',
