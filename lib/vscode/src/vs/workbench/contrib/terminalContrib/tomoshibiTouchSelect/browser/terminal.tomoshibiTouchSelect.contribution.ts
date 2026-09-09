@@ -410,6 +410,7 @@ class TomoshibiTouchSelectContribution extends Disposable implements ITerminalCo
 		}
 		this._extendFrom(press.anchorStart, press.anchorEnd, this._offsetOf(focus));
 		this._showLoupe(e.clientX, e.clientY, focus);
+		this._updateAutoScroll(e.clientY);
 	}
 
 	private _onPointerUp(e: PointerEvent, cancelled: boolean): void {
@@ -426,6 +427,8 @@ class TomoshibiTouchSelectContribution extends Disposable implements ITerminalCo
 		}
 		this._pressTimer.clear();
 		this._press = undefined;
+		this._autoScroll.clear();
+		this._autoScrollDirection = 0;
 		this._hideLoupe();
 		this._wrapper?.classList.remove('tomoshibi-touch-dragging');
 		if (!press.fired) {
@@ -552,9 +555,32 @@ class TomoshibiTouchSelectContribution extends Disposable implements ITerminalCo
 		const targetWindow = dom.getWindow(wrapper);
 		const timer = targetWindow.setInterval(() => {
 			this._raw?.scrollLines(direction);
-			this._updateDrag();
+			this._onAutoScrollTick();
 		}, Constants.AutoScrollInterval);
 		this._autoScroll.value = toDisposable(() => targetWindow.clearInterval(timer));
+	}
+
+	/**
+	 * The edge scroll serves both gestures, so the tick re-applies whichever one is live:
+	 * the handle drag from its stored client point, the long press drag from the finger's last
+	 * one. `_cellAt` clamps to the viewport, so as the buffer moves under the finger the focus
+	 * cell moves with it and the selection keeps growing.
+	 */
+	private _onAutoScrollTick(): void {
+		if (this._drag) {
+			this._updateDrag();
+			return;
+		}
+		const press = this._press;
+		if (!press?.fired) {
+			return;
+		}
+		const focus = this._cellAt(press.lastX, press.lastY);
+		if (!focus) {
+			return;
+		}
+		this._extendFrom(press.anchorStart, press.anchorEnd, this._offsetOf(focus));
+		this._showLoupe(press.lastX, press.lastY, focus);
 	}
 
 	private _endDrag(): void {
