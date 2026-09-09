@@ -58,12 +58,14 @@ export class TomoshibiWatchdogContribution extends Disposable implements IWorkbe
 	private readonly _reason: HTMLElement;
 	private readonly _summary: HTMLElement;
 	private readonly _countdown: HTMLElement;
+	private readonly _notice: HTMLElement;
 	private readonly _dismissButton: HTMLButtonElement;
 	private readonly _cancelButton: HTMLButtonElement;
 	private _current: IWatchdogStatus | undefined;
 	private _dismissedAlertKey = '';
 	private _dismissedAt = 0;
 	private _dismissedSource: WatchdogSource | undefined;
+	private _noticeKey = '';
 	private _externalToken = '';
 	private _countdownTimer = 0;
 	private _pollTimer = 0;
@@ -94,6 +96,9 @@ export class TomoshibiWatchdogContribution extends Disposable implements IWorkbe
 		this._reason = dom.append(this._card, dom.$('.tomoshibi-watchdog-reason'));
 		this._summary = dom.append(this._card, dom.$('.tomoshibi-watchdog-summary'));
 		this._countdown = dom.append(this._card, dom.$('.tomoshibi-watchdog-countdown'));
+		// 本地操作的回话单独一格。写进 _message 的话，5 秒后的下一次轮询就会拿服务端文案把它
+		// 整段盖回去，「停止请求未送达」这行字最多活 5 秒。
+		this._notice = dom.append(this._card, dom.$('.tomoshibi-watchdog-notice'));
 		const actions = dom.append(this._card, dom.$('.tomoshibi-watchdog-actions'));
 		this._dismissButton = dom.append(actions, dom.$<HTMLButtonElement>('button.tomoshibi-watchdog-dismiss'));
 		this._dismissButton.type = 'button';
@@ -151,9 +156,11 @@ export class TomoshibiWatchdogContribution extends Disposable implements IWorkbe
 		this._message.textContent = value.message || localize('tomoshibiWatchdog.defaultMessage', "看门狗检测到异常。");
 		this._reason.textContent = value.reason ? localize('tomoshibiWatchdog.reason', "检测原因：{0}", value.reason) : '';
 		this._summary.textContent = value.summary || '';
+		if (this._noticeKey && this._alertKey(value) !== this._noticeKey) {
+			this._clearNotice();
+		}
 		this._cancelButton.hidden = value.cancellable !== true;
-		this._cancelButton.disabled = this._cancelling;
-		this._setCancelButtonLabel();
+		this._syncCancelButton();
 		this._updateCountdown();
 		this._targetWindow.clearInterval(this._countdownTimer);
 		this._countdownTimer = this._targetWindow.setInterval(() => this._updateCountdown(), 1000);
@@ -162,6 +169,7 @@ export class TomoshibiWatchdogContribution extends Disposable implements IWorkbe
 	private _hide(): void {
 		this._current = undefined;
 		this._cancelling = false;
+		this._clearNotice();
 		this._targetWindow.clearInterval(this._countdownTimer);
 		this._root.hidden = true;
 		this._root.setAttribute('aria-hidden', 'true');
@@ -184,6 +192,29 @@ export class TomoshibiWatchdogContribution extends Disposable implements IWorkbe
 		this._dismissedAt = Date.now();
 		this._dismissedSource = this._current.source;
 		this._hide();
+	}
+
+	/** 本次操作的回话，只由用户操作写、由 _hide 或换了另一张卡时清，轮询不碰它。 */
+	private _setNotice(text: string, isError: boolean): void {
+		if (!this._current) {
+			// 卡片已经收掉了，这行字没有落脚的地方。
+			this._clearNotice();
+			return;
+		}
+		this._notice.textContent = text;
+		this._notice.classList.toggle('is-error', isError);
+		this._noticeKey = this._alertKey(this._current);
+	}
+
+	private _clearNotice(): void {
+		this._notice.textContent = '';
+		this._notice.classList.remove('is-error');
+		this._noticeKey = '';
+	}
+
+	private _syncCancelButton(): void {
+		this._cancelButton.disabled = this._cancelling;
+		this._setCancelButtonLabel();
 	}
 
 	private _setCancelButtonLabel(): void {
@@ -322,7 +353,7 @@ export class TomoshibiWatchdogContribution extends Disposable implements IWorkbe
 			return;
 		}
 		this._cancelling = true;
-		this._show(current);
+		this._syncCancelButton();
 		const external = current.source === 'la';
 		try {
 			const response = await this._fetchBounded(external ? `${externalBaseUrl}/cancel` : localCancelUrl, {
@@ -336,19 +367,22 @@ export class TomoshibiWatchdogContribution extends Disposable implements IWorkbe
 			}, 5000);
 			if (response.status === 409) {
 				this._cancelling = false;
+				this._syncCancelButton();
 				await this._poll();
-				this._message.textContent = localize('tomoshibiWatchdog.cancelConflict', "故障阶段已经变化或当前动作不可取消；这里显示的是最新状态。");
+				this._setNotice(localize('tomoshibiWatchdog.cancelConflict', "故障阶段已经变化或当前动作不可取消；这里显示的是最新状态。"), true);
 				return;
 			}
 			if (!response.ok) {
 				throw new Error(`HTTP ${response.status}`);
 			}
-			this._message.textContent = localize('tomoshibiWatchdog.cancelSent', "已发送停止请求；看门狗会阻止后续步骤并暂停 1 小时，已经提交的单个系统动作可能继续完成。");
+			this._setNotice(localize('tomoshibiWatchdog.cancelSent', "已发送停止请求；看门狗会阻止后续步骤并暂停 1 小时，已经提交的单个系统动作可能继续完成。"), false);
 		} catch (error) {
+			// 这里不能再走 _show(current)：current 是发请求之前抓的，await 期间轮询可能已经拿到
+			// 新状态，整份重画等于把卡片回滚到旧状态。要改的只有按钮。
 			this._cancelling = false;
-			this._show(current);
+			this._syncCancelButton();
 			const message = error instanceof Error ? error.message : String(error);
-			this._message.textContent = localize('tomoshibiWatchdog.cancelFailed', "停止请求未送达，请再试一次。错误：{0}", message);
+			this._setNotice(localize('tomoshibiWatchdog.cancelFailed', "停止请求未送达，请再试一次。错误：{0}", message), true);
 		}
 	}
 }

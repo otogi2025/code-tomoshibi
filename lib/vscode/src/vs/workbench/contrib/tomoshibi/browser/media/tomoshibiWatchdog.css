@@ -86,6 +86,26 @@
 	font-weight: 650;
 }
 
+/* Feedback from a button on the card itself, kept out of the message line so the 5s poll cannot
+ * overwrite it with the server's own text. */
+.tomoshibi-watchdog-notice {
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+	line-height: 1.55;
+	margin-top: 12px;
+	color: var(--vscode-descriptionForeground);
+	font-size: 13px;
+	font-weight: 650;
+}
+
+.tomoshibi-watchdog-notice:empty {
+	display: none;
+}
+
+.tomoshibi-watchdog-notice.is-error {
+	color: var(--vscode-editorError-foreground);
+}
+
 .tomoshibi-watchdog-actions {
 	display: flex;
 	justify-content: flex-end;
