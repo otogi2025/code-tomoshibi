@@ -41,14 +41,14 @@ import { ThemeIcon } from '../../../../base/common/themables.js';
 import { IWorkspaceTrustManagementService } from '../../../../platform/workspace/common/workspaceTrust.js';
 import { EditorPane } from '../../../browser/parts/editor/editorPane.js';
 import { IEditorOpenContext } from '../../../common/editor.js';
-import { IExtensionsWorkbenchService, LIST_WORKSPACE_UNSUPPORTED_EXTENSIONS_COMMAND_ID } from '../../extensions/common/extensions.js';
 import { APPLICATION_SCOPES, IWorkbenchConfigurationService } from '../../../services/configuration/common/configuration.js';
 import { IExtensionManifestPropertiesService } from '../../../services/extensions/common/extensionManifestPropertiesService.js';
 import { IUriIdentityService } from '../../../../platform/uriIdentity/common/uriIdentity.js';
 import { WorkspaceTrustEditorInput } from '../../../services/workspaces/browser/workspaceTrustEditorInput.js';
 import { IEditorOptions } from '../../../../platform/editor/common/editor.js';
 import { getExtensionDependencies } from '../../../../platform/extensionManagement/common/extensionManagementUtil.js';
-import { EnablementState, IWorkbenchExtensionEnablementService } from '../../../services/extensionManagement/common/extensionManagement.js';
+import { EnablementState, IWorkbenchExtensionEnablementService, IWorkbenchExtensionManagementService } from '../../../services/extensionManagement/common/extensionManagement.js';
+import { ILocalExtension } from '../../../../platform/extensionManagement/common/extensionManagement.js';
 import { posix, win32 } from '../../../../base/common/path.js';
 import { hasDriveLetter, toSlashes } from '../../../../base/common/extpath.js';
 import { StandardKeyboardEvent } from '../../../../base/browser/keyboardEvent.js';
@@ -687,13 +687,17 @@ export class WorkspaceTrustEditor extends EditorPane {
 	private configurationContainer!: HTMLElement;
 	private workspaceTrustedUrisTable!: WorkspaceTrustedUrisTable;
 
+	// Code-Tomoshibi: the marketplace UI is gone, so the installed extensions are read straight from the
+	// management service and cached here - the old IExtensionsWorkbenchService.local was a synchronous view.
+	private localExtensions: ILocalExtension[] = [];
+
 	constructor(
 		group: IEditorGroup,
 		@ITelemetryService telemetryService: ITelemetryService,
 		@IThemeService themeService: IThemeService,
 		@IStorageService storageService: IStorageService,
 		@IWorkspaceContextService private readonly workspaceService: IWorkspaceContextService,
-		@IExtensionsWorkbenchService private readonly extensionWorkbenchService: IExtensionsWorkbenchService,
+		@IWorkbenchExtensionManagementService private readonly extensionManagementService: IWorkbenchExtensionManagementService,
 		@IExtensionManifestPropertiesService private readonly extensionManifestPropertiesService: IExtensionManifestPropertiesService,
 		@IInstantiationService private readonly instantiationService: IInstantiationService,
 		@IWorkspaceTrustManagementService private readonly workspaceTrustManagementService: IWorkspaceTrustManagementService,
@@ -769,11 +773,17 @@ export class WorkspaceTrustEditor extends EditorPane {
 
 		await this.workspaceTrustManagementService.workspaceTrustInitialized;
 		this.registerListeners();
+		await this.refreshLocalExtensions();
 		await this.render();
 	}
 
+	private async refreshLocalExtensions(): Promise<void> {
+		this.localExtensions = await this.extensionManagementService.getInstalled();
+	}
+
 	private registerListeners(): void {
-		this._register(this.extensionWorkbenchService.onChange(() => this.render()));
+		this._register(this.extensionManagementService.onDidInstallExtensions(() => this.refreshLocalExtensions().then(() => this.render())));
+		this._register(this.extensionManagementService.onDidUninstallExtension(() => this.refreshLocalExtensions().then(() => this.render())));
 		this._register(this.configurationService.onDidChangeRestrictedSettings(() => this.render()));
 		this._register(this.workspaceTrustManagementService.onDidChangeTrust(() => this.render()));
 		this._register(this.workspaceTrustManagementService.onDidChangeTrustedFolders(() => this.render()));
@@ -928,7 +938,7 @@ export class WorkspaceTrustEditor extends EditorPane {
 		const set = new Set<string>();
 
 		const inVirtualWorkspace = isVirtualWorkspace(this.workspaceService.getWorkspace());
-		const localExtensions = this.extensionWorkbenchService.local.filter(ext => ext.local).map(ext => ext.local!);
+		const localExtensions = this.localExtensions;
 
 		for (const extension of localExtensions) {
 			const enablementState = this.extensionEnablementService.getEnablementState(extension);
@@ -1007,13 +1017,13 @@ export class WorkspaceTrustEditor extends EditorPane {
 			[
 				localize('untrustedTasks', "不允许运行任务"),
 				localize('untrustedDebugging', "已禁用调试。"),
-				fixBadLocalizedLinks(localize({ key: 'untrustedExtensions', comment: ['Please ensure the markdown link syntax is not broken up with whitespace [text block](link block)'] }, "[{0} 扩展]({1})已禁用或功能受限", numExtensions, `command:${LIST_WORKSPACE_UNSUPPORTED_EXTENSIONS_COMMAND_ID}`))
+				localize('untrustedExtensions', "{0} 个扩展已禁用或功能受限", numExtensions)
 			] :
 			[
 				localize('untrustedTasks', "不允许运行任务"),
 				localize('untrustedDebugging', "已禁用调试。"),
 				fixBadLocalizedLinks(numSettings ? localize({ key: 'untrustedSettings', comment: ['Please ensure the markdown link syntax is not broken up with whitespace [text block](link block)'] }, "未应用[{0} 工作区设置]({1})", numSettings, 'command:settings.filterUntrusted') : localize('no untrustedSettings', "未应用需要信任的工作区设置")),
-				fixBadLocalizedLinks(localize({ key: 'untrustedExtensions', comment: ['Please ensure the markdown link syntax is not broken up with whitespace [text block](link block)'] }, "[{0} 扩展]({1})已禁用或功能受限", numExtensions, `command:${LIST_WORKSPACE_UNSUPPORTED_EXTENSIONS_COMMAND_ID}`))
+				localize('untrustedExtensions', "{0} 个扩展已禁用或功能受限", numExtensions)
 			];
 		this.renderLimitationsListElement(this.untrustedContainer, untrustedContainerItems, ThemeIcon.asClassNameArray(xListIcon));
 

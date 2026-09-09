@@ -11,7 +11,6 @@ import { Action2, MenuId } from '../../../../platform/actions/common/actions.js'
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { ILanguagePackItem, ILanguagePackService } from '../../../../platform/languagePacks/common/languagePacks.js';
 import { ILocaleService } from '../../../services/localization/common/locale.js';
-import { IExtensionsWorkbenchService } from '../../extensions/common/extensions.js';
 
 export class ConfigureDisplayLanguageAction extends Action2 {
 	public static readonly ID = 'workbench.action.configureLocale';
@@ -33,7 +32,6 @@ export class ConfigureDisplayLanguageAction extends Action2 {
 		const languagePackService: ILanguagePackService = accessor.get(ILanguagePackService);
 		const quickInputService: IQuickInputService = accessor.get(IQuickInputService);
 		const localeService: ILocaleService = accessor.get(ILocaleService);
-		const extensionWorkbenchService: IExtensionsWorkbenchService = accessor.get(IExtensionsWorkbenchService);
 
 		const installedLanguages = await languagePackService.getInstalledLanguages();
 
@@ -72,26 +70,13 @@ export class ConfigureDisplayLanguageAction extends Action2 {
 			}
 		}));
 
-		disposables.add(qp.onDidTriggerItemButton(async e => {
-			qp.hide();
-			if (e.item.extensionId) {
-				await extensionWorkbenchService.open(e.item.extensionId);
-			}
-		}));
-
 		qp.show();
 		qp.busy = true;
 	}
 
+	// Code-Tomoshibi: the marketplace UI is gone, so the per-item "more info" button (which opened the
+	// language pack's extension page) no longer has anywhere to go and was dropped.
 	private withMoreInfoButton(items: ILanguagePackItem[]): ILanguagePackItem[] {
-		for (const item of items) {
-			if (item.extensionId) {
-				item.buttons = [{
-					tooltip: localize('moreInfo', "详细信息"),
-					iconClass: 'codicon-info'
-				}];
-			}
-		}
 		return items;
 	}
 }

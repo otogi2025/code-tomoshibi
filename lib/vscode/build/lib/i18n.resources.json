@@ -79,10 +79,6 @@
 			"project": "vscode-workbench"
 		},
 		{
-			"name": "vs/workbench/contrib/extensions",
-			"project": "vscode-workbench"
-		},
-		{
 			"name": "vs/workbench/contrib/externalTerminal",
 			"project": "vscode-workbench"
 		},

@@ -731,7 +731,17 @@ Registry.as<IConfigurationRegistry>(Extensions.Configuration)
 				// Note: Type is set only to object because to support policies generation during build time, where single type is expected.
 				type: 'object',
 				markdownDescription: localize('extensions.allowed', "指定允许使用的扩展列表。这有助于通过限制使用未经授权的扩展来维护安全且一致的开发环境。有关如何配置此设置的详细信息，请访问 [Configure Allowed Extensions](https://aka.ms/vscode/enterprise/extensions/allowed) 部分。"),
-				default: '*',
+				// Code-Tomoshibi: upstream ships `'*'` (anything goes). The marketplace UI is gone and
+				// code-server turns off both signature verification and the malicious-extension list, so
+				// this allow list is the only gate left. It has to be the registered default rather than
+				// a workbench-side `configurationDefaults`, because the check also runs in the server
+				// process (`server/node/serverServices.ts` registers `AllowedExtensionsService`), where
+				// nothing the web bundle registers is loaded. A user `settings.json` still overrides it.
+				default: {
+					'anthropic.claude-code': true,
+					'ms-ceintl.vscode-language-pack-zh-hans': true,
+					'openai.chatgpt': true
+				},
 				defaultSnippets: [{
 					body: {},
 					description: localize('extensions.allowed.none', "不允许使用任何扩展。"),

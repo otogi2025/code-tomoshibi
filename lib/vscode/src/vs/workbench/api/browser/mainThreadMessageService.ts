@@ -12,7 +12,6 @@ import { extHostNamedCustomer, IExtHostContext } from '../../services/extensions
 import { IDialogService, IPromptButton } from '../../../platform/dialogs/common/dialogs.js';
 import { INotificationService, INotificationSource, NotificationPriority } from '../../../platform/notification/common/notification.js';
 import { Event } from '../../../base/common/event.js';
-import { ICommandService } from '../../../platform/commands/common/commands.js';
 import { IExtensionService } from '../../services/extensions/common/extensions.js';
 import { IDisposable } from '../../../base/common/lifecycle.js';
 
@@ -29,7 +28,6 @@ export class MainThreadMessageService implements MainThreadMessageServiceShape {
 	constructor(
 		extHostContext: IExtHostContext,
 		@INotificationService private readonly _notificationService: INotificationService,
-		@ICommandService private readonly _commandService: ICommandService,
 		@IDialogService private readonly _dialogService: IDialogService,
 		@IExtensionService extensionService: IExtensionService
 	) {
@@ -80,16 +78,8 @@ export class MainThreadMessageService implements MainThreadMessageServiceShape {
 				source = nls.localize('defaultSource', "扩展");
 			}
 
+			// Code-Tomoshibi: the marketplace UI is gone, so the "管理扩展" secondary action was dropped.
 			const secondaryActions: IAction[] = [];
-			if (options.source) {
-				secondaryActions.push(toAction({
-					id: options.source.identifier.value,
-					label: nls.localize('manageExtension', "管理扩展"),
-					run: () => {
-						return this._commandService.executeCommand('_extensions.manage', options.source!.identifier.value);
-					}
-				}));
-			}
 
 			const messageHandle = this._notificationService.notify({
 				severity,

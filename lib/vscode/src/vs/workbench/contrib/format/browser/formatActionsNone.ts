@@ -13,8 +13,6 @@ import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextke
 import { KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
-import { IExtensionsWorkbenchService } from '../../extensions/common/extensions.js';
-import { IDialogService } from '../../../../platform/dialogs/common/dialogs.js';
 import { ILanguageFeaturesService } from '../../../../editor/common/services/languageFeatures.js';
 
 registerEditorAction(class FormatDocumentMultipleAction extends EditorAction {
@@ -39,9 +37,7 @@ registerEditorAction(class FormatDocumentMultipleAction extends EditorAction {
 		}
 
 		const commandService = accessor.get(ICommandService);
-		const extensionsWorkbenchService = accessor.get(IExtensionsWorkbenchService);
 		const notificationService = accessor.get(INotificationService);
-		const dialogService = accessor.get(IDialogService);
 		const languageFeaturesService = accessor.get(ILanguageFeaturesService);
 
 		const model = editor.getModel();
@@ -54,15 +50,9 @@ registerEditorAction(class FormatDocumentMultipleAction extends EditorAction {
 		} else if (model.isTooLargeForSyncing()) {
 			notificationService.warn(nls.localize('too.large', "此文件过大，无法进行格式设置"));
 		} else {
+			// Code-Tomoshibi: the marketplace UI is gone, so we can only say which formatter is missing.
 			const langName = model.getLanguageId();
-			const message = nls.localize('no.provider', "没有安装用于“{0}”文件的格式化程序。", langName);
-			const { confirmed } = await dialogService.confirm({
-				message,
-				primaryButton: nls.localize({ key: 'install.formatter', comment: ['&& denotes a mnemonic'] }, "安装格式化程序(&&I)...")
-			});
-			if (confirmed) {
-				extensionsWorkbenchService.openSearch(`category:formatters ${langName}`);
-			}
+			notificationService.warn(nls.localize('no.provider', "没有安装用于“{0}”文件的格式化程序。", langName));
 		}
 	}
 });

@@ -8,7 +8,6 @@ import { localize, localize2 } from '../../../../nls.js';
 import { extname, basename } from '../../../../base/common/resources.js';
 import { areFunctions } from '../../../../base/common/types.js';
 import { URI } from '../../../../base/common/uri.js';
-import { IAction, toAction } from '../../../../base/common/actions.js';
 import { Language } from '../../../../base/common/platform.js';
 import { UntitledTextEditorInput } from '../../../services/untitled/common/untitledTextEditorInput.js';
 import { IFileEditorInput, EditorResourceAccessor, SideBySideEditor } from '../../../common/editor.js';
@@ -17,8 +16,6 @@ import { EndOfLineSequence } from '../../../../editor/common/model.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { IFileService, FILES_ASSOCIATIONS_CONFIG } from '../../../../platform/files/common/files.js';
 import { ILanguageService, ILanguageSelection } from '../../../../editor/common/languages/language.js';
-import { ICommandService } from '../../../../platform/commands/common/commands.js';
-import { IExtensionGalleryService } from '../../../../platform/extensionManagement/common/extensionManagement.js';
 import { EncodingMode, IEncodingSupport, ILanguageSupport, ITextFileService } from '../../../services/textfile/common/textfiles.js';
 import { SUPPORTED_ENCODINGS } from '../../../services/textfile/common/encoding.js';
 import { ITextResourceConfigurationService } from '../../../../editor/common/services/textResourceConfiguration.js';
@@ -155,8 +152,6 @@ export class ChangeLanguageAction extends Action2 {
 		const preferencesService = accessor.get(IPreferencesService);
 		const configurationService = accessor.get(IConfigurationService);
 		const telemetryService = accessor.get(ITelemetryService);
-		const commandService = accessor.get(ICommandService);
-		const galleryService = accessor.get(IExtensionGalleryService);
 
 		const activeTextEditorControl = getCodeEditor(editorService.activeTextEditorControl);
 		if (!activeTextEditorControl) {
@@ -206,18 +201,10 @@ export class ChangeLanguageAction extends Action2 {
 		// Offer action to configure via settings
 		let configureLanguageAssociations: IQuickPickItem | undefined;
 		let configureLanguageSettings: IQuickPickItem | undefined;
-		let galleryAction: IAction | undefined;
 		if (hasLanguageSupport && resource) {
+			// Code-Tomoshibi: the marketplace UI is gone, so the "search the marketplace for '.ext'
+			// extensions" pick was dropped - there is nowhere for it to open.
 			const ext = extname(resource) || basename(resource);
-
-			if (galleryService.isEnabled()) {
-				galleryAction = toAction({
-					id: 'workbench.action.showLanguageExtensions',
-					label: localize('showLanguageExtensions', "在市场中搜索 '{0}' 的扩展…", ext),
-					run: () => commandService.executeCommand('workbench.extensions.action.showExtensionsForLanguage', ext)
-				});
-				picks.unshift(galleryAction);
-			}
 
 			configureLanguageSettings = { label: localize('configureModeSettings', "配置基于 '{0}' 语言的设置…", currentLanguageName) };
 			picks.unshift(configureLanguageSettings);
@@ -233,11 +220,6 @@ export class ChangeLanguageAction extends Action2 {
 
 		const pick = typeof languageMode === 'string' ? { label: languageMode } : await quickInputService.pick(picks, { placeHolder: localize('pickLanguage', "选择语言模式"), matchOnDescription: true });
 		if (!pick) {
-			return;
-		}
-
-		if (pick === galleryAction) {
-			galleryAction.run();
 			return;
 		}
 

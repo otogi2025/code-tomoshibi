@@ -17,7 +17,6 @@ import { IEditorService } from '../../../services/editor/common/editorService.js
 import { StatusbarViewModel } from './statusbarModel.js';
 import { StatusBarFocused } from '../../../common/contextkeys.js';
 import { getActiveWindow } from '../../../../base/browser/dom.js';
-import { ICommandService } from '../../../../platform/commands/common/commands.js';
 
 export class ToggleStatusbarEntryVisibilityAction extends Action {
 
@@ -44,20 +43,6 @@ export class HideStatusbarEntryAction extends Action {
 
 	override async run(): Promise<void> {
 		this.model.hide(this.id);
-	}
-}
-
-export class ManageExtensionAction extends Action {
-
-	constructor(
-		private readonly extensionId: string,
-		@ICommandService private readonly commandService: ICommandService
-	) {
-		super('statusbar.manage.extension', localize('manageExtension', "管理扩展"));
-	}
-
-	override run(): Promise<void> {
-		return this.commandService.executeCommand('_extensions.manage', this.extensionId);
 	}
 }
 

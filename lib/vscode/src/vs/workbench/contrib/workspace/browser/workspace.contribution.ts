@@ -37,7 +37,6 @@ import { IStorageService, StorageScope, StorageTarget } from '../../../../platfo
 import { IHostService } from '../../../services/host/browser/host.js';
 import { IBannerItem, IBannerService } from '../../../services/banner/browser/bannerService.js';
 import { isVirtualWorkspace } from '../../../../platform/workspace/common/virtualWorkspace.js';
-import { LIST_WORKSPACE_UNSUPPORTED_EXTENSIONS_COMMAND_ID } from '../../extensions/common/extensions.js';
 import { IWorkbenchEnvironmentService } from '../../../services/environment/common/environmentService.js';
 import { WORKSPACE_TRUST_SETTING_TAG } from '../../preferences/common/preferences.js';
 import { IPreferencesService } from '../../../services/preferences/common/preferences.js';
@@ -638,9 +637,8 @@ export class WorkspaceTrustUXHandler extends Disposable implements IWorkbenchCon
 				ariaLabel = localize('status.ariaUntrustedWindow', "受限模式: 某些功能已禁用，因为此窗口不受信任。");
 				toolTip = {
 					value: localize(
-						{ key: 'status.tooltipUntrustedWindow2', comment: ['[abc]({n}) are links.  Only translate `features are disabled` and `window is not trusted`. Do not change brackets and parentheses or {n}'] },
-						"在受限模式下运行\r\n\r\n某些[功能被禁用]({0})，因为此[窗口不受信任]({1})。",
-						`command:${LIST_WORKSPACE_UNSUPPORTED_EXTENSIONS_COMMAND_ID}`,
+						{ key: 'status.tooltipUntrustedWindow3', comment: ['[abc]({n}) is a link. Only translate `window is not trusted`. Do not change brackets and parentheses or {n}'] },
+						"在受限模式下运行\r\n\r\n某些功能被禁用，因为此[窗口不受信任]({0})。",
 						`command:${MANAGE_TRUST_COMMAND_ID}`
 					),
 					isTrusted: true,
@@ -652,9 +650,8 @@ export class WorkspaceTrustUXHandler extends Disposable implements IWorkbenchCon
 				ariaLabel = localize('status.ariaUntrustedFolder', "受限模式: 某些功能已禁用，因为此文件夹不受信任。");
 				toolTip = {
 					value: localize(
-						{ key: 'status.tooltipUntrustedFolder2', comment: ['[abc]({n}) are links.  Only translate `features are disabled` and `folder is not trusted`. Do not change brackets and parentheses or {n}'] },
-						"在受限模式下运行\r\n\r\n某些[功能被禁用]({0})，因为此[文件夹不受信任]({1})。",
-						`command:${LIST_WORKSPACE_UNSUPPORTED_EXTENSIONS_COMMAND_ID}`,
+						{ key: 'status.tooltipUntrustedFolder3', comment: ['[abc]({n}) is a link. Only translate `folder is not trusted`. Do not change brackets and parentheses or {n}'] },
+						"在受限模式下运行\r\n\r\n某些功能被禁用，因为此[文件夹不受信任]({0})。",
 						`command:${MANAGE_TRUST_COMMAND_ID}`
 					),
 					isTrusted: true,
@@ -666,9 +663,8 @@ export class WorkspaceTrustUXHandler extends Disposable implements IWorkbenchCon
 				ariaLabel = localize('status.ariaUntrustedWorkspace', "受限模式: 某些功能已禁用，因为此工作区不受信任。");
 				toolTip = {
 					value: localize(
-						{ key: 'status.tooltipUntrustedWorkspace2', comment: ['[abc]({n}) are links. Only translate `features are disabled` and `workspace is not trusted`. Do not change brackets and parentheses or {n}'] },
-						"在受限模式下运行\r\n\r\n某些[功能被禁用]({0})，因为此[工作区不受信任]({1})。",
-						`command:${LIST_WORKSPACE_UNSUPPORTED_EXTENSIONS_COMMAND_ID}`,
+						{ key: 'status.tooltipUntrustedWorkspace3', comment: ['[abc]({n}) is a link. Only translate `workspace is not trusted`. Do not change brackets and parentheses or {n}'] },
+						"在受限模式下运行\r\n\r\n某些功能被禁用，因为此[工作区不受信任]({0})。",
 						`command:${MANAGE_TRUST_COMMAND_ID}`
 					),
 					isTrusted: true,

@@ -7,10 +7,7 @@
 import { IProgress, IProgressService, IProgressStep, ProgressLocation, IProgressOptions, IProgressNotificationOptions } from '../../../platform/progress/common/progress.js';
 import { MainThreadProgressShape, MainContext, ExtHostProgressShape, ExtHostContext } from '../common/extHost.protocol.js';
 import { extHostNamedCustomer, IExtHostContext } from '../../services/extensions/common/extHostCustomers.js';
-import { ICommandService } from '../../../platform/commands/common/commands.js';
-import { localize } from '../../../nls.js';
 import { onUnexpectedExternalError } from '../../../base/common/errors.js';
-import { toAction } from '../../../base/common/actions.js';
 import { NotificationPriority } from '../../../platform/notification/common/notification.js';
 
 @extHostNamedCustomer(MainContext.MainThreadProgress)
@@ -28,7 +25,6 @@ export class MainThreadProgress implements MainThreadProgressShape {
 	constructor(
 		extHostContext: IExtHostContext,
 		@IProgressService progressService: IProgressService,
-		@ICommandService private readonly _commandService: ICommandService
 	) {
 		this._proxy = extHostContext.getProxy(ExtHostContext.ExtHostProgress);
 		this._progressService = progressService;
@@ -48,11 +44,7 @@ export class MainThreadProgress implements MainThreadProgressShape {
 				...options,
 				priority: sourceIsUrgent ? NotificationPriority.URGENT : NotificationPriority.DEFAULT,
 				location: ProgressLocation.Notification,
-				secondaryActions: [toAction({
-					id: extensionId,
-					label: localize('manageExtension', "管理扩展"),
-					run: () => this._commandService.executeCommand('_extensions.manage', extensionId)
-				})]
+				// Code-Tomoshibi: the marketplace UI is gone, so the "管理扩展" secondary action was dropped.
 			};
 
 			options = notificationOptions;
