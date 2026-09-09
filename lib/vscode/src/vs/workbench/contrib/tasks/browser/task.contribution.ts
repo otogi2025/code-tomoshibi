@@ -161,7 +161,7 @@ export class TaskStatusBarContributions extends Disposable implements IWorkbench
 	}
 }
 
-workbenchRegistry.registerWorkbenchContribution(TaskStatusBarContributions, LifecyclePhase.Restored);
+workbenchRegistry.registerWorkbenchContribution(TaskStatusBarContributions, LifecyclePhase.Eventually);
 
 MenuRegistry.appendMenuItem(MenuId.MenubarTerminalMenu, {
 	group: TerminalMenuBarGroup.Run,
