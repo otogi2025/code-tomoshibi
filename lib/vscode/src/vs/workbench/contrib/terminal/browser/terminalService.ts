@@ -102,6 +102,9 @@ export class TerminalService extends Disposable implements ITerminalService {
 	private _restoredGroupCount: number = 0;
 	get restoredGroupCount(): number { return this._restoredGroupCount; }
 
+	private _isRestoring: boolean = false;
+	get isRestoring(): boolean { return this._isRestoring; }
+
 	get instances(): ITerminalInstance[] {
 		return this._terminalGroupService.instances.concat(this._terminalEditorService.instances).concat(this._backgroundedTerminalInstances.map(bg => bg.instance));
 	}
@@ -326,13 +329,19 @@ export class TerminalService extends Disposable implements ITerminalService {
 		mark('code/terminal/willReconnect');
 		let reconnectedPromise: Promise<unknown>;
 		if (isPersistentRemote) {
+			this._isRestoring = true;
 			reconnectedPromise = this._reconnectToRemoteTerminals();
 		} else if (enableTerminalReconnection) {
+			this._isRestoring = true;
 			reconnectedPromise = this._reconnectToLocalTerminals();
 		} else {
 			reconnectedPromise = Promise.resolve();
 		}
 		reconnectedPromise.then(async () => {
+			// ⛔ 放在最前面，不要等下面那几个 await：从这里往后是重放和性能标记，而「恢复还在跑，
+			// 别抢在它前面另建一个 shell」这件事在保存的布局被认领完那一刻就结束了。失败那条路由
+			// 下面的 `finally` 收尾。
+			this._isRestoring = false;
 			this._setConnected();
 			mark('code/terminal/didReconnect');
 			mark('code/terminal/willReplay');
@@ -350,6 +359,7 @@ export class TerminalService extends Disposable implements ITerminalService {
 		}).catch(error => {
 			this._logService.error('Failed to finish terminal reconnection', error);
 		}).finally(() => {
+			this._isRestoring = false;
 			// ⛔ 兜底：无论上面哪一步炸了，`whenConnected` 都必须落地一次。它 pending 着的时候
 			// `tomoshibiTerminalStatus._restoreTerminalFirstLayout` 会永远挂在 await 上。
 			if (!this._whenConnected.isSettled) {

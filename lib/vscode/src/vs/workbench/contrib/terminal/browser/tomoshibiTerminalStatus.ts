@@ -6,7 +6,7 @@
 // allow-any-unicode-file
 import './media/tomoshibiTerminalStatus.css';
 import { mainWindow } from '../../../../base/browser/window.js';
-import { toAction } from '../../../../base/common/actions.js';
+import { toAction, type IAction } from '../../../../base/common/actions.js';
 import { timeout } from '../../../../base/common/async.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { localize } from '../../../../nls.js';
@@ -45,13 +45,7 @@ export class TomoshibiTerminalStatusContribution extends Disposable implements I
 			this._notificationService.notify({
 				severity: Severity.Error,
 				message: localize('tomoshibi.terminal.restoreFailed', "终端没能打开。点「重试」再试一次，或者刷新页面。"),
-				actions: {
-					primary: [toAction({
-						id: 'tomoshibi.terminal.retryRestore',
-						label: localize('tomoshibi.terminal.retry', "重试"),
-						run: () => this._restoreTerminalFirstLayout(terminalService, terminalGroupService),
-					})]
-				}
+				actions: { primary: [this._retryRestoreAction(terminalService, terminalGroupService)] }
 			});
 		});
 		this._releaseBootMaskAfterFirstTerminalPaint(terminalService);
@@ -87,6 +81,15 @@ export class TomoshibiTerminalStatusContribution extends Disposable implements I
 		}, 'status.tomoshibi.logout', StatusbarAlignment.RIGHT, -Number.MAX_VALUE));
 	}
 
+	/** 两个通知共用一个「重试」，所以只有一条 nls key。 */
+	private _retryRestoreAction(terminalService: ITerminalService, terminalGroupService: ITerminalGroupService): IAction {
+		return toAction({
+			id: 'tomoshibi.terminal.retryRestore',
+			label: localize('tomoshibi.terminal.retry', "重试"),
+			run: () => this._restoreTerminalFirstLayout(terminalService, terminalGroupService),
+		});
+	}
+
 	private async _restoreTerminalFirstLayout(terminalService: ITerminalService, terminalGroupService: ITerminalGroupService): Promise<void> {
 		const connected = await Promise.race([
 			terminalService.whenConnected.then(() => true),
@@ -101,10 +104,17 @@ export class TomoshibiTerminalStatusContribution extends Disposable implements I
 		// or duplicates an existing session.
 		let instance = terminalGroupService.activeInstance ?? terminalGroupService.instances[0];
 		if (!instance) {
-			if (!connected && terminalService.restoredGroupCount > 0) {
+			if (!connected && terminalService.isRestoring) {
 				// ⛔ 超时兜底不许在这里另建终端：后端明明还在恢复 Session，抢在它前面建一个就变成
 				// 「刷新一次多一个」。让恢复自己走完（terminalView 的兜底也只在 instances 为空时才建）。
+				// ⛔ 判据是 `isRestoring` 不是 `restoredGroupCount > 0`：后者要等组开始重建才涨，而
+				// `getTerminalLayoutInfo()` 慢的时候这 12 秒能全耗在它身上，那时计数还是 0，照建照多。
 				this._logService.warn('[tomoshibi] terminal restore still in flight, not creating a duplicate shell');
+				this._notificationService.notify({
+					severity: Severity.Info,
+					message: localize('tomoshibi.terminal.stillRestoring', "终端还在恢复，先不给你新建了，免得多出一个。恢复完会自己出来；等不及就点「重试」。"),
+					actions: { primary: [this._retryRestoreAction(terminalService, terminalGroupService)] }
+				});
 				return;
 			}
 			instance = await terminalService.createTerminal({ location: TerminalLocation.Panel });

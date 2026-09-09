@@ -312,6 +312,15 @@ export interface ITerminalService extends ITerminalInstanceHost {
 	readonly whenConnected: Promise<void>;
 	/** The number of restored terminal groups on startup. */
 	readonly restoredGroupCount: number;
+	/**
+	 * True from the moment the saved layout starts being claimed until that has settled.
+	 *
+	 * This, and not `restoredGroupCount > 0`, is the test for "restore is still running":
+	 * the count only rises once the groups are being recreated, and on a slow connection
+	 * (or a pty host that has only just come up) `getTerminalLayoutInfo` alone can take
+	 * tens of seconds, during all of which the restore is under way and the count is 0.
+	 */
+	readonly isRestoring: boolean;
 
 	readonly onDidCreateInstance: Event<ITerminalInstance>;
 	readonly onDidChangeInstanceDimensions: Event<ITerminalInstance>;
