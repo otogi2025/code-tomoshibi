@@ -300,11 +300,17 @@ class TomoshibiTouchSelectContribution extends Disposable implements ITerminalCo
 		if (this._drag) {
 			return;
 		}
+		// A gesture belongs to the finger that started it. A second contact point -- the
+		// other hand steadying the iPad, the edge of a palm -- arrives as a non primary
+		// pointer, and once a press is being tracked any further pointer is by definition
+		// not the one that owns the gesture, so neither may take it over.
+		if (!e.isPrimary || this._press) {
+			return;
+		}
 		const origin = this._cellAt(e.clientX, e.clientY);
 		if (!origin) {
 			return;
 		}
-		this._cancelPress();
 		const press: ILongPress = {
 			pointerId: e.pointerId,
 			startX: e.clientX,
@@ -340,6 +346,13 @@ class TomoshibiTouchSelectContribution extends Disposable implements ITerminalCo
 	private _onDocumentPointerDown(e: PointerEvent): void {
 		const target = e.target;
 		if (dom.isHTMLElement(target) && target.closest('.tomoshibi-touch-menu, .tomoshibi-touch-handle')) {
+			return;
+		}
+		// "Tap elsewhere to dismiss" is for the resting state, when the menu is sitting there
+		// and no finger is down. While a long press drag or a handle drag is in flight the
+		// second contact point that lands on the terminal must leave it alone -- tearing it
+		// down here would strand the finger that is still selecting.
+		if (this._press?.fired || this._drag) {
 			return;
 		}
 		if (this._menu || this._touchOwned) {
