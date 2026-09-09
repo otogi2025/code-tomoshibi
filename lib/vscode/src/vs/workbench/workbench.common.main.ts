@@ -216,9 +216,6 @@ import './contrib/git/browser/git.contributions.js';
 // Process Explorer
 import './contrib/processExplorer/browser/processExplorer.contribution.js';
 
-// Merge Editor
-import './contrib/mergeEditor/browser/mergeEditor.contribution.js';
-
 // Multi Diff Editor
 import './contrib/multiDiffEditor/browser/multiDiffEditor.contribution.js';
 

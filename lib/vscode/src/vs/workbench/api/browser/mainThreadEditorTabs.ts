@@ -17,7 +17,6 @@ import { EditorInput } from '../../common/editor/editorInput.js';
 import { SideBySideEditorInput } from '../../common/editor/sideBySideEditorInput.js';
 import { AbstractTextResourceEditorInput } from '../../common/editor/textResourceEditorInput.js';
 import { CustomEditorInput } from '../../contrib/customEditor/browser/customEditorInput.js';
-import { MergeEditorInput } from '../../contrib/mergeEditor/browser/mergeEditorInput.js';
 import { MultiDiffEditorInput } from '../../contrib/multiDiffEditor/browser/multiDiffEditorInput.js';
 import { TerminalEditorInput } from '../../contrib/terminal/browser/terminalEditorInput.js';
 import { WebviewInput } from '../../contrib/webviewPanel/browser/webviewEditorInput.js';
@@ -104,16 +103,6 @@ export class MainThreadEditorTabs implements MainThreadEditorTabsShape {
 	}
 
 	private _editorInputToDto(editor: EditorInput): AnyInputDto {
-
-		if (editor instanceof MergeEditorInput) {
-			return {
-				kind: TabInputKind.TextMergeInput,
-				base: editor.base,
-				input1: editor.input1.uri,
-				input2: editor.input2.uri,
-				result: editor.resource
-			};
-		}
 
 		if (editor instanceof AbstractTextResourceEditorInput) {
 			return {

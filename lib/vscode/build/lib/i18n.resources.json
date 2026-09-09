@@ -111,10 +111,6 @@
 			"project": "vscode-workbench"
 		},
 		{
-			"name": "vs/workbench/contrib/mergeEditor",
-			"project": "vscode-workbench"
-		},
-		{
 			"name": "vs/workbench/contrib/localization",
 			"project": "vscode-workbench"
 		},
