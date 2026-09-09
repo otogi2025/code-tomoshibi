@@ -89,9 +89,6 @@ import { ISearchOptions, ITerminalInstance, ITerminalService } from '../../termi
 
 const $ = dom.$;
 
-/** Workspace-scoped storage key remembering whether the search box targets the active terminal. */
-const TERMINAL_MODE_STORAGE_KEY = 'search.view.terminalMode';
-
 /** Set on the view container while the search box targets the active terminal. */
 const TERMINAL_MODE_CLASS_NAME = 'tomoshibi-terminal-search-mode';
 
@@ -294,7 +291,8 @@ export class SearchView extends ViewPane {
 		this.inputPatternExclusionsFocused = Constants.SearchContext.PatternExcludesFocusedKey.bindTo(this.contextKeyService);
 		this.isEditableItem = Constants.SearchContext.IsEditableItemKey.bindTo(this.contextKeyService);
 		this.terminalModeKey = Constants.SearchContext.SearchViewTerminalModeKey.bindTo(this.contextKeyService);
-		this.terminalMode = this.storageService.getBoolean(TERMINAL_MODE_STORAGE_KEY, StorageScope.WORKSPACE, false);
+		// 终端查找模式刻意不做持久化：它会让 triggerQueryChange 整条文件搜索路径直接 return，
+		// 页面重开后恢复成「开」的话，Ctrl+Shift+F / 在文件夹中查找 / 刷新 全都静默失效。
 		this.terminalModeKey.set(this.terminalMode);
 
 		this.instantiationService = this._register(this.instantiationService.createChild(
@@ -705,11 +703,6 @@ export class SearchView extends ViewPane {
 
 		this.createSearchResultsView(this.container);
 
-		if (this.terminalMode) {
-			this.container.classList.add(TERMINAL_MODE_CLASS_NAME);
-			this.runTerminalFind(true, false);
-		}
-
 		if (filePatterns !== '' || patternExclusions !== '' || patternIncludes !== '' || queryDetailsExpanded !== '' || !useExcludesAndIgnoreFiles) {
 			this.toggleQueryDetails(true, true, true);
 		}
@@ -1054,14 +1047,13 @@ export class SearchView extends ViewPane {
 	}
 
 	/**
-	 * Turns the "find in terminal" mode on or off: remembers it per workspace, hides the file result
-	 * tree while it is on and drops the terminal highlights when it is switched back off.
+	 * Turns the "find in terminal" mode on or off: hides the file result tree while it is on and
+	 * drops the terminal highlights when it is switched back off. Deliberately not persisted.
 	 */
 	private applyTerminalMode(enabled: boolean): void {
 		this.terminalMode = enabled;
 		this.terminalModeKey.set(enabled);
 		this.container.classList.toggle(TERMINAL_MODE_CLASS_NAME, enabled);
-		this.storageService.store(TERMINAL_MODE_STORAGE_KEY, enabled, StorageScope.WORKSPACE, StorageTarget.MACHINE);
 
 		if (enabled) {
 			// 终端查找接管消息区之前，先把文件搜索彻底停下并清空结果模型：
