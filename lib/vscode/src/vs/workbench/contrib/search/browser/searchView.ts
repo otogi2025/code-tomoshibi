@@ -1120,9 +1120,27 @@ export class SearchView extends ViewPane {
 			caseSensitive: this.searchWidget.searchInput?.getCaseSensitive() ?? false,
 			incremental
 		};
-		const found = previous
-			? await xterm.findPrevious(term, searchOptions)
-			: await xterm.findNext(term, searchOptions);
+		let found: boolean;
+		try {
+			found = previous
+				? await xterm.findPrevious(term, searchOptions)
+				: await xterm.findNext(term, searchOptions);
+		} catch (error) {
+			// 开着 .* 写了非法正则时，search addon 在 new RegExp 那里同步抛出，
+			// 三个调用方都不接；吞掉的话界面上只剩一个不动的旧计数，用户不知道发生了什么。
+			this.terminalFindResultsListener.clear();
+			xterm.clearSearchDecorations();
+			this.lastDecoratedTerminal = undefined;
+			this.searchWidget.searchInput?.showMessage({
+				content: nls.localize('search.terminal.invalidRegex', "正则表达式写法不对，终端查找没有执行"),
+				type: MessageType.ERROR
+			});
+			if (this.terminalMode) {
+				this.showTerminalMessage(nls.localize('search.terminal.notRun', "终端查找没有执行"));
+			}
+			this.logService.warn('Terminal find failed', error);
+			return;
+		}
 
 		if (!this.terminalMode) {
 			return;
