@@ -196,7 +196,14 @@ class TomoshibiTouchSelectContribution extends Disposable implements ITerminalCo
 		// `onData` carries everything that goes to the pty, the terminal's own replies
 		// included -- focus reports, DA/CPR answers, mouse tracking -- so a full screen TUI
 		// answering a query would tear the selection down with nobody having pressed a key.
-		store.add(raw.onKey(() => this._dismiss(true)));
+		// The guard keeps the body -- two class writes and an unconditional `clearSelection` --
+		// off the keystrokes of every terminal that has no touch UI up, mouse selections included.
+		store.add(raw.onKey(() => {
+			if (!this._touchOwned && !this._menu && !this._press) {
+				return;
+			}
+			this._dismiss(true);
+		}));
 		store.add(toDisposable(() => this._teardownUi()));
 	}
 
@@ -590,11 +597,17 @@ class TomoshibiTouchSelectContribution extends Disposable implements ITerminalCo
 	}
 
 	private _layout(): void {
+		// `onScroll` fires once per scrolled line, so the cheap test comes first: the two reads
+		// below force a style flush, and with no touch selection up there is nothing to lay out.
+		if (!this._touchOwned) {
+			this._hideHandles();
+			return;
+		}
 		const raw = this._raw;
 		const wrapper = this._wrapper;
 		const rect = this._screenRect();
 		const position = raw?.getSelectionPosition();
-		if (!raw || !wrapper || !rect || !position || !this._touchOwned) {
+		if (!raw || !wrapper || !rect || !position) {
 			this._hideHandles();
 			return;
 		}
