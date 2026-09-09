@@ -68,17 +68,9 @@ export const vscodeWebResourceIncludes = [
 
 	// Accessibility Signals
 	'out-build/vs/platform/accessibilitySignal/browser/media/*.mp3',
-	'out-build/vs/workbench/contrib/agentsVoice/browser/media/*.mp3',
 
 	// Welcome
 	'out-build/vs/workbench/contrib/welcomeGettingStarted/common/media/**/*.{svg,png}',
-	'out-build/vs/workbench/contrib/welcomeOnboarding/browser/media/*.svg',
-
-	// Chat Pet
-	'out-build/vs/workbench/contrib/chat/browser/widget/media/chatPet/*.{gif,png}',
-
-	// Extensions
-	'out-build/vs/workbench/services/extensionManagement/common/media/*.{svg,png}',
 
 	// Webview
 	'out-build/vs/workbench/contrib/webview/browser/pre/*.{js,html}',
