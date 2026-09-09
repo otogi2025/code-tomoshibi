@@ -107,8 +107,8 @@ main() {
   source ./ci/lib.sh
 
   # Set the commit Code will embed into the product.json.  We need to do this
-  # since Code tries to get the commit from the `.git` directory which will fail
-  # as it is a submodule.
+  # since Code looks for a `.git` directory inside lib/vscode, and there is none:
+  # lib/vscode is a plain vendored directory of this repository.
   #
   # Also, we use code-server's commit rather than VS Code's otherwise it would
   # not update when only our patch files change, and that will cause caching
