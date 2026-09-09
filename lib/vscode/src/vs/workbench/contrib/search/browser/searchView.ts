@@ -12,6 +12,7 @@ import { MessageType } from '../../../../base/browser/ui/inputbox/inputBox.js';
 import { IIdentityProvider } from '../../../../base/browser/ui/list/list.js';
 import { IAsyncDataSource, ITreeContextMenuEvent, ObjectTreeElementCollapseState } from '../../../../base/browser/ui/tree/tree.js';
 import { Delayer, RunOnceScheduler, Throttler } from '../../../../base/common/async.js';
+import { CancellationTokenSource } from '../../../../base/common/cancellation.js';
 import * as errors from '../../../../base/common/errors.js';
 import { Event } from '../../../../base/common/event.js';
 import { defaultGenerator } from '../../../../base/common/idGenerator.js';
@@ -173,7 +174,9 @@ export class SearchView extends ViewPane {
 	private fileNameSearchResults!: HTMLElement;
 	private fileNameSearchGeneration = 0;
 	private fileNameSearchCacheKey: string | undefined;
-	private readonly fileNameSearchDelayer = this._register(new Delayer<void>(150));
+	// 300ms 与 search.searchOnTypeDebouncePeriod 的默认值对齐，少起几次整仓遍历。
+	private readonly fileNameSearchDelayer = this._register(new Delayer<void>(300));
+	private readonly fileNameSearchCts = this._register(new MutableDisposable<CancellationTokenSource>());
 	private searchWidget!: SearchWidget;
 	private size!: dom.Dimension;
 	private queryDetails!: HTMLElement;
@@ -505,6 +508,11 @@ export class SearchView extends ViewPane {
 
 	private async runFileNameSearch(rawPattern: string): Promise<void> {
 		const generation = ++this.fileNameSearchGeneration;
+		// Delayer 只能拦住还没开跑的那一次；已经发到搜索服务的那次要靠 token 才停得下来，
+		// 否则连打几个字符就会把好几次整仓遍历叠在一起跑完，结果全部丢弃。
+		this.fileNameSearchCts.value?.cancel();
+		const cts = new CancellationTokenSource();
+		this.fileNameSearchCts.value = cts;
 		const pattern = rawPattern.trim();
 		this.hoverService.hideHover();
 		this.fileNameSearchResults.replaceChildren();
@@ -537,7 +545,7 @@ export class SearchView extends ViewPane {
 				maxResults: 512,
 				sortByScore: true
 			});
-			const complete = await this.viewModel.fileSearch(query);
+			const complete = await this.searchService.fileSearch(query, cts.token);
 			if (generation !== this.fileNameSearchGeneration) {
 				return;
 			}
@@ -2631,6 +2639,7 @@ export class SearchView extends ViewPane {
 
 	override dispose(): void {
 		this.isDisposed = true;
+		this.fileNameSearchCts.value?.cancel();
 		this.clearFileNameSearchCache();
 		this.saveState();
 		super.dispose();
