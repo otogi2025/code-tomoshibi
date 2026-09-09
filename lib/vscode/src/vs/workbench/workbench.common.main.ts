@@ -283,9 +283,6 @@ import './contrib/limitIndicator/browser/limitIndicator.contribution.js';
 // Inlay Hint Accessibility
 import './contrib/inlayHints/browser/inlayHintsAccessibilty.js';
 
-// Update
-import './contrib/update/browser/update.contribution.js';
-
 // Surveys
 import './contrib/surveys/browser/nps.contribution.js';
 import './contrib/surveys/browser/languageSurveys.contribution.js';

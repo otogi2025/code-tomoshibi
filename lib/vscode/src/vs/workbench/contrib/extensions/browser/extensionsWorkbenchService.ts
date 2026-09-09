@@ -64,7 +64,6 @@ import { IUpdateService, StateType } from '../../../../platform/update/common/up
 import { isEngineValid } from '../../../../platform/extensions/common/extensionValidator.js';
 import { IUriIdentityService } from '../../../../platform/uriIdentity/common/uriIdentity.js';
 import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
-import { ShowCurrentReleaseNotesActionId } from '../../update/common/update.js';
 import { IQuickInputService } from '../../../../platform/quickinput/common/quickInput.js';
 import { IMarkdownString, MarkdownString } from '../../../../base/common/htmlContent.js';
 import { ExtensionGalleryResourceType, ExtensionGalleryServiceUrlConfigKey, getExtensionGalleryManifestResourceUri, IExtensionGalleryManifest, IExtensionGalleryManifestService } from '../../../../platform/extensionManagement/common/extensionGalleryManifest.js';
@@ -477,7 +476,7 @@ ${this.description}
 		}
 
 		if (this.type === ExtensionType.System) {
-			return Promise.resolve(`Please check the [VS Code Release Notes](command:${ShowCurrentReleaseNotesActionId}) for changes to the built-in extensions.`);
+			return Promise.resolve('Please check the VS Code Release Notes for changes to the built-in extensions.');
 		}
 
 		return Promise.reject(new Error('not available'));
