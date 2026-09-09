@@ -9,7 +9,7 @@ import { Event, Emitter, setGlobalLeakWarningThreshold } from '../../base/common
 import { RunOnceScheduler, timeout } from '../../base/common/async.js';
 import { isFirefox, isSafari, isChrome } from '../../base/browser/browser.js';
 import { mark } from '../../base/common/performance.js';
-import { onUnexpectedError, setUnexpectedErrorHandler } from '../../base/common/errors.js';
+import { isCancellationError, onUnexpectedError, setUnexpectedErrorHandler } from '../../base/common/errors.js';
 import { Registry } from '../../platform/registry/common/platform.js';
 import { isWindows, isLinux, isWeb, isNative, isMacintosh } from '../../base/common/platform.js';
 import { IWorkbenchContributionsRegistry, Extensions as WorkbenchExtensions } from '../common/contributions.js';
@@ -110,6 +110,15 @@ export class Workbench extends Layout {
 
 	private previousUnexpectedError: { message: string | undefined; time: number } = { message: undefined, time: 0 };
 	private handleUnexpectedError(error: unknown, logService: ILogService): void {
+
+		// Cancellation is normal control flow, not a failure. `onUnexpectedError`
+		// already drops these, but `onBugIndicatingError` (used by observables and
+		// autoruns) reaches this handler unfiltered, which logged one
+		// `Canceled: Canceled` line per quick input keystroke.
+		if (isCancellationError(error)) {
+			return;
+		}
+
 		const message = toErrorMessage(error, true);
 		if (!message) {
 			return;
