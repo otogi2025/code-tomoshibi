@@ -41,6 +41,12 @@ MenuRegistry.appendMenuItems([
 		item: { command: { id: 'workbench.action.terminal.tomoshibiSessionManager', title: 'Session 管理中心' }, group: '2_sessions', order: 2 },
 	},
 	{
+		// 命令面板剩下的指针入口只有文本编辑器正文里的右键菜单：齿轮直开自定义设置页，
+		// 终端右键菜单里没有，纯手指的 iPad 上等于够不着（通知中心也只能从这里进）。
+		id: MenuId.MenubarTomoshibiMenu,
+		item: { command: { id: 'workbench.action.showCommands', title: '命令面板' }, group: '3_manage', order: 1 },
+	},
+	{
 		id: MenuId.MenubarTomoshibiMenu,
 		item: { command: { id: 'tomoshibi.openSettings', title: '设置' }, group: '3_manage', order: 2 },
 	},
