@@ -52,5 +52,10 @@
 	<!-- always ensure built in english NLS messages -->
 	<script type="module" src="{{WORKBENCH_NLS_FALLBACK_URL}}?tomoshibi-zh=2"></script>
 	<!-- zh-cn is installed in the fallback catalog; no empty second NLS request. -->
+	<!-- Watchdog alert, standalone copy. It has to keep working when the workbench does not come up,
+	which is exactly when it is needed most, so it cannot live only in a workbench contribution.
+	The script dedupes on window.__tomoshibiWatchdogUi and the contribution reads the same key,
+	so whichever runs first owns the card. Served same-origin by the gate; CSP script-src has 'self'. -->
+	<script src="/_gate/static/watchdog-ui.js" defer></script>
 	<script type="module" src="{{WORKBENCH_WEB_BASE_URL}}/out/vs/code/browser/workbench/workbench.js?tomoshibi-native-ui=25"></script>
 	</html>

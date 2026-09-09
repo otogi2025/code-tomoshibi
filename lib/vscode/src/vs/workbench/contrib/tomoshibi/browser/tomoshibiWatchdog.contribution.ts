@@ -428,4 +428,9 @@ export class TomoshibiWatchdogContribution extends Disposable implements IWorkbe
 	}
 }
 
-registerWorkbenchContribution2(TomoshibiWatchdogContribution.ID, TomoshibiWatchdogContribution, WorkbenchPhase.AfterRestored);
+// workbench.html 里还挂着一份独立的 <script src="/_gate/static/watchdog-ui.js">，它在工作台起不来时
+// 照样会弹告警卡片。两份都在会弹两张一模一样的卡，所以读它压下的那把去重键：脚本已经接管就不注册
+// 这个贡献点。脚本 404（本地预览、网关没起）时键不会被置上，贡献点照常接手。
+if (!(globalThis as { __tomoshibiWatchdogUi?: boolean }).__tomoshibiWatchdogUi) {
+	registerWorkbenchContribution2(TomoshibiWatchdogContribution.ID, TomoshibiWatchdogContribution, WorkbenchPhase.AfterRestored);
+}
