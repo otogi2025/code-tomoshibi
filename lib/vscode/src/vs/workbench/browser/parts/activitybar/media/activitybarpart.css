@@ -57,29 +57,52 @@
 	outline: 0 !important; /* activity bar indicates focus custom */
 }
 
-/* Code-Tomoshibi: the launcher buttons sit directly under the view-container buttons;
- * this margin pushes the global bar (settings gear) to the bottom instead of the composite bar. */
-.monaco-workbench .activitybar .tomoshibi-activity-launchers {
+/* Code-Tomoshibi: the launcher buttons. ActivityBarCompositeBar creates them unconditionally
+ * and the side bar hosts that same class in its title when the activity bar is moved to the
+ * top/bottom, so the base rules must NOT be scoped to `.activitybar` — otherwise the buttons
+ * render as default browser <button>s (grey rounded box) in the side bar title. */
+.monaco-workbench .tomoshibi-activity-launchers {
 	display: flex;
 	flex: 0 0 auto;
-	flex-direction: column;
+	flex-direction: row;
 	align-items: stretch;
+}
+
+.monaco-workbench .tomoshibi-activity-launcher {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 30px;
+	height: 30px;
+	padding: 0;
+	border: 0;
+	background: transparent;
+	color: inherit;
+	cursor: pointer;
+	-webkit-tap-highlight-color: transparent;
+	touch-action: manipulation;
+}
+
+.monaco-workbench .tomoshibi-activity-launcher:hover,
+.monaco-workbench .tomoshibi-activity-launcher:focus-visible {
+	color: var(--vscode-foreground);
+}
+
+.monaco-workbench .tomoshibi-activity-launcher > .codicon {
+	font-size: 16px;
+}
+
+/* Inside the activity bar the strip is vertical, one full-width button per row; the auto
+ * margin pushes the global bar (settings gear) to the bottom instead of the composite bar. */
+.monaco-workbench .activitybar .tomoshibi-activity-launchers {
+	flex-direction: column;
 	margin-bottom: auto;
 }
 
 .monaco-workbench .activitybar .tomoshibi-activity-launcher {
-	display: flex;
-	align-items: center;
-	justify-content: center;
 	width: 100%;
 	height: var(--activity-bar-action-height, 48px);
-	padding: 0;
-	border: 0;
-	background: transparent;
 	color: var(--vscode-activityBar-inactiveForeground);
-	cursor: pointer;
-	-webkit-tap-highlight-color: transparent;
-	touch-action: manipulation;
 }
 
 .monaco-workbench .activitybar .tomoshibi-activity-launcher:hover,
