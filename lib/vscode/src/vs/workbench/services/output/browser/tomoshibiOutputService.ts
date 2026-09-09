@@ -117,8 +117,17 @@ export class TomoshibiOutputService extends Disposable implements IOutputService
 		return this.registry.getChannel(id);
 	}
 
+	/**
+	 * Deliberately empty, unlike the single-id lookup above. The two callers of this list turn
+	 * every entry into a UI affordance that this build cannot honour: `viewQuickAccess.ts` puts
+	 * each channel into the "Open View" picker with `showChannel` as its accept handler, and
+	 * `logsActions.ts` builds the log-level picker out of it (that one already filters on
+	 * `canSetLogLevel`, which is false here, so it stays empty either way). Everything still
+	 * registers channels -- loggers, extensions, tasks -- and every one of those entries would
+	 * do nothing when picked.
+	 */
 	getChannelDescriptors(): IOutputChannelDescriptor[] {
-		return this.registry.getChannels();
+		return [];
 	}
 
 	getActiveChannel(): IOutputChannel | undefined {
