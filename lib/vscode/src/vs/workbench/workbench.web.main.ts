@@ -143,9 +143,6 @@ import './contrib/tasks/browser/taskService.js';
 // Tags
 import './contrib/tags/browser/workspaceTagsService.js';
 
-// Remote Start Entry for the Web
-import './contrib/remote/browser/remoteStartEntry.contribution.js';
-
 // Browser View
 import './contrib/browserView/browser/browserView.contribution.js';
 
