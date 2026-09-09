@@ -63,6 +63,7 @@ export class TomoshibiWatchdogContribution extends Disposable implements IWorkbe
 	private _current: IWatchdogStatus | undefined;
 	private _dismissedAlertKey = '';
 	private _dismissedAt = 0;
+	private _dismissedSource: WatchdogSource | undefined;
 	private _externalToken = '';
 	private _countdownTimer = 0;
 	private _pollTimer = 0;
@@ -135,6 +136,7 @@ export class TomoshibiWatchdogContribution extends Disposable implements IWorkbe
 	private _show(value: IWatchdogStatus): void {
 		if (this._dismissedAlertKey && Date.now() - this._dismissedAt > dismissTtl) {
 			this._dismissedAlertKey = '';
+			this._dismissedSource = undefined;
 		}
 		if (this._alertKey(value) === this._dismissedAlertKey) {
 			this._hide();
@@ -180,6 +182,7 @@ export class TomoshibiWatchdogContribution extends Disposable implements IWorkbe
 		}
 		this._dismissedAlertKey = this._alertKey(this._current);
 		this._dismissedAt = Date.now();
+		this._dismissedSource = this._current.source;
 		this._hide();
 	}
 
@@ -258,8 +261,10 @@ export class TomoshibiWatchdogContribution extends Disposable implements IWorkbe
 			if (!this._externalToken) {
 				await this._loadExternalToken();
 			}
+			const sources: WatchdogSource[] = ['tokyo'];
 			const requests: Promise<IWatchdogStatus | undefined>[] = [this._readStatus(localStatusUrl, {}, 'tokyo')];
 			if (this._externalToken) {
+				sources.push('la');
 				requests.push(this._readStatus(`${externalBaseUrl}/status`, { 'X-Tomoshibi-Watchdog-Token': this._externalToken }, 'la'));
 			}
 			const settled = await Promise.allSettled(requests);
@@ -270,9 +275,19 @@ export class TomoshibiWatchdogContribution extends Disposable implements IWorkbe
 				.sort((first, second) => Number(second.updatedAt ?? 0) - Number(first.updatedAt ?? 0));
 			if (values.length) {
 				this._show(values[0]);
-			} else if (settled.every(item => item.status === 'fulfilled')) {
-				this._dismissedAlertKey = '';
+				return;
+			}
+			// 到这里说明这一轮里成功的那几路都报了 inactive。收卡的判据是「画出这张卡的那一路
+			// 亲口说没事了」，不是「所有端点都成功」：LA 反代 502 或者两机 token 漂移时那一路
+			// 会一直 reject，按原来的判据卡片再也不会自动消失，压下的去重键也永远清不掉。
+			const answered = new Set(sources.filter((_source, index) => settled[index].status === 'fulfilled'));
+			const cardSource = this._current?.source;
+			if (cardSource === undefined || answered.has(cardSource)) {
 				this._hide();
+			}
+			if (this._dismissedSource === undefined || answered.has(this._dismissedSource)) {
+				this._dismissedAlertKey = '';
+				this._dismissedSource = undefined;
 			}
 		} finally {
 			this._polling = false;
