@@ -353,10 +353,15 @@ export function setTomoshibiSessionPinned(instance: ITerminalInstance, pinned: b
 
 export async function closeTomoshibiSession(instance: ITerminalInstance, sessionService: ITomoshibiSessionService, terminalService: ITerminalService, groupService: ITerminalGroupService): Promise<void> {
 	const group = groupService.getGroupForInstance(instance);
-	// Drop the metadata while the instance still reports its persistent process id, otherwise the
-	// Session key would no longer resolve to the stored entry.
-	sessionService.forget(instance);
 	const instances = group ? [...group.terminalInstances] : [instance];
+	// Drop the metadata while the instances still report their persistent process id, otherwise the
+	// Session key would no longer resolve to the stored entry.
+	// ⛔ 组里每一个都要 forget，不能只 forget 被点中的那一个：下面是整组一起 dispose，漏掉的分身
+	// （拆分出来的那些）会把 title / 分组 / 固定状态永远留在 sessions.json 里，之后 _migrateSessionKey
+	// 会把这条孤儿记录搬到新终端的 persistentProcessId 键上，新 Session 顶着已关闭分身的名字出现。
+	for (const candidate of instances) {
+		sessionService.forget(candidate);
+	}
 	await Promise.all(instances.map(candidate => terminalService.safeDisposeTerminal(candidate)));
 }
 
