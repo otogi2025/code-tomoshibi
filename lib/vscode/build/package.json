@@ -63,8 +63,6 @@
   },
   "type": "module",
   "scripts": {
-    "copy-policy-dto": "node lib/policies/copyPolicyDto.ts",
-    "pretypecheck": "npm run copy-policy-dto",
     "typecheck": "cd .. && npx tsc --project build/tsconfig.json",
     "watch": "npm run typecheck -- --watch"
   },
