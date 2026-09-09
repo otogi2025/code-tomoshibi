@@ -47,7 +47,6 @@
 		"vs/workbench/contrib/issue/browser/issueReporterOverlay.ts",
 		"vs/workbench/contrib/issue/browser/screenshotAnnotation.ts",
 		"vs/workbench/contrib/imageCarousel/**",
-		"vs/workbench/contrib/onboarding/**",
 		"vs/workbench/contrib/welcomeWalkthrough/**",
 		"vs/workbench/services/agentHost/**",
 		"vs/workbench/services/chat/**"

@@ -239,10 +239,6 @@
 			"project": "vscode-workbench"
 		},
 		{
-			"name": "vs/workbench/contrib/onboarding",
-			"project": "vscode-workbench"
-		},
-		{
 			"name": "vs/workbench/contrib/welcomeViews",
 			"project": "vscode-workbench"
 		},
