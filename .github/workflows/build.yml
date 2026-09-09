@@ -86,6 +86,14 @@ jobs:
 
       - name: Pack
         run: |
+          # env.VERSION 是版本号的唯一真值，产物里的版本是它一路经 product.json
+          # 传下来的结果。这里回头对一次，免得改了一处忘了另一处还照样出包。
+          built_version=$(jq -r .version release/package.json)
+          if [[ "$built_version" != "$VERSION" ]]; then
+            echo "产物版本 $built_version 与 workflow 里的 VERSION=$VERSION 对不上"
+            exit 1
+          fi
+          echo "release version: $built_version"
           tar -C release -czf "codet-${GITHUB_SHA:0:11}.tar.gz" .
           ls -la codet-*.tar.gz
           echo "product.json commit: $(grep -o '"commit": *"[^"]*"' release/lib/vscode/product.json | head -1)"
