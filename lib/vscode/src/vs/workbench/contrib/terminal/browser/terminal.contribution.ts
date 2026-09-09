@@ -27,7 +27,6 @@ import { registerColors } from '../common/terminalColorRegistry.js';
 import { registerTerminalConfiguration } from '../common/terminalConfiguration.js';
 import { terminalStrings } from '../common/terminalStrings.js';
 import './media/terminal.css';
-import './media/terminalVoice.css';
 import './media/widgets.css';
 import './media/xterm.css';
 import { RemoteTerminalBackendContribution } from './remoteTerminalBackend.js';
