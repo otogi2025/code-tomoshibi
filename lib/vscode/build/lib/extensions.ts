@@ -315,6 +315,36 @@ const nativeExtensions: string[] = [];
 const excludedExtensions = [
 	'ms-vscode.node-debug',
 	'ms-vscode.node-debug2',
+
+	// Tomoshibi: grammar-only extensions for languages this product does not target.
+	// Excluding them here keeps them out of `.build/extensions`, which in turn drops
+	// them from the shipped tarball and from the inlined builtin-extension manifest.
+	'bat',
+	'clojure',
+	'coffeescript',
+	'cpp',
+	'csharp',
+	'dart',
+	'fsharp',
+	'groovy',
+	'handlebars',
+	'hlsl',
+	'java',
+	'julia',
+	'latex',
+	'lua',
+	'objective-c',
+	'perl',
+	'php',
+	'powershell',
+	'pug',
+	'r',
+	'razor',
+	'restructuredtext',
+	'ruby',
+	'shaderlab',
+	'swift',
+	'vb',
 ];
 
 export function isExcludedExtension(name: string): boolean {
