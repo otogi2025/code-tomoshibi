@@ -62,5 +62,11 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis
 		// The web schema defaults to `Light 2026` (`themeConfiguration.ts`), while this
 		// product ships a dark UI and only offers these two themes in its settings.
 		[ThemeSettings.COLOR_THEME]: ThemeSettingDefaults.COLOR_THEME_DARK,
+
+		// Workspace Trust is switched off with `--disable-workspace-trust`, so every workspace
+		// counts as trusted and upstream stops asking before following a link out of a file.
+		// Ask anyway: the confirmation is the only thing left between a link in someone else's
+		// repository and the browser.
+		'workbench.trustedDomains.promptInTrustedWorkspace': true,
 	}
 }]);
