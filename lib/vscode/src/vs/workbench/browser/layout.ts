@@ -930,12 +930,12 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 		}
 
 		// Code-Tomoshibi always starts without an editor: the product opens straight
-		// into a terminal. Upstream picked this from `workbench.startupEditor`, but the
-		// only registration of that key sits in the orphaned welcomeGettingStarted
-		// contribution, so in this fork it has no schema, no default and no entry in the
-		// settings UI. Rather than read a key that cannot be configured, the behavior is
-		// fixed to `none`; editors requested explicitly (URL parameters, `defaultLayout`)
-		// still open through the branch above.
+		// into a terminal. Upstream picked this from `workbench.startupEditor`, but that
+		// key was dropped from this fork along with the getting-started walkthrough, so
+		// it has no schema, no default and no entry in the settings UI. Rather than read
+		// a key that cannot be configured, the behavior is fixed to `none`; editors
+		// requested explicitly (URL parameters, `defaultLayout`) still open through the
+		// branch above.
 		return [];
 	}
 

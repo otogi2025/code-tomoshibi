@@ -60,7 +60,6 @@ export const enum AccessibilityVerbositySettingId {
 	EmptyEditorHint = 'accessibility.verbosity.emptyEditorHint',
 	Comments = 'accessibility.verbosity.comments',
 	DiffEditorActive = 'accessibility.verbosity.diffEditorActive',
-	Walkthrough = 'accessibility.verbosity.walkthrough',
 	Find = 'accessibility.verbosity.find'
 }
 
