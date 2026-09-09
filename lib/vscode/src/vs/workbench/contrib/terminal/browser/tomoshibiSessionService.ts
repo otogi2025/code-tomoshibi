@@ -88,6 +88,14 @@ export interface ITomoshibiSessionService {
 	 */
 	sessionKey(instance: ITerminalInstance): string;
 
+	/**
+	 * 只读版的 {@link ITomoshibiSessionService.sessionKey}，给渲染路径用：只查缓存，缓存里没有就
+	 * 现算一个，但不写缓存、也不做 pty-reconnect 的搬键。
+	 *
+	 * ⛔ 画一帧界面不许改任何持久状态。要结算的地方（服务自己的 `_sync()`）继续用 `sessionKey()`。
+	 */
+	peekSessionKey(instance: ITerminalInstance): string;
+
 	getTitle(instance: ITerminalInstance): string | undefined;
 	setTitle(instance: ITerminalInstance, title: string | undefined): void;
 
@@ -699,6 +707,10 @@ export class TomoshibiSessionService extends Disposable implements ITomoshibiSes
 			this._migrateSessionKey(instance.instanceId, previousKey, key);
 		}
 		return key;
+	}
+
+	peekSessionKey(instance: ITerminalInstance): string {
+		return this._sessionKeysByInstanceId.get(instance.instanceId) ?? this._computeSessionKey(instance);
 	}
 
 	private _computeSessionKey(instance: ITerminalInstance): string {
