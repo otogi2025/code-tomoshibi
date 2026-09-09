@@ -341,25 +341,33 @@ export class TomoshibiPerformanceContribution extends Disposable implements IWor
 			if (!detail && !mainWindow.document.hidden) {
 				this._pushLatency(mainWindow.performance.now() - startedAt);
 			}
-			// 基础那一发不带 top，直接写回去会把弹层里的进程列表刷空，所以留住上一份。这里要在
-			// 响应回来的这一刻读，不能在发请求时就取：两条流水线并行，早取会把 detail 刚写进去
-			// 的列表用旧值盖掉。
-			const previousTop = this._snapshot?.top ?? [];
-			this._snapshot = {
-				hostname: typeof value.hostname === 'string' ? value.hostname : null,
-				cpuCores: toFiniteOrNull(value.cpuCores),
-				cpuPercent: toFiniteOrNull(value.cpuPercent),
-				memoryUsedBytes: toFiniteOrNull(value.memoryUsedBytes),
-				memoryTotalBytes: toFiniteOrNull(value.memoryTotalBytes),
-				swapUsedBytes: toFiniteOrNull(value.swapUsedBytes),
-				swapTotalBytes: toFiniteOrNull(value.swapTotalBytes),
-				diskUsedBytes: toFiniteOrNull(value.diskUsedBytes),
-				diskTotalBytes: toFiniteOrNull(value.diskTotalBytes),
-				downloadBytesPerSecond: toFiniteOrNull(value.downloadBytesPerSecond),
-				uploadBytesPerSecond: toFiniteOrNull(value.uploadBytesPerSecond),
-				sampledAt: toFiniteOrNull(value.sampledAt) ?? Date.now(),
-				top: Array.isArray(value.top) ? value.top.filter(item => typeof item?.name === 'string') : previousTop,
-			};
+			// 两路响应各写各的字段。detail 那一发跟基础轮询共用服务端那一条速率基线，它的 CPU
+			// 和上下行是在「距上一发基础请求」那几十毫秒的窗口上算出来的，还可能命中服务端两秒
+			// 的缓存；整份写回去只会把基础轮询刚推上状态栏的数字按回旧值，看起来像 CPU 在抖。
+			// 它真正独有的只有进程列表，所以只取这一项。反过来基础那一发不带 top，留住上一份。
+			// 上一份快照要在响应回来的这一刻读，不能在发请求时就取：两条流水线并行，早取会把对
+			// 方刚写进去的东西用旧值盖掉。
+			const previous = this._snapshot;
+			const top = Array.isArray(value.top) ? value.top.filter(item => typeof item?.name === 'string') : undefined;
+			if (detail && previous) {
+				this._snapshot = { ...previous, top: top ?? previous.top };
+			} else {
+				this._snapshot = {
+					hostname: typeof value.hostname === 'string' ? value.hostname : null,
+					cpuCores: toFiniteOrNull(value.cpuCores),
+					cpuPercent: toFiniteOrNull(value.cpuPercent),
+					memoryUsedBytes: toFiniteOrNull(value.memoryUsedBytes),
+					memoryTotalBytes: toFiniteOrNull(value.memoryTotalBytes),
+					swapUsedBytes: toFiniteOrNull(value.swapUsedBytes),
+					swapTotalBytes: toFiniteOrNull(value.swapTotalBytes),
+					diskUsedBytes: toFiniteOrNull(value.diskUsedBytes),
+					diskTotalBytes: toFiniteOrNull(value.diskTotalBytes),
+					downloadBytesPerSecond: toFiniteOrNull(value.downloadBytesPerSecond),
+					uploadBytesPerSecond: toFiniteOrNull(value.uploadBytesPerSecond),
+					sampledAt: toFiniteOrNull(value.sampledAt) ?? Date.now(),
+					top: top ?? previous?.top ?? [],
+				};
+			}
 			this._render();
 		} catch {
 			// Keep the last valid sample. A blip in the network should not blank the status bar.
