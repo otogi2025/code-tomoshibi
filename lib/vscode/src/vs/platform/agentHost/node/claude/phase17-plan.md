@@ -311,9 +311,7 @@ discovery/projection layer — `Options.plugins` and the SDK loading path are
 ### E2E
 Launch + log skills discovered in this workspace (project scope):
 
-- **Launch skill**: `launch` (`.agents/skills/launch/SKILL.md`) — Playwright-driven Code
-  OSS automation against the Agents window; see the macOS short-`TMPDIR` gotcha in repo
-  memory.
+- **Launch skill**: `launch`（该文件已随上游 CI/代理指引一起删除）
 - **Log skill**: `code-oss-logs` (`.github/skills/code-oss-logs/SKILL.md`) — find/read
   agent-host + renderer dev-build logs.
 - **Repo runbook**: `/memories/repo/e2e-claude-checklist.md` — exact launch command, the

@@ -298,7 +298,7 @@ Note: **no changes to `claudeSessionMetadataStore.ts`**. Persistence dropped per
 - `typecheck-client` clean, `valid-layers-check` clean.
 
 ### E2E
-The workspace has the [launch skill](../../../../../../.agents/skills/launch/SKILL.md) (Playwright-driven Code OSS automation) and [code-oss-logs skill](../../../../../../.github/skills/code-oss-logs/SKILL.md) (find and read dev-build logs). Smoke scenario:
+The workspace has the launch skill（该文件已随上游 CI/代理指引一起删除）and [code-oss-logs skill](../../../../../../.github/skills/code-oss-logs/SKILL.md) (find and read dev-build logs). Smoke scenario:
 
 1. Use the **launch** skill to start Code OSS with the agent host enabled and a Claude session open.
 2. Send a prompt that the model is likely to delegate via `Agent` (e.g. "use the Agent tool to list files in /tmp").
@@ -494,7 +494,7 @@ Validation: 138 unit tests green (was 137; +1 regression). Full type-check + lay
 - SDK type pointers: `CanUseTool.agentID` [`sdk.d.ts:187`](../../../../../../node_modules/@anthropic-ai/claude-agent-sdk/sdk.d.ts#L187), `BaseHookInput.agent_id` [`sdk.d.ts:131`](../../../../../../node_modules/@anthropic-ai/claude-agent-sdk/sdk.d.ts#L131), `SessionMessage.parent_tool_use_id: null` [`sdk.d.ts:3566`](../../../../../../node_modules/@anthropic-ai/claude-agent-sdk/sdk.d.ts#L3566) (the typing trap — actually accurate per Q11), `forwardSubagentText` [`sdk.d.ts:1376-1379`](../../../../../../node_modules/@anthropic-ai/claude-agent-sdk/sdk.d.ts#L1376), `SessionKey.subpath` [`sdk.d.ts:3540-3555`](../../../../../../node_modules/@anthropic-ai/claude-agent-sdk/sdk.d.ts#L3540).
 - Phase 13 mapper this phase reuses: [`claudeReplayMapper.ts`](./claudeReplayMapper.ts).
 - Validators for `PromptMatchStrategy`: [`claudeSessionSchema.ts`](../../../../../../extensions/copilot/src/extension/chatSessions/claude/node/sessionParser/claudeSessionSchema.ts) — `vObj`, `vString`, `vNullable`, `vUuid`. No `as any` casts.
-- E2E skills used: [launch](../../../../../../.agents/skills/launch/SKILL.md), [code-oss-logs](../../../../../../.github/skills/code-oss-logs/SKILL.md).
+- E2E skills used: launch（该文件已随上游 CI/代理指引一起删除）, [code-oss-logs](../../../../../../.github/skills/code-oss-logs/SKILL.md).
 
 ## Council review record
 

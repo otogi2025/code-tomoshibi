@@ -477,7 +477,7 @@ npm run valid-layers-check
 
 ### E2E
 
-Use the **`launch`** skill (personal, `~/.agents/skills/launch/`) to drive Code OSS and the **`code-oss-logs`** skill (`.github/skills/code-oss-logs/`) to verify agent-host logs.
+Use the **`launch`** skill（personal；该文件已随上游 CI/代理指引一起删除）to drive Code OSS and the **`code-oss-logs`** skill (`.github/skills/code-oss-logs/`) to verify agent-host logs.
 
 **Scenario:**
 1. Use `launch` to open Code OSS dev build pointing at a test workspace with a writable file.

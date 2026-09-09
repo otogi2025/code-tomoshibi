@@ -139,7 +139,7 @@ changes — no new env vars, no enumeration query, no proxy edits.
 - `npm run typecheck-client`, `npm run valid-layers-check`.
 
 ### E2E
-- **Launch skill**: `launch` (`.agents/skills/launch`). **Log skill**:
+- **Launch skill**: `launch`（该文件已随上游 CI/代理指引一起删除）. **Log skill**:
   `code-oss-logs` (`.github/skills/code-oss-logs`).
 - **Scenario:** launch Code OSS `--agents`, sign in to Copilot, open the Agents
   window with **Claude** selected, open the model picker → confirm the list,

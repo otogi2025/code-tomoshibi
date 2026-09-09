@@ -130,7 +130,7 @@ Run via the `runTests` tool against the two test files, or `scripts/test.sh --gr
 
 Workspace skills available:
 
-- **Launch skill**: [`launch`](../../../../../../.agents/skills/launch/SKILL.md) — Playwright-driven Code OSS automation (open the Agents window, drive chat, screenshot).
+- **Launch skill**: `launch`（该文件已随上游 CI/代理指引一起删除）
 - **Log skill**: [`code-oss-logs`](../../../../../../.github/skills/code-oss-logs/SKILL.md) — read agent-host / renderer logs from the dev build.
 
 **Scenario — fork-and-continue** (mirrors [smoke.md](./smoke.md) conventions):
@@ -159,7 +159,7 @@ _None remaining._ All grilling-phase questions resolved — see Decisions. The o
 - Copilot fork reference (NOT directly portable — uses `getNextTurnEventId` + DB `vacuumInto` + `remapTurnIds`): [../copilot/copilotAgent.ts](../copilot/copilotAgent.ts) (`createSession` fork branch ~1108-1170)
 - Production-extension reference (NOT portable — message-index + EXCLUSIVE "fork before request"): [`extensions/copilot/src/extension/chatSessions/vscode-node/claudeChatSessionContentProvider.ts`](../../../../../../extensions/copilot/src/extension/chatSessions/vscode-node/claudeChatSessionContentProvider.ts#L387)
 - SDK contract: [`forkSession`](../../../../../../node_modules/@anthropic-ai/claude-agent-sdk/sdk.d.ts#L685) / [`ForkSessionOptions`](../../../../../../node_modules/@anthropic-ai/claude-agent-sdk/sdk.d.ts#L690) / [`ForkSessionResult`](../../../../../../node_modules/@anthropic-ai/claude-agent-sdk/sdk.d.ts#L700)
-- E2E skills: [launch](../../../../../../.agents/skills/launch/SKILL.md), [code-oss-logs](../../../../../../.github/skills/code-oss-logs/SKILL.md)
+- E2E skills: launch（该文件已随上游 CI/代理指引一起删除）, [code-oss-logs](../../../../../../.github/skills/code-oss-logs/SKILL.md)
 - Council models consulted: GPT-5.5, Claude Opus 4.6, GPT-5.3-Codex (3 independent plans synthesized)
 
 ## Implementation Notes

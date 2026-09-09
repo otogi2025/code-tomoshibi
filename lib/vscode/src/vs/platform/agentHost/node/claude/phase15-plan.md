@@ -50,7 +50,7 @@ the right tarball per launch.
   `package.ts` (deterministic tar), `upload.ts` (idempotent CDN publish),
   `common.ts` (shared helpers incl. `readAgentSdkResults`).
 - Azure Pipelines integration:
-  [`agent-sdk-produce.yml`](../../../../../../build/azure-pipelines/common/agent-sdk-produce.yml)
+  `agent-sdk-produce.yml`（该文件已随上游 CI/代理指引一起删除）
   before each `gulp vscode-<platform>-<arch>-min-ci`, and the
   `packageTask` `jsonEditor` stamp in
   [`gulpfile.vscode.ts`](../../../../../../build/gulpfile.vscode.ts#L308).

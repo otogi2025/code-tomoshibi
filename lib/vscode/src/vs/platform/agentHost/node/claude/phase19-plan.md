@@ -305,8 +305,7 @@ commercial-metadata overlay.
   without `copilotUsage`, credential-absent error.
 
 ### E2E
-- **Launch skill**: `launch` (`.agents/skills/launch`) — Playwright-drive Code
-  OSS `--agents` with isolated profile.
+- **Launch skill**: `launch`（该文件已随上游 CI/代理指引一起删除）
 - **Log skill**: `code-oss-logs` (`.github/skills/code-oss-logs`) — read the
   agent host log from the latest dev run.
 - **Scenario (native):**

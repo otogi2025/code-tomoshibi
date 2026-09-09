@@ -1667,7 +1667,7 @@ the download. SDK versions are pinned in
 **Build pipeline** — see [`build/agent-sdk/`](../../../../../../build/agent-sdk/README.md)
 for the tarball production and CDN upload tooling, including the
 deterministic-tar setup. The per-platform
-[`agent-sdk-produce.yml`](../../../../../../build/azure-pipelines/common/agent-sdk-produce.yml)
+`agent-sdk-produce.yml`（该文件已随上游 CI/代理指引一起删除）
 template runs `produce.ts` before each `gulp vscode-<platform>-<arch>-min-ci`
 step; `packageTask`'s `jsonEditor` callback then merges the results into
 `product.json` via `readAgentSdkResults()` (no separate `AgentSDK`

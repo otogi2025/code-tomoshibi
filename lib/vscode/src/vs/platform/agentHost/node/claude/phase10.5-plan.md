@@ -179,7 +179,6 @@ None.
 - Context: `./CONTEXT.md`
 - Prior plan: `./phase10-plan.md`
 - E2E skills used: `launch`, `code-oss-logs`
-- Launch guide: `../../../../../.agents/skills/launch/references/agents-window-guide.md`
 - Rationale source: Roguski, Code Rule #01 (avoid private-method clusters)
 
 ## Implementation Notes

@@ -346,7 +346,7 @@ npm run valid-layers-check
 
 ### E2E
 
-Use the **`launch`** skill (personal, `~/.agents/skills/launch/`) and the **`code-oss-logs`** skill (`.github/skills/code-oss-logs/`).
+Use the **`launch`** skill（personal；该文件已随上游 CI/代理指引一起删除）and the **`code-oss-logs`** skill (`.github/skills/code-oss-logs/`).
 
 **Scenario A — abort + resend:**
 1. Launch Code OSS dev with a writable workspace.
@@ -391,7 +391,7 @@ None at plan-acceptance time. All six original open questions resolved during co
 - Production reference: `extensions/copilot/src/extension/chatSessions/claude/node/claudeCodeAgent.ts` (abort: 138, 274, 435, 719; restart: 451-460, 520-548, 676, 733-740; resume vs sessionId: 461)
 - Copilot reference: `node/copilot/copilotAgent.ts:1036-1050` (setPendingMessages), `:1242-1254` (changeModel); `copilotAgentSession.ts:800-803` (abort reusability), `:816-820` (setModel)
 - SDK type definitions: `node_modules/@anthropic-ai/claude-agent-sdk/sdk.d.ts` (Query.setModel, Query.applyFlagSettings, Query.setPermissionMode, Query.interrupt; SDKUserMessage.priority/uuid; Settings.effortLevel)
-- E2E skills: `launch` (workspace `.agents/skills/launch/`), `code-oss-logs` (repo)
+- E2E skills: `launch`（该文件已随上游 CI/代理指引一起删除）, `code-oss-logs` (repo)
 
 ## Implementation Notes
 
