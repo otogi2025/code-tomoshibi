@@ -10,10 +10,12 @@ install-deps() {
     args+=(install)
   fi
   # If there is no package.json then npm will look upward and end up installing
-  # from the root resulting in an infinite loop (this can happen if you have not
-  # checked out the submodule yet for example).
+  # from the root resulting in an infinite loop (this can happen with an
+  # incomplete checkout).
   if [[ ! -f "$1/package.json" ]]; then
-    echo "$1/package.json is missing; did you run git submodule update --init?"
+    echo "$1/package.json is missing."
+    echo "This repository vendors lib/vscode as a plain directory, not a submodule,"
+    echo "so a normal 'git clone' should already contain it. Check out the whole tree."
     exit 1
   fi
   pushd "$1"
