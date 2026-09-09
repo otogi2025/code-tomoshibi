@@ -23,8 +23,6 @@ import { IsWebContext } from '../../../../platform/contextkey/common/contextkeys
 import { IProductService } from '../../../../platform/product/common/productService.js';
 import { disposableWindowInterval } from '../../../../base/browser/dom.js';
 import { mainWindow } from '../../../../base/browser/window.js';
-import { ICommandService } from '../../../../platform/commands/common/commands.js';
-import { isCancellationError } from '../../../../base/common/errors.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { MarkdownString } from '../../../../base/common/htmlContent.js';
 import { equalsIgnoreCase } from '../../../../base/common/strings.js';
@@ -126,7 +124,6 @@ class ExtensionUrlHandler implements IExtensionUrlHandler, IURLHandler {
 		@IURLService urlService: IURLService,
 		@IExtensionService private readonly extensionService: IExtensionService,
 		@IDialogService private readonly dialogService: IDialogService,
-		@ICommandService private readonly commandService: ICommandService,
 		@IHostService private readonly hostService: IHostService,
 		@IStorageService private readonly storageService: IStorageService,
 		@IConfigurationService private readonly configurationService: IConfigurationService,
@@ -267,21 +264,8 @@ class ExtensionUrlHandler implements IExtensionUrlHandler, IURLHandler {
 	}
 
 	private async handleUnhandledURL(uri: URI, extensionId: string, options?: IOpenURLOptions): Promise<void> {
-		try {
-			await this.commandService.executeCommand('workbench.extensions.installExtension', extensionId, {
-				justification: {
-					reason: `${localize('installDetail', "此扩展想要打开 URI:")}\n${uri.toString()}`,
-					action: localize('openUri', "打开 URI")
-				},
-				enable: true,
-				installPreReleaseVersion: this.productService.quality !== 'stable'
-			});
-		} catch (error) {
-			if (!isCancellationError(error)) {
-				this.notificationService.error(error);
-			}
-			return;
-		}
+		this.notificationService.info(localize('tomoshibi.extensionStoreRemoved', "Code-Tomoshibi 没有扩展商店，无法安装扩展 '{0}'。扩展需要放进服务器的扩展目录。", extensionId));
+		return;
 
 		const extension = await this.extensionService.getExtension(extensionId);
 
