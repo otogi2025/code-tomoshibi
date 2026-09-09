@@ -26,6 +26,9 @@ const COUNTER_MAX_AGE_MS = 30_000
 /** How many processes the detail popover lists under "busiest". */
 const TOP_PROCESS_COUNT = 3
 
+/** How many /proc/<pid>/stat reads may be outstanding at once while ranking processes. */
+const PROCESS_READ_CONCURRENCY = 16
+
 /* /proc/<pid>/stat fields are numbered from 1 in `man 5 proc`: pid, comm and state come
  * first, and the comm field may itself contain spaces and parentheses. Splitting after the
  * last ')' therefore drops fields 1 and 2, leaving state at index 0 -- so field N lands at
@@ -199,34 +202,36 @@ const readProcessSample = async (): Promise<Map<number, ProcessSample>> => {
   } catch {
     return samples
   }
-  await Promise.all(
-    entries.map(async (entry) => {
-      const pid = Number(entry)
-      if (!Number.isInteger(pid) || pid <= 0) {
+  const pids = entries.map(Number).filter((pid) => Number.isInteger(pid) && pid > 0)
+  const readOne = async (pid: number): Promise<void> => {
+    try {
+      const stat = await fs.readFile(`/proc/${pid}/stat`, "utf8")
+      const open = stat.indexOf("(")
+      const close = stat.lastIndexOf(")")
+      if (open === -1 || close === -1 || close < open) {
         return
       }
-      try {
-        const stat = await fs.readFile(`/proc/${pid}/stat`, "utf8")
-        const open = stat.indexOf("(")
-        const close = stat.lastIndexOf(")")
-        if (open === -1 || close === -1 || close < open) {
-          return
-        }
-        const fields = stat
-          .slice(close + 1)
-          .trim()
-          .split(/\s+/)
-        const utime = Number(fields[UTIME_INDEX])
-        const stime = Number(fields[STIME_INDEX])
-        if (!Number.isFinite(utime) || !Number.isFinite(stime)) {
-          return
-        }
-        samples.set(pid, { name: stat.slice(open + 1, close), jiffies: utime + stime })
-      } catch {
-        // Processes come and go between readdir and read; one that vanished is simply skipped.
+      const fields = stat
+        .slice(close + 1)
+        .trim()
+        .split(/\s+/)
+      const utime = Number(fields[UTIME_INDEX])
+      const stime = Number(fields[STIME_INDEX])
+      if (!Number.isFinite(utime) || !Number.isFinite(stime)) {
+        return
       }
-    }),
-  )
+      samples.set(pid, { name: stat.slice(open + 1, close), jiffies: utime + stime })
+    } catch {
+      // Processes come and go between readdir and read; one that vanished is simply skipped.
+    }
+  }
+  // In batches, not all at once. Every one of these reads is a job for libuv's thread pool,
+  // which has four threads by default and is shared with the editor's own file access and with
+  // password hashing; handing it a few hundred jobs in one go makes everything else queue
+  // behind this sample. Batching keeps the wall clock about the same and removes the spike.
+  for (let index = 0; index < pids.length; index += PROCESS_READ_CONCURRENCY) {
+    await Promise.all(pids.slice(index, index + PROCESS_READ_CONCURRENCY).map(readOne))
+  }
   return samples
 }
 
