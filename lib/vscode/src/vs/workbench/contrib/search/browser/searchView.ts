@@ -1710,6 +1710,7 @@ export class SearchView extends ViewPane {
 	}
 
 	setSearchParameters(args: IFindInFilesArgs = {}): void {
+		this.exitTerminalModeForFileSearch();
 		if (typeof args.isCaseSensitive === 'boolean') {
 			this.searchWidget.searchInput?.setCaseSensitive(args.isCaseSensitive);
 		}
@@ -1790,6 +1791,7 @@ export class SearchView extends ViewPane {
 	}
 
 	private _searchWithIncludeOrExclude(include: boolean, folderPaths: string[]) {
+		this.exitTerminalModeForFileSearch();
 		if (!folderPaths.length || folderPaths.some(folderPath => folderPath === '.')) {
 			this.inputPatternIncludes.setValue('');
 			this.searchWidget.focus();
@@ -1803,6 +1805,18 @@ export class SearchView extends ViewPane {
 
 		(include ? this.inputPatternIncludes : this.inputPatternExcludes).setValue(folderPaths.join(', '));
 		this.searchWidget.focus(false);
+	}
+
+	/**
+	 * 显式的文件搜索入口（Ctrl+Shift+F / 命令面板的「在文件中查找」/ 资源管理器的「在文件夹中查找」）
+	 * 最后都汇聚到 triggerQueryChange，而它在终端模式下直接 return —— 不先退出终端模式的话，
+	 * 这些入口会静默失效。走 SearchWidget.setTerminalMode 是为了让开关本身、高亮和消息区
+	 * 都沿 applyTerminalMode 那一条路径一起复位。
+	 */
+	private exitTerminalModeForFileSearch(): void {
+		if (this.terminalMode) {
+			this.searchWidget.setTerminalMode(false);
+		}
 	}
 
 	triggerQueryChange(_options?: { preserveFocus?: boolean; triggeredOnType?: boolean; delay?: number; shouldKeepAIResults?: boolean; shouldUpdateAISearch?: boolean }): void {

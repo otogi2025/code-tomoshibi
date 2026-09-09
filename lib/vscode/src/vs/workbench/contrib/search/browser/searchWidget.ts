@@ -504,6 +504,19 @@ export class SearchWidget extends Widget {
 		return !!this.terminalModeToggle?.checked;
 	}
 
+	/**
+	 * Flips the "find in terminal" toggle from code and announces it like a click would, so that
+	 * callers leave terminal mode through the very same path a user toggle takes. Setting
+	 * `Toggle.checked` on its own does not fire `onChange`, hence the explicit event.
+	 */
+	setTerminalMode(enabled: boolean): void {
+		if (!this.terminalModeToggle || this.terminalModeToggle.checked === enabled) {
+			return;
+		}
+		this.terminalModeToggle.checked = enabled;
+		this._onDidToggleTerminalMode.fire(enabled);
+	}
+
 	private onContextLinesChanged() {
 		this._onDidToggleContext.fire();
 
