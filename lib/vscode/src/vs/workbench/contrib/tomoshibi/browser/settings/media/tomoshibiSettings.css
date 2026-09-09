@@ -456,8 +456,10 @@
 	max-width: none;
 }
 
-/* Thick scrollbars. The class is toggled onto the body by the settings contribution because
- * Monaco's scrollable elements and xterm's viewport share no option that widens both. */
+/* Thick workbench scrollbars. The class is toggled onto the body by the settings contribution.
+ * The terminal is not covered from here: xterm paints its own scrollbar, so a ::-webkit-scrollbar
+ * rule on .xterm-viewport never applied. Terminal width lives in TerminalScrollbarWidth (20 thick,
+ * 10 thin) in contrib/terminal/browser/xterm/xtermTerminal.ts. */
 
 body.tomoshibi-thick-scrollbar .monaco-scrollable-element > .scrollbar.vertical,
 body.tomoshibi-thick-scrollbar .monaco-scrollable-element > .scrollbar.vertical > .slider {
@@ -467,8 +469,4 @@ body.tomoshibi-thick-scrollbar .monaco-scrollable-element > .scrollbar.vertical 
 body.tomoshibi-thick-scrollbar .monaco-scrollable-element > .scrollbar.horizontal,
 body.tomoshibi-thick-scrollbar .monaco-scrollable-element > .scrollbar.horizontal > .slider {
 	height: 14px;
-}
-
-body.tomoshibi-thick-scrollbar .xterm-viewport::-webkit-scrollbar {
-	width: 14px;
 }

@@ -63,7 +63,7 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis
 			type: 'boolean',
 			default: true,
 			scope: ConfigurationScope.APPLICATION,
-			description: localize('tomoshibi.config.scrollbarThick', "把滚动条加粗到 14px，方便在 iPad 上用手指拖动。"),
+			description: localize('tomoshibi.config.scrollbarThick', "把终端和工作台的滚动条加粗，方便在 iPad 上用手指拖动。"),
 		},
 		'tomoshibi.terminal.shiftEnterNewline': {
 			type: 'boolean',

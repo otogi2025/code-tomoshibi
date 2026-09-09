@@ -395,8 +395,8 @@ export class TomoshibiSettingsOverlay extends Disposable {
 			localize('tomoshibi.settings.ui.scrollbar', "滚动条粗细"),
 			localize('tomoshibi.settings.ui.scrollbarSmall', "iPad 上手指能拖的宽度"),
 			selectControl(store, [
-				{ value: 'thin', label: localize('tomoshibi.settings.ui.scrollbarThin', "细（原版）") },
-				{ value: 'thick', label: localize('tomoshibi.settings.ui.scrollbarThick', "粗（14px）") },
+				{ value: 'thin', label: localize('tomoshibi.settings.ui.scrollbarThin', "细（10px）") },
+				{ value: 'thick', label: localize('tomoshibi.settings.ui.scrollbarThick', "粗（20px）") },
 			], () => this._configurationService.getValue<boolean>('tomoshibi.scrollbar.thick') === false ? 'thin' : 'thick',
 				value => this._write('tomoshibi.scrollbar.thick', value === 'thick'))
 		));
