@@ -319,9 +319,6 @@ import './contrib/languageDetection/browser/languageDetection.contribution.js';
 // Language Status
 import './contrib/languageStatus/browser/languageStatus.contribution.js';
 
-// User Data Profiles
-import './contrib/userDataProfile/browser/userDataProfile.contribution.js';
-
 // Continue Edit Session
 
 // Remote Coding Agents
