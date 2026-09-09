@@ -41,16 +41,9 @@ export class SettingsProvider<T> {
   }
 }
 
-export interface UpdateSettings {
-  update: {
-    checked: number
-    version: string
-  }
-}
-
 /**
  * Global code-server settings.
  */
-export interface CoderSettings extends UpdateSettings {
+export interface CoderSettings {
   query?: ParsedQs
 }

@@ -50,10 +50,7 @@ describe("settings", () => {
     it("should log a warning", async () => {
       const settings = new SettingsProvider<CoderSettings>(pathToMockSettingsFile)
       await settings.write({
-        update: {
-          checked: 2,
-          version: "4.0.1",
-        },
+        query: { folder: "/hello" },
       })
       // This happens if it tries to writeFile to a nonexistent path
       expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining("ENOENT: no such file or directory"))
