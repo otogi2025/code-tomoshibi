@@ -154,19 +154,27 @@
           fetch(location.href, {
             method: "POST",
             credentials: "same-origin",
+            // 不跟随 302。跟随会把整个工作台页面完整下载一遍（服务端那一头还会连带写一次
+            // coder.json、首次还要把 VS Code 服务端模块整个加载进来），而这里只用得上
+            // 「登录成没成」这一个信息，正文原样丢掉，浏览器接着又把同一个页面下载一遍。
+            redirect: "manual",
             headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
             body: body.toString(),
           })
             .then(function (response) {
-              if (!response.redirected) {
-                return response.text().then(function (html) {
-                  fail(errorFrom(html))
-                })
+              // 手动模式下 302 变成一个读不到内容的 opaqueredirect 响应，但 cookie 已经种下了。
+              if (response.type === "opaqueredirect" || (response.status >= 300 && response.status < 400)) {
+                document.body.classList.add("is-opening")
+                window.setTimeout(function () {
+                  // 带着 cookie 再 GET 一次登录地址，服务端会把我们送到它本来就要送的那个页面，
+                  // 用不着在这里自己拼跳转目标。用 replace 是为了别把登录页留在后退历史里。
+                  location.replace(location.href)
+                }, 260)
+                return
               }
-              document.body.classList.add("is-opening")
-              window.setTimeout(function () {
-                location.assign(response.url)
-              }, 260)
+              return response.text().then(function (html) {
+                fail(errorFrom(html))
+              })
             })
             .catch(function () {
               fail("连接失败，请重试")
