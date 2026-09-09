@@ -56,7 +56,6 @@ import './mainThreadDocumentDiff.js';
 import './mainThreadQuickOpen.js';
 import './mainThreadRemoteConnectionData.js';
 import './mainThreadSaveParticipant.js';
-import './mainThreadSpeech.js';
 import './mainThreadEditSessionIdentityParticipant.js';
 import './mainThreadSearch.js';
 import './mainThreadStatusBar.js';

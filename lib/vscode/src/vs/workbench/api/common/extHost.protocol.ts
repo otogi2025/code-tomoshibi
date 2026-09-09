@@ -56,7 +56,6 @@ import { SaveReason } from '../../common/editor.js';
 import { IRevealOptions, ITreeItem, IViewBadge } from '../../common/views.js';
 import { CallHierarchyItem } from '../../contrib/callHierarchy/common/callHierarchy.js';
 import { IWorkspaceSymbol } from '../../contrib/search/common/search.js';
-import { IKeywordRecognitionEvent, ISpeechProviderMetadata, ISpeechToTextEvent, ITextToSpeechEvent } from '../../contrib/speech/common/speechService.js';
 import { Timeline, TimelineChangeEvent, TimelineOptions, TimelineProviderDescriptor } from '../../contrib/timeline/common/timeline.js';
 import { TypeHierarchyItem } from '../../contrib/typeHierarchy/common/typeHierarchy.js';
 import { AuthenticationSession, AuthenticationSessionAccount, AuthenticationSessionsChangeEvent, IAuthenticationConstraint, IAuthenticationCreateSessionOptions, IAuthenticationGetSessionsOptions, IAuthenticationWwwAuthenticateRequest } from '../../services/authentication/common/authentication.js';
@@ -1209,27 +1208,6 @@ export enum CellOutputKind {
 	Text = 1,
 	Error = 2,
 	Rich = 3
-}
-
-export interface MainThreadSpeechShape extends IDisposable {
-	$registerProvider(handle: number, identifier: string, metadata: ISpeechProviderMetadata): void;
-	$unregisterProvider(handle: number): void;
-
-	$emitSpeechToTextEvent(session: number, event: ISpeechToTextEvent): void;
-	$emitTextToSpeechEvent(session: number, event: ITextToSpeechEvent): void;
-	$emitKeywordRecognitionEvent(session: number, event: IKeywordRecognitionEvent): void;
-}
-
-export interface ExtHostSpeechShape {
-	$createSpeechToTextSession(handle: number, session: number, language?: string): Promise<void>;
-	$cancelSpeechToTextSession(session: number): Promise<void>;
-
-	$createTextToSpeechSession(handle: number, session: number, language?: string): Promise<void>;
-	$synthesizeSpeech(session: number, text: string): Promise<void>;
-	$cancelTextToSpeechSession(session: number): Promise<void>;
-
-	$createKeywordRecognitionSession(handle: number, session: number): Promise<void>;
-	$cancelKeywordRecognitionSession(session: number): Promise<void>;
 }
 
 export interface BrowserTabDto {
@@ -2945,7 +2923,6 @@ export const MainContext = {
 	MainThreadStatusBar: createProxyIdentifier<MainThreadStatusBarShape>('MainThreadStatusBar'),
 	MainThreadSecretState: createProxyIdentifier<MainThreadSecretStateShape>('MainThreadSecretState'),
 	MainThreadStorage: createProxyIdentifier<MainThreadStorageShape>('MainThreadStorage'),
-	MainThreadSpeech: createProxyIdentifier<MainThreadSpeechShape>('MainThreadSpeechProvider'),
 	MainThreadTelemetry: createProxyIdentifier<MainThreadTelemetryShape>('MainThreadTelemetry'),
 	MainThreadMeteredConnection: createProxyIdentifier<MainThreadMeteredConnectionShape>('MainThreadMeteredConnection'),
 	MainThreadTerminalService: createProxyIdentifier<MainThreadTerminalServiceShape>('MainThreadTerminalService'),
@@ -3021,7 +2998,6 @@ export const ExtHostContext = {
 	ExtHostProfileContentHandlers: createProxyIdentifier<ExtHostProfileContentHandlersShape>('ExtHostProfileContentHandlers'),
 	ExtHostOutputService: createProxyIdentifier<ExtHostOutputServiceShape>('ExtHostOutputService'),
 	ExtHostLabelService: createProxyIdentifier<ExtHostLabelServiceShape>('ExtHostLabelService'),
-	ExtHostSpeech: createProxyIdentifier<ExtHostSpeechShape>('ExtHostSpeech'),
 	ExtHostTheming: createProxyIdentifier<ExtHostThemingShape>('ExtHostTheming'),
 	ExtHostTunnelService: createProxyIdentifier<ExtHostTunnelServiceShape>('ExtHostTunnelService'),
 	ExtHostManagedSockets: createProxyIdentifier<ExtHostManagedSocketsShape>('ExtHostManagedSockets'),

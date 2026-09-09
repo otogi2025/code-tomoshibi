@@ -41,7 +41,6 @@ export const enum TerminalContextKeyStrings {
 	ShellType = 'terminalShellType',
 	InTerminalRunCommandPicker = 'inTerminalRunCommandPicker',
 	TerminalShellIntegrationEnabled = 'terminalShellIntegrationEnabled',
-	DictationInProgress = 'terminalDictationInProgress',
 	TomoshibiActiveSessionPinned = 'tomoshibiActiveSessionPinned'
 }
 
@@ -144,9 +143,6 @@ export namespace TerminalContextKeys {
 
 	/** Whether shell integration is enabled in the active terminal. This only considers full VS Code shell integration. */
 	export const terminalShellIntegrationEnabled = new RawContextKey<boolean>(TerminalContextKeyStrings.TerminalShellIntegrationEnabled, false, localize('terminalShellIntegrationEnabled', "是否在活动终端中启用 shell 集成"));
-
-	/** Whether a speech to text (dictation) session is in progress. */
-	export const terminalDictationInProgress = new RawContextKey<boolean>(TerminalContextKeyStrings.DictationInProgress, false);
 
 	/*
 	 * 分屏 / 关闭 Session 这两个内联按钮的门。上游在这里还挂着一整串 or：tabs.enabled 为假，

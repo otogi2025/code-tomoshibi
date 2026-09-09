@@ -177,9 +177,6 @@ import './contrib/preferences/browser/preferencesSearch.js';
 // Performance
 import './contrib/performance/browser/performance.contribution.js';
 
-// Speech
-import './contrib/speech/browser/speech.contribution.js';
-
 // Logs
 import './contrib/logs/common/logs.contribution.js';
 

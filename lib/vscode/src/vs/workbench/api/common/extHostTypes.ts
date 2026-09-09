@@ -2800,29 +2800,6 @@ export enum InteractiveEditorResponseFeedbackKind {
 
 //#endregion
 
-//#region Speech
-
-export enum SpeechToTextStatus {
-	Started = 1,
-	Recognizing = 2,
-	Recognized = 3,
-	Stopped = 4,
-	Error = 5
-}
-
-export enum TextToSpeechStatus {
-	Started = 1,
-	Stopped = 2,
-	Error = 3
-}
-
-export enum KeywordRecognitionStatus {
-	Recognized = 1,
-	Stopped = 2
-}
-
-//#endregion
-
 
 
 //#endregion

@@ -21,7 +21,6 @@ import { IAccessibleViewContentProvider, AccessibleViewProviderId, IAccessibleVi
 import { accessibleViewIsShown, accessibleViewCurrentProviderId, AccessibilityVerbositySettingId } from '../../../accessibility/browser/accessibilityConfiguration.js';
 import { TerminalSuggestCommandId } from '../../suggest/common/terminal.suggest.js';
 import { TerminalSuggestSettingId } from '../../suggest/common/terminalSuggestConfiguration.js';
-import { HasSpeechProvider } from '../../../speech/common/speechService.js';
 
 export const enum ClassName {
 	Active = 'active',
@@ -80,10 +79,6 @@ export class TerminalAccessibilityHelpProvider extends Disposable implements IAc
 
 		if (this._instance.shellType === WindowsShellType.CommandPrompt) {
 			content.push(localize('commandPromptMigration', "考虑使用 powershell (而非命令提示符)以改进体验"));
-		}
-
-		if (HasSpeechProvider.getValue(this._contextKeyService)) {
-			content.push(localize('terminalDictation', 'Start or stop dictation in the terminal<keybinding:{0}>.', TerminalCommandId.StartVoice));
 		}
 
 		if (this._hasShellIntegration) {

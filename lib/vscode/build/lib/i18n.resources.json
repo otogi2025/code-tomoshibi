@@ -155,10 +155,6 @@
 			"project": "vscode-workbench"
 		},
 		{
-			"name": "vs/workbench/contrib/speech",
-			"project": "vscode-workbench"
-		},
-		{
 			"name": "vs/workbench/contrib/styleOverrides",
 			"project": "vscode-workbench"
 		},

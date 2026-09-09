@@ -10,10 +10,6 @@ import { Registry } from '../../../../platform/registry/common/platform.js';
 import { RawContextKey } from '../../../../platform/contextkey/common/contextkey.js';
 import { workbenchConfigurationNodeBase, Extensions as WorkbenchExtensions, IConfigurationMigrationRegistry, ConfigurationKeyValuePairs, ConfigurationMigration } from '../../../common/configuration.js';
 import { AccessibilitySignal } from '../../../../platform/accessibilitySignal/browser/accessibilitySignalService.js';
-import { AccessibilityVoiceSettingId, ISpeechService, SPEECH_LANGUAGES } from '../../speech/common/speechService.js';
-import { Disposable } from '../../../../base/common/lifecycle.js';
-import { IWorkbenchContribution } from '../../../common/contributions.js';
-import { Event } from '../../../../base/common/event.js';
 import { isDefined } from '../../../../base/common/types.js';
 
 export const accessibilityHelpIsShown = new RawContextKey<boolean>('accessibilityHelpIsShown', false, true);
@@ -846,83 +842,6 @@ export function registerAccessibilityConfiguration() {
 	});
 }
 
-export { AccessibilityVoiceSettingId };
-
-export const SpeechTimeoutDefault = 0;
-
-export class DynamicSpeechAccessibilityConfiguration extends Disposable implements IWorkbenchContribution {
-
-	static readonly ID = 'workbench.contrib.dynamicSpeechAccessibilityConfiguration';
-
-	constructor(
-		@ISpeechService private readonly speechService: ISpeechService
-	) {
-		super();
-
-		this._register(Event.runAndSubscribe(speechService.onDidChangeHasSpeechProvider, () => this.updateConfiguration()));
-	}
-
-	private updateConfiguration(): void {
-		if (!this.speechService.hasSpeechProvider) {
-			return; // these settings require a speech provider
-		}
-
-		const languages = this.getLanguages();
-		const languagesSorted = Object.keys(languages).sort((langA, langB) => {
-			return languages[langA].name.localeCompare(languages[langB].name);
-		});
-
-		const registry = Registry.as<IConfigurationRegistry>(Extensions.Configuration);
-		registry.registerConfiguration({
-			...accessibilityConfigurationNodeBase,
-			properties: {
-				[AccessibilityVoiceSettingId.SpeechTimeout]: {
-					'markdownDescription': localize('voice.speechTimeout', "停止说话后语音识别保持活动状态的持续时间（以毫秒为单位）。例如，在聊天会话中，超时后自动提交听录文本。设置为“0”以禁用此功能。"),
-					'type': 'number',
-					'default': SpeechTimeoutDefault,
-					'minimum': 0,
-					'tags': ['accessibility']
-				},
-				[AccessibilityVoiceSettingId.IgnoreCodeBlocks]: {
-					'markdownDescription': localize('voice.ignoreCodeBlocks', "是否忽略文本到语音转换合成中的代码片段。"),
-					'type': 'boolean',
-					'default': false,
-					'tags': ['accessibility']
-				},
-				[AccessibilityVoiceSettingId.SpeechLanguage]: {
-					'markdownDescription': localize('voice.speechLanguage', "文本转语音和语音转文本应使用的语言。如果可能，请选择 `auto` 以使用所配置的显示语言。请注意，语音识别与合成器并不支持所有显示语言。"),
-					'type': 'string',
-					'enum': languagesSorted,
-					'default': 'auto',
-					'tags': ['accessibility'],
-					'enumDescriptions': languagesSorted.map(key => languages[key].name),
-					'enumItemLabels': languagesSorted.map(key => languages[key].name)
-				},
-				[AccessibilityVoiceSettingId.AutoSynthesize]: {
-					'type': 'string',
-					'enum': ['on', 'off'],
-					'enumDescriptions': [
-						localize('accessibility.voice.autoSynthesize.on', "启用该功能。启用屏幕阅读器后，请注意，这将禁用 aria 更新。"),
-						localize('accessibility.voice.autoSynthesize.off', "禁用该功能。"),
-					],
-					'markdownDescription': localize('autoSynthesize', "在将语音用作输入时，是否应自动大声朗读文本响应。例如在聊天会话中，当语音用作聊天请求时，将会自动合成响应。"),
-					'default': 'off',
-					'tags': ['accessibility']
-				}
-			}
-		});
-	}
-
-	private getLanguages(): { [locale: string]: { name: string } } {
-		return {
-			['auto']: {
-				name: localize('speechLanguage.auto', "自动(使用显示语言)")
-			},
-			...SPEECH_LANGUAGES
-		};
-	}
-}
-
 Registry.as<IConfigurationMigrationRegistry>(WorkbenchExtensions.ConfigurationMigration)
 	.registerConfigurationMigrations([{
 		key: 'audioCues.volume',
@@ -1009,24 +928,6 @@ function getVolumeFromConfig(accessor: (key: string) => any): string | undefined
 function getDebouncePositionChangesFromConfig(accessor: (key: string) => any): number | undefined {
 	return accessor('accessibility.signalOptions.debouncePositionChanges') || accessor('accessibility.signalOptions')?.debouncePositionChanges || accessor('accessibility.signals.debouncePositionChanges') || accessor('audioCues.debouncePositionChanges');
 }
-
-Registry.as<IConfigurationMigrationRegistry>(WorkbenchExtensions.ConfigurationMigration)
-	.registerConfigurationMigrations([{
-		key: AccessibilityVoiceSettingId.AutoSynthesize,
-		migrateFn: (value: boolean) => {
-			let newValue: string | undefined;
-			if (value === true) {
-				newValue = 'on';
-			} else if (value === false) {
-				newValue = 'off';
-			} else {
-				return [];
-			}
-			return [
-				[AccessibilityVoiceSettingId.AutoSynthesize, { value: newValue }],
-			];
-		}
-	}]);
 
 Registry.as<IConfigurationMigrationRegistry>(WorkbenchExtensions.ConfigurationMigration)
 	.registerConfigurationMigrations([{

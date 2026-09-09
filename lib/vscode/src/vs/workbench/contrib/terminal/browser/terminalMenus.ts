@@ -16,7 +16,6 @@ import { TerminalCommandId, TERMINAL_VIEW_ID } from '../common/terminal.js';
 import { TerminalContextKeys } from '../common/terminalContextKey.js';
 import { terminalStrings } from '../common/terminalStrings.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
-import { HasSpeechProvider } from '../../speech/common/speechService.js';
 import { IQuickInputService } from '../../../../platform/quickinput/common/quickInput.js';
 import { expandOnlyTomoshibiGroup, promptTomoshibiInput } from './terminalView.js';
 import { ITomoshibiSessionService } from './tomoshibiSessionService.js';
@@ -405,28 +404,6 @@ export function setupTerminalMenus(): void {
 			group: 'navigation',
 			order: 8,
 			when: ResourceContextKey.Scheme.isEqualTo(Schemas.vscodeTerminal),
-			isHiddenByDefault: true
-		});
-		MenuRegistry.appendMenuItem(menuId, {
-			command: {
-				id: TerminalCommandId.StartVoice,
-				title: localize('workbench.action.terminal.startVoiceEditor', "开始听写"),
-				icon: Codicon.mic
-			},
-			group: 'navigation',
-			order: 9,
-			when: ContextKeyExpr.and(ResourceContextKey.Scheme.isEqualTo(Schemas.vscodeTerminal), TerminalContextKeys.terminalDictationInProgress.negate()),
-			isHiddenByDefault: true
-		});
-		MenuRegistry.appendMenuItem(menuId, {
-			command: {
-				id: TerminalCommandId.StopVoice,
-				title: localize('workbench.action.terminal.stopVoiceEditor', "停止听写"),
-				icon: Codicon.run
-			},
-			group: 'navigation',
-			order: 10,
-			when: ContextKeyExpr.and(ResourceContextKey.Scheme.isEqualTo(Schemas.vscodeTerminal), HasSpeechProvider, TerminalContextKeys.terminalDictationInProgress),
 			isHiddenByDefault: true
 		});
 	}

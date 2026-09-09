@@ -506,8 +506,6 @@ export const enum TerminalCommandId {
 	SetDimensions = 'workbench.action.terminal.setDimensions',
 	FocusHover = 'workbench.action.terminal.focusHover',
 	ShowEnvironmentContributions = 'workbench.action.terminal.showEnvironmentContributions',
-	StartVoice = 'workbench.action.terminal.startVoice',
-	StopVoice = 'workbench.action.terminal.stopVoice',
 	RevealCommand = 'workbench.action.terminal.revealCommand',
 }
 
@@ -566,7 +564,6 @@ export const DEFAULT_COMMANDS_TO_SKIP_SHELL: string[] = [
 	TerminalCommandId.Toggle,
 	TerminalCommandId.FocusHover,
 	AccessibilityCommandId.OpenAccessibilityHelp,
-	TerminalCommandId.StopVoice,
 	TerminalCommandId.SendSignal,
 	// ⛔ 'tomoshibi.newline'（Shift+Enter 插入软换行）必须留在这张表里：终端里的按键只有命令 id
 	// 进了 commandsToSkipShell，terminalInstance.ts 才会 preventDefault 把事件交给键绑定系统。

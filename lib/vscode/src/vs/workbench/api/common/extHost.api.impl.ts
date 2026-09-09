@@ -70,7 +70,6 @@ import { IExtHostRpcService } from './extHostRpcService.js';
 import { IExtHostSearch } from './extHostSearch.js';
 import { IExtHostSecretState } from './extHostSecretState.js';
 import { ExtHostShare } from './extHostShare.js';
-import { ExtHostSpeech } from './extHostSpeech.js';
 import { ExtHostBrowsers } from './extHostBrowsers.js';
 import { ExtHostStatusBar } from './extHostStatusBar.js';
 import { IExtHostStorage } from './extHostStorage.js';
@@ -201,7 +200,6 @@ export function createApiFactoryAndRegisterActors(accessor: ServicesAccessor): I
 	const extHostUriOpeners = rpcProtocol.set(ExtHostContext.ExtHostUriOpeners, new ExtHostUriOpeners(rpcProtocol));
 	const extHostProfileContentHandlers = rpcProtocol.set(ExtHostContext.ExtHostProfileContentHandlers, new ExtHostProfileContentHandlers(rpcProtocol));
 	const extHostStatusBar = rpcProtocol.set(ExtHostContext.ExtHostStatusBar, new ExtHostStatusBar(rpcProtocol, extHostCommands.converter));
-	const extHostSpeech = rpcProtocol.set(ExtHostContext.ExtHostSpeech, new ExtHostSpeech(rpcProtocol));
 	const extHostBrowsers = rpcProtocol.set(ExtHostContext.ExtHostBrowsers, new ExtHostBrowsers(rpcProtocol));
 
 
@@ -1409,14 +1407,6 @@ export function createApiFactoryAndRegisterActors(accessor: ServicesAccessor): I
 			}
 		};
 
-		// namespace: speech
-		const speech: typeof vscode.speech = {
-			registerSpeechProvider(id: string, provider: vscode.SpeechProvider) {
-				checkProposedApiEnabled(extension, 'speech');
-				return extHostSpeech.registerProvider(extension.identifier, id, provider);
-			}
-		};
-
 		// eslint-disable-next-line local/code-no-dangerous-type-assertions
 		return <typeof vscode>{
 			version: initData.version,
@@ -1428,7 +1418,6 @@ export function createApiFactoryAndRegisterActors(accessor: ServicesAccessor): I
 			extensions,
 			l10n,
 			languages,
-			speech,
 			tasks,
 			window,
 			workspace,
@@ -1618,12 +1607,9 @@ export function createApiFactoryAndRegisterActors(accessor: ServicesAccessor): I
 			EditSessionIdentityMatch: EditSessionIdentityMatch,
 			InteractiveSessionVoteDirection: extHostTypes.InteractiveSessionVoteDirection,
 			InteractiveEditorResponseFeedbackKind: extHostTypes.InteractiveEditorResponseFeedbackKind,
-			SpeechToTextStatus: extHostTypes.SpeechToTextStatus,
-			TextToSpeechStatus: extHostTypes.TextToSpeechStatus,
 			PartialAcceptTriggerKind: extHostTypes.PartialAcceptTriggerKind,
 			InlineCompletionEndOfLifeReasonKind: extHostTypes.InlineCompletionEndOfLifeReasonKind,
 			InlineCompletionDisplayLocationKind: extHostTypes.InlineCompletionDisplayLocationKind,
-			KeywordRecognitionStatus: extHostTypes.KeywordRecognitionStatus,
 			NewSymbolName: extHostTypes.NewSymbolName,
 			NewSymbolNameTag: extHostTypes.NewSymbolNameTag,
 			NewSymbolNameTriggerKind: extHostTypes.NewSymbolNameTriggerKind,
