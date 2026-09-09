@@ -111,3 +111,30 @@ jobs:
           path: codet-*.tar.gz
           retention-days: 14
           compression-level: 0
+
+      # 上面那份是 KEEP_MODULES=0 的「只有 JS」包：没有 bin/code-server、没有 lib/node、
+      # 三处 node_modules 全被剥掉，只能叠在一份现成 runtime 上跑。下面再出一份完整包，
+      # 让「从零造出一份能跑的 runtime」这件事有 CI 兜底，而不是只存在于一份手工构建的 tar.gz 里。
+      - name: Release (full runtime)
+        run: |
+          # 上一次 release 把根目录的 npm-shrinkwrap.json 搬走了，remote/ 与 extensions/
+          # 下的那两份则留在原地；先清掉，让 create_shrinkwraps 从 package-lock 重新生成。
+          rm -f npm-shrinkwrap.json \
+            lib/vscode/remote/npm-shrinkwrap.json \
+            lib/vscode/extensions/npm-shrinkwrap.json
+          KEEP_MODULES=1 RELEASE_PATH=release-full npm run release
+
+      - name: Pack full runtime
+        run: |
+          test -x release-full/bin/code-server
+          test -f release-full/lib/node
+          test -d release-full/node_modules
+          tar -C release-full -czf "code-tomoshibi-$VERSION-linux-amd64.tar.gz" .
+          ls -la code-tomoshibi-*.tar.gz
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: codet-runtime-full
+          path: code-tomoshibi-*-linux-amd64.tar.gz
+          retention-days: 7
+          compression-level: 0
