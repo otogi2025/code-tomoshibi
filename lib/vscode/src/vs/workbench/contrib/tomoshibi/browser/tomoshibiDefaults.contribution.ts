@@ -68,5 +68,58 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis
 		// Ask anyway: the confirmation is the only thing left between a link in someone else's
 		// repository and the browser.
 		'workbench.trustedDomains.promptInTrustedWorkspace': true,
+
+		// The home directory this thing opens on is also where every agent keeps its state, and
+		// those trees churn constantly. Watching them costs a file watcher process the whole day;
+		// searching them makes one global search on an iPad walk several hundred thousand files.
+		// Object settings merge with the schema default, so these are additions, not a replacement.
+		'files.watcherExclude': {
+			'**/.git/objects/**': true,
+			'**/.git/subtree-cache/**': true,
+			'**/node_modules/**': true,
+			'**/.cache/**': true,
+			'**/.local/**': true,
+			'**/.npm/**': true,
+			'**/.cargo/**': true,
+			'**/.rustup/**': true,
+			'**/.nvm/**': true,
+			'**/.codex/**': true,
+			'**/.gemini/**': true,
+			'**/.cursor/**': true,
+			'**/.claude*/projects/**': true,
+			'**/.claude*/jobs/**': true,
+			'**/.claude*/shell-snapshots/**': true,
+			'**/.claude*/todos/**': true,
+		},
+		'search.exclude': {
+			'**/.git/objects/**': true,
+			'**/.git/subtree-cache/**': true,
+			'**/node_modules/**': true,
+			'**/.cache/**': true,
+			'**/.local/**': true,
+			'**/.npm/**': true,
+			'**/.cargo/**': true,
+			'**/.rustup/**': true,
+			'**/.nvm/**': true,
+			'**/.codex/**': true,
+			'**/.gemini/**': true,
+			'**/.cursor/**': true,
+			'**/.claude*/projects/**': true,
+			'**/.claude*/jobs/**': true,
+			'**/.claude*/shell-snapshots/**': true,
+			'**/.claude*/todos/**': true,
+			'**/.git/**': true,
+		},
+
+		// Symlink farms (node_modules, the worktrees) make search walk the same tree twice.
+		'search.followSymlinks': false,
+
+		// A column of pixels nobody taps on a touch screen, repainted on every keystroke.
+		'editor.minimap.enabled': false,
+
+		// Both talk to Microsoft online services. There is no experiment programme for a
+		// single-user fork, and the settings search box is a text box, not a chat.
+		'workbench.enableExperiments': false,
+		'workbench.settings.enableNaturalLanguageSearch': false,
 	}
 }]);
