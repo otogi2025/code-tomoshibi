@@ -285,7 +285,18 @@ class StatusbarPart extends Part implements IStatusbarEntryContainer {
 		// (the title bar bell needs `workbench.notifications.position` to be
 		// `top-right`), so it must not be filtered out. It renders as a single
 		// codicon that turns into `bell-dot` once there is something to read.
-		return id.startsWith('status.tomoshibi.') || id.startsWith('status.scm.') || id === 'status.notifications';
+		//
+		// `status.progress`（progressService.ts）是 ProgressLocation.Window 的唯一 UI 载体，
+		// 本仓里带 command 的只有构建任务，砍掉它就等于长任务连「正在生成…」都不显示。
+		// `status.message`（notificationsStatus.ts）承载和弦按键等待提示、扩展主机自动重启告知、
+		// 符号导航计数 —— 都是没别的地方可说的话，一并放行。
+		//
+		// 反过来 `status.scm.` 这个前缀曾经在这里，但 scm 子系统已经整个删掉，全仓零引用，
+		// 是个永远为 false 的死分支，已经去掉。
+		return id.startsWith('status.tomoshibi.')
+			|| id === 'status.notifications'
+			|| id === 'status.progress'
+			|| id === 'status.message';
 	}
 
 	private doAddPendingEntry(entry: IStatusbarEntry, id: string, alignment: StatusbarAlignment, priority: IStatusbarEntryPriority): IStatusbarEntryAccessor {
