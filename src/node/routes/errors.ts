@@ -29,6 +29,14 @@ export const errorHasCode = (error: any): error is ErrorWithCode => {
 const notFoundCodes = [404, "ENOENT", "EISDIR"]
 
 /**
+ * What a 5xx tells the client.  The real message can name internal paths, the
+ * configuration, or whatever a dependency decided to put in an exception, none
+ * of which the client is owed; it goes to the log instead.  4xx messages are
+ * about the request itself and are still returned as-is.
+ */
+const SERVER_ERROR_MESSAGE = "Internal server error"
+
+/**
  * Final HTTP error handler.
  *
  * Note: This handler intentionally does not call `next()` even though it
@@ -42,6 +50,12 @@ export const errorHandler: express.ErrorRequestHandler = async (err, req, res, n
   } else if (errorHasCode(err) && notFoundCodes.includes(err.code)) {
     statusCode = HttpCode.NotFound
   }
+
+  const isServerError = statusCode >= HttpCode.ServerError
+  if (isServerError) {
+    logger.error(`${err.message} ${err.stack}`)
+  }
+  const message = isServerError ? SERVER_ERROR_MESSAGE : err.message
 
   res.status(statusCode)
 
@@ -57,13 +71,15 @@ export const errorHandler: express.ErrorRequestHandler = async (err, req, res, n
       replaceTemplates(req, content)
         .replace(/{{ERROR_TITLE}}/g, statusCode.toString())
         .replace(/{{ERROR_HEADER}}/g, statusCode.toString())
-        .replace(/{{ERROR_BODY}}/g, escapeHtml(err.message))
+        .replace(/{{ERROR_BODY}}/g, escapeHtml(message))
         .replace(/{{APP_NAME}}/g, req.args["app-name"]),
     )
   } else {
     res.json({
-      error: err.message,
-      ...(err.details || {}),
+      error: message,
+      // `details` is filled in by the code that raised the error, so it is only
+      // safe to pass along for the 4xx errors we still describe.
+      ...(isServerError ? {} : err.details || {}),
     })
   }
 }
@@ -81,10 +97,12 @@ export const wsErrorHandler: express.ErrorRequestHandler = async (err, req, res,
   } else if (errorHasCode(err) && notFoundCodes.includes(err.code)) {
     statusCode = HttpCode.NotFound
   }
-  if (statusCode >= 500) {
+  const isServerError = statusCode >= HttpCode.ServerError
+  if (isServerError) {
     logger.error(`${err.message} ${err.stack}`)
   } else {
     logger.debug(`${err.message} ${err.stack}`)
   }
-  ;(req as WebsocketRequest).ws.end(`HTTP/1.1 ${statusCode} ${err.message}\r\n\r\n`)
+  const message = isServerError ? SERVER_ERROR_MESSAGE : err.message
+  ;(req as WebsocketRequest).ws.end(`HTTP/1.1 ${statusCode} ${message}\r\n\r\n`)
 }

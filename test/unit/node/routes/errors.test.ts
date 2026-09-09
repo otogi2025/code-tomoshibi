@@ -1,8 +1,18 @@
+import { logger } from "@coder/logger"
 import express from "express"
 import { UserProvidedArgs, setDefaults } from "../../../../src/node/cli"
 import { errorHandler } from "../../../../src/node/routes/errors"
+import { mockLogger } from "../../../utils/helpers"
 
 describe("error page is rendered for text/html requests", () => {
+  beforeAll(() => {
+    mockLogger()
+  })
+
+  afterAll(() => {
+    jest.restoreAllMocks()
+  })
+
   it("escapes any html in the error messages", async () => {
     const next = jest.fn()
     const err = {
@@ -52,6 +62,41 @@ describe("error page is rendered for text/html requests", () => {
 
     await errorHandler(err, req, res, jest.fn())
     expect(res.send).toHaveBeenCalledWith(expect.stringContaining("<title>500 - code-server</title>"))
+  })
+
+  it("does not put the message of a 5xx in the page", async () => {
+    const err = {
+      statusCode: 500,
+      message: "ENOENT: no such file or directory, open '/home/coder/.config/code-server/config.yaml'",
+    }
+    const req = await createRequest()
+    const res = {
+      status: jest.fn().mockReturnValue(this),
+      send: jest.fn().mockReturnValue(this),
+      set: jest.fn().mockReturnValue(this),
+    } as unknown as express.Response
+
+    await errorHandler(err, req, res, jest.fn())
+    expect(res.send).toHaveBeenCalledWith(expect.not.stringContaining("/home/coder/.config"))
+    expect(res.send).toHaveBeenCalledWith(expect.stringContaining("Internal server error"))
+    // It is still visible to whoever runs the server.
+    expect(logger.error).toHaveBeenCalledWith(expect.stringContaining("/home/coder/.config"))
+  })
+
+  it("still describes a 4xx to the client", async () => {
+    const err = {
+      statusCode: 400,
+      message: "Invalid port",
+    }
+    const req = await createRequest()
+    const res = {
+      status: jest.fn().mockReturnValue(this),
+      send: jest.fn().mockReturnValue(this),
+      set: jest.fn().mockReturnValue(this),
+    } as unknown as express.Response
+
+    await errorHandler(err, req, res, jest.fn())
+    expect(res.send).toHaveBeenCalledWith(expect.stringContaining("Invalid port"))
   })
 })
 
