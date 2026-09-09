@@ -176,6 +176,8 @@ export class SearchView extends ViewPane {
 	// 300ms 与 search.searchOnTypeDebouncePeriod 的默认值对齐，少起几次整仓遍历。
 	private readonly fileNameSearchDelayer = this._register(new Delayer<void>(300));
 	private readonly fileNameSearchCts = this._register(new MutableDisposable<CancellationTokenSource>());
+	// 结果按钮的点击监听器；每轮 replaceChildren() 前 clear() 一次，避免旧按钮的监听器悬空。
+	private readonly fileNameSearchResultDisposables = this._register(new DisposableStore());
 	private searchWidget!: SearchWidget;
 	private size!: dom.Dimension;
 	private queryDetails!: HTMLElement;
@@ -510,6 +512,7 @@ export class SearchView extends ViewPane {
 		this.fileNameSearchCts.value = cts;
 		const pattern = rawPattern.trim();
 		this.hoverService.hideHover();
+		this.fileNameSearchResultDisposables.clear();
 		this.fileNameSearchResults.replaceChildren();
 
 		if (!pattern) {
@@ -546,6 +549,7 @@ export class SearchView extends ViewPane {
 			}
 
 			this.hoverService.hideHover();
+			this.fileNameSearchResultDisposables.clear();
 			this.fileNameSearchResults.replaceChildren();
 			if (!complete.results.length) {
 				const empty = dom.append(this.fileNameSearchResults, $('.tomoshibi-file-name-message'));
@@ -554,8 +558,12 @@ export class SearchView extends ViewPane {
 				return;
 			}
 
-			// 结果已由搜索引擎按 fuzzy score 排序（sortByScore: true），这里不再二次排序
-			for (const match of complete.results) {
+			// 结果已由搜索引擎按 fuzzy score 排序（sortByScore: true），这里不再二次排序；
+			// 引擎全量打分（maxResults: 512）是对的，但一次画几百个 DOM 节点没意义，只画前
+			// maxRenderedFileNameResults 条，剩下的用一行提示告诉用户还有多少条。
+			const maxRenderedFileNameResults = 60;
+			const renderedResults = complete.results.slice(0, maxRenderedFileNameResults);
+			for (const match of renderedResults) {
 				const resource = match.resource;
 				const workspaceFolder = this.contextService.getWorkspaceFolder(resource);
 				const relativePath = workspaceFolder && resource.path.startsWith(workspaceFolder.uri.path)
@@ -568,14 +576,20 @@ export class SearchView extends ViewPane {
 				button.title = relativePath;
 				dom.append(button, $('span.tomoshibi-file-name', undefined, fileName));
 				dom.append(button, $('span.tomoshibi-file-path', undefined, relativePath));
-				button.addEventListener('click', () => {
+				this.fileNameSearchResultDisposables.add(dom.addDisposableListener(button, dom.EventType.CLICK, () => {
 					void this.editorService.openEditor({ resource, options: { pinned: true } });
-				});
+				}));
+			}
+			const remaining = complete.results.length - renderedResults.length;
+			if (remaining > 0) {
+				const more = dom.append(this.fileNameSearchResults, $('.tomoshibi-file-name-result.tomoshibi-file-name-more'));
+				more.textContent = nls.localize('fileNameSearch.moreResults', "还有 {0} 条，输入更多字符缩小范围", remaining);
 			}
 		} catch (error) {
 			if (generation !== this.fileNameSearchGeneration) {
 				return;
 			}
+			this.fileNameSearchResultDisposables.clear();
 			this.fileNameSearchResults.replaceChildren();
 			const message = dom.append(this.fileNameSearchResults, $('.tomoshibi-file-name-message'));
 			message.textContent = '文件搜索失败，请重试';
