@@ -68,6 +68,14 @@ interface ILongPress {
 	anchorEnd: number;
 }
 
+/** What the loupe is currently showing, so a move that changes nothing can skip the rebuild. */
+interface ILoupeState {
+	readonly row: number;
+	readonly col: number;
+	readonly selectionStart: number;
+	readonly selectionEnd: number;
+}
+
 interface IHandleDrag {
 	readonly pointerId: number;
 	readonly which: 'start' | 'end';
@@ -104,6 +112,7 @@ class TomoshibiTouchSelectContribution extends Disposable implements ITerminalCo
 	private _endHandle: HTMLElement | undefined;
 	private _loupe: HTMLElement | undefined;
 	private _loupeContent: HTMLElement | undefined;
+	private _loupeState: ILoupeState | undefined;
 	private _menu: HTMLElement | undefined;
 
 	/** True while the current selection was made by touch, gates all of the UI. */
@@ -708,47 +717,98 @@ class TomoshibiTouchSelectContribution extends Disposable implements ITerminalCo
 			loupe.appendChild(content);
 			this._loupe = loupe;
 			this._loupeContent = content;
+			this._loupeState = undefined;
 		}
 		if (loupe.parentElement !== wrapper) {
 			wrapper.appendChild(loupe);
 		}
 
-		// The webgl renderer draws to a canvas that cannot be read back, so the
-		// loupe re-renders the surrounding cells as text instead of magnifying pixels.
-		dom.clearNode(content);
-		const cols = Math.max(1, raw.cols);
-		const line = raw.buffer.active.getLine(cell.row);
-		const selection = this._selectionOffsets();
-		const from = Math.max(0, cell.col - Constants.LoupeRadius);
-		const to = Math.min(cols, cell.col + Constants.LoupeRadius + 1);
-		for (let x = from; x < to; x++) {
-			const bufferCell = line?.getCell(x);
-			if (bufferCell && bufferCell.getWidth() === 0) {
-				continue;
-			}
-			const chars = bufferCell?.getChars() ?? '';
-			const span = targetDocument.createElement('span');
-			span.textContent = chars === '' ? ' ' : chars;
-			const offset = cell.row * cols + x;
-			if (x === cell.col) {
-				span.classList.add('is-target');
-			} else if (selection && offset >= selection.start && offset < selection.end) {
-				span.classList.add('is-selected');
-			}
-			content.appendChild(span);
-		}
-		loupe.style.fontSize = `${Math.round((raw.options.fontSize ?? 12) * LoupeFontScale)}px`;
-		loupe.style.fontFamily = raw.options.fontFamily ?? '';
-
+		// This runs on every pointermove of a drag, so the one geometry read is taken before
+		// anything is written: a `getBoundingClientRect` after the cell rebuild below would
+		// have to flush the layout the rebuild just dirtied.
 		const wrapperRect = wrapper.getBoundingClientRect();
+
+		const selection = this._selectionOffsets();
+		const state: ILoupeState = {
+			row: cell.row,
+			col: cell.col,
+			selectionStart: selection?.start ?? -1,
+			selectionEnd: selection?.end ?? -1
+		};
+		const shown = this._loupeState;
+		if (!shown || shown.row !== state.row || shown.col !== state.col || shown.selectionStart !== state.selectionStart || shown.selectionEnd !== state.selectionEnd) {
+			this._loupeState = state;
+			this._renderLoupeCells(raw, content, cell, selection);
+		}
+
+		// The two font properties only move when the terminal's own font does, which is never
+		// during a drag; writing them unconditionally would dirty the layout on every frame.
+		const fontSize = `${Math.round((raw.options.fontSize ?? 12) * LoupeFontScale)}px`;
+		const fontFamily = raw.options.fontFamily ?? '';
+		if (loupe.style.fontSize !== fontSize) {
+			loupe.style.fontSize = fontSize;
+		}
+		if (loupe.style.fontFamily !== fontFamily) {
+			loupe.style.fontFamily = fontFamily;
+		}
+
 		const left = clientX - wrapperRect.left - Constants.LoupeWidth / 2;
 		const top = clientY - wrapperRect.top - Constants.LoupeOffsetY;
 		loupe.style.left = `${this._clamp(left, wrapperRect.width, Constants.LoupeWidth)}px`;
 		loupe.style.top = `${this._clamp(top, wrapperRect.height, Constants.LoupeHeight)}px`;
 	}
 
+	/**
+	 * The webgl renderer draws to a canvas that cannot be read back, so the loupe re-renders the
+	 * cells around the finger as text instead of magnifying pixels. The spans are reused rather
+	 * than cleared and rebuilt: fifteen fresh elements per frame was the bulk of the drag loop's
+	 * cost, and only their text and their class ever change.
+	 */
+	private _renderLoupeCells(raw: RawXtermTerminal, content: HTMLElement, cell: ICellPosition, selection: ISelectionOffsets | undefined): void {
+		const cols = Math.max(1, raw.cols);
+		const line = raw.buffer.active.getLine(cell.row);
+		const from = Math.max(0, cell.col - Constants.LoupeRadius);
+		const to = Math.min(cols, cell.col + Constants.LoupeRadius + 1);
+		let used = 0;
+		for (let x = from; x < to; x++) {
+			const bufferCell = line?.getCell(x);
+			if (bufferCell && bufferCell.getWidth() === 0) {
+				continue;
+			}
+			const chars = bufferCell?.getChars() ?? '';
+			const span = this._loupeSpan(content, used++);
+			const text = chars === '' ? ' ' : chars;
+			if (span.textContent !== text) {
+				span.textContent = text;
+			}
+			const offset = cell.row * cols + x;
+			const className = x === cell.col
+				? 'is-target'
+				: (selection && offset >= selection.start && offset < selection.end ? 'is-selected' : '');
+			if (span.className !== className) {
+				span.className = className;
+			}
+		}
+		while (content.childElementCount > used) {
+			content.lastElementChild?.remove();
+		}
+	}
+
+	private _loupeSpan(content: HTMLElement, index: number): HTMLElement {
+		const existing = content.children.item(index);
+		if (dom.isHTMLElement(existing)) {
+			return existing;
+		}
+		const span = content.ownerDocument.createElement('span');
+		content.appendChild(span);
+		return span;
+	}
+
 	private _hideLoupe(): void {
 		this._loupe?.remove();
+		// The spans stay for the next gesture, what they show does not: the buffer will have
+		// moved on by then, so the next `_showLoupe` has to rebuild rather than trust them.
+		this._loupeState = undefined;
 	}
 
 	private _clamp(value: number, available: number, size: number): number {
@@ -944,6 +1004,7 @@ class TomoshibiTouchSelectContribution extends Disposable implements ITerminalCo
 		this._endHandle = undefined;
 		this._loupe = undefined;
 		this._loupeContent = undefined;
+		this._loupeState = undefined;
 	}
 
 	// #endregion
