@@ -51,28 +51,18 @@ export const enum AccessibilityVerbositySettingId {
 	Terminal = 'accessibility.verbosity.terminal',
 	DiffEditor = 'accessibility.verbosity.diffEditor',
 	MergeEditor = 'accessibility.verbosity.mergeEditor',
-	Chat = 'accessibility.verbosity.panelChat',
-	InlineChat = 'accessibility.verbosity.inlineChat',
 	TerminalInlineChat = 'accessibility.verbosity.terminalChat',
-	TerminalChatOutput = 'accessibility.verbosity.terminalChatOutput',
 	InlineCompletions = 'accessibility.verbosity.inlineCompletions',
 	KeybindingsEditor = 'accessibility.verbosity.keybindingsEditor',
 	Editor = 'accessibility.verbosity.editor',
 	Hover = 'accessibility.verbosity.hover',
 	Notification = 'accessibility.verbosity.notification',
 	EmptyEditorHint = 'accessibility.verbosity.emptyEditorHint',
-	ReplEditor = 'accessibility.verbosity.replEditor',
 	Comments = 'accessibility.verbosity.comments',
 	DiffEditorActive = 'accessibility.verbosity.diffEditorActive',
-	Debug = 'accessibility.verbosity.debug',
 	Walkthrough = 'accessibility.verbosity.walkthrough',
 	Find = 'accessibility.verbosity.find',
-	SessionsChat = 'accessibility.verbosity.sessionsChat',
-	SessionsChanges = 'accessibility.verbosity.sessionsChanges',
-	ChatQuestionCarousel = 'accessibility.verbosity.chatQuestionCarousel',
-	Survey = 'accessibility.verbosity.survey',
-	Automations = 'accessibility.verbosity.automations',
-	BrowserElementCommenting = 'accessibility.verbosity.browserElementCommenting'
+	Survey = 'accessibility.verbosity.survey'
 }
 
 const baseVerbosityProperty: IConfigurationPropertySchema = {
@@ -141,18 +131,6 @@ const configuration: IConfigurationNode = {
 			description: localize('verbosity.diffEditor.description', '提供有关如何在聚焦差异编辑器时在其中导航更改的信息。'),
 			...baseVerbosityProperty
 		},
-		[AccessibilityVerbositySettingId.Chat]: {
-			description: localize('verbosity.chat.description', '提供有关如何在聚焦聊天输入时访问聊天帮助菜单的信息。'),
-			...baseVerbosityProperty
-		},
-		[AccessibilityVerbositySettingId.InlineChat]: {
-			description: localize('verbosity.interactiveEditor.description', '提供有关如何访问内联编辑器聊天辅助功能帮助菜单的信息，并提供如何在聚焦输入时使用该功能的提示。'),
-			...baseVerbosityProperty
-		},
-		[AccessibilityVerbositySettingId.TerminalChatOutput]: {
-			description: localize('verbosity.terminalChatOutput.description', '介绍如何在辅助视图中打开聊天终端输出。'),
-			...baseVerbosityProperty
-		},
 		[AccessibilityVerbositySettingId.InlineCompletions]: {
 			description: localize('verbosity.inlineCompletions.description', '提供有关如何访问内联完成悬停和辅助视图的信息。'),
 			...baseVerbosityProperty
@@ -173,24 +151,12 @@ const configuration: IConfigurationNode = {
 			description: localize('verbosity.emptyEditorHint', '在空文本编辑器中提供有关相关操作的信息。'),
 			...baseVerbosityProperty
 		},
-		[AccessibilityVerbositySettingId.ReplEditor]: {
-			description: localize('verbosity.replEditor.description', '提供有关在 REPL 编辑器处于焦点状态下如何访问 REPL 编辑器辅助功能帮助菜单的信息。'),
-			...baseVerbosityProperty
-		},
 		[AccessibilityVerbositySettingId.Comments]: {
 			description: localize('verbosity.comments', '提供有关可在注释小组件或包含注释的文件中执行的操作的信息。'),
 			...baseVerbosityProperty
 		},
 		[AccessibilityVerbositySettingId.DiffEditorActive]: {
 			description: localize('verbosity.diffEditorActive', '指示差异编辑器何时成为活动编辑器。'),
-			...baseVerbosityProperty
-		},
-		[AccessibilityVerbositySettingId.Debug]: {
-			description: localize('verbosity.debug', '提供有关在聚焦调试控制台或运行和调试 viewlet 时如何访问调试控制台辅助功能帮助对话框的信息。请注意，需要重新加载窗口才能使其生效。'),
-			...baseVerbosityProperty
-		},
-		[AccessibilityVerbositySettingId.Walkthrough]: {
-			description: localize('verbosity.walkthrough', '提供有关如何在辅助视图中打开演练的信息。'),
 			...baseVerbosityProperty
 		},
 		[AccessibilityWorkbenchSettingId.AccessibleViewCloseOnKeyPress]: {
@@ -202,28 +168,8 @@ const configuration: IConfigurationNode = {
 			description: localize('verbosity.find', '提供有关在以查找输入为焦点时如何访问查找辅助功能帮助菜单的信息。'),
 			...baseVerbosityProperty
 		},
-		[AccessibilityVerbositySettingId.SessionsChat]: {
-			description: localize('verbosity.sessionsChat', '提供有关在聊天输入框聚焦时如何访问智能体窗口辅助功能帮助菜单的信息。'),
-			...baseVerbosityProperty
-		},
-		[AccessibilityVerbositySettingId.SessionsChanges]: {
-			description: localize('verbosity.sessionsChanges', '提供信息说明在焦点位于“更改”视图时如何访问“更改”视图辅助功能帮助菜单。'),
-			...baseVerbosityProperty
-		},
-		[AccessibilityVerbositySettingId.ChatQuestionCarousel]: {
-			description: localize('verbosity.chatQuestionCarousel', '提供有关如何导航和与聊天问题轮播交互的信息，包括在适用时如何聚焦终端。'),
-			...baseVerbosityProperty
-		},
 		[AccessibilityVerbositySettingId.Survey]: {
 			description: localize('verbosity.survey', '提供有关如何导航问卷编辑器窗格并与其交互的信息。'),
-			...baseVerbosityProperty
-		},
-		[AccessibilityVerbositySettingId.Automations]: {
-			description: localize('verbosity.automations', 'Provide information about how to use Automations management views, including keyboard navigation and how to inspect scheduled runs.'),
-			...baseVerbosityProperty
-		},
-		[AccessibilityVerbositySettingId.BrowserElementCommenting]: {
-			description: localize('verbosity.browserElementCommenting', 'Provide information about how to access element commenting accessibility help in the Integrated Browser.'),
 			...baseVerbosityProperty
 		},
 		'accessibility.signalOptions.volume': {
