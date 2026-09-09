@@ -60,15 +60,15 @@ main() {
   major_node_version=$(echo "$npm_config_user_agent" | sed -n 's/.*node\/v\([^.]*\).*/\1/p')
 
   if [ -n "${FORCE_NODE_VERSION:-}" ]; then
-    echo "WARNING: Overriding required Node.js version to v$FORCE_NODE_VERSION"
+    echo "WARNING: Overriding required Node.js version to v${FORCE_NODE_VERSION:-}"
     echo "This could lead to broken functionality, and is unsupported."
     echo "USE AT YOUR OWN RISK!"
   fi
 
   if [ "$major_node_version" -ne "${FORCE_NODE_VERSION:-24}" ]; then
     echo "ERROR: Code-Tomoshibi currently requires node v24."
-    if [ -n "$FORCE_NODE_VERSION" ]; then
-      echo "However, you have overrided the version check to use v$FORCE_NODE_VERSION."
+    if [ -n "${FORCE_NODE_VERSION:-}" ]; then
+      echo "However, you have overrided the version check to use v${FORCE_NODE_VERSION:-}."
     fi
     echo "We have detected that you are on node v$major_node_version"
     echo "You can override this version check by setting \$FORCE_NODE_VERSION,"
@@ -98,7 +98,7 @@ main() {
   fi
 
   if [ -n "${FORCE_NODE_VERSION:-}" ]; then
-    echo "WARNING: The required Node.js version was overriden to v$FORCE_NODE_VERSION"
+    echo "WARNING: The required Node.js version was overriden to v${FORCE_NODE_VERSION:-}"
     echo "This could lead to broken functionality, and is unsupported."
     echo "USE AT YOUR OWN RISK!"
   fi
