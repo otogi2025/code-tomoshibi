@@ -353,6 +353,9 @@ class EditorStatus extends Disposable {
 	private readonly languageElement = this._register(new MutableDisposable<IStatusbarEntryAccessor>());
 	private readonly metadataElement = this._register(new MutableDisposable<IStatusbarEntryAccessor>());
 
+	private readonly tabFocusMode: TabFocusMode;
+	private readonly inputMode: StatusInputMode;
+
 	private readonly state = new State();
 	private toRender: StateChange | undefined = undefined;
 
@@ -371,35 +374,25 @@ class EditorStatus extends Disposable {
 	) {
 		super();
 
-		// Code-Tomoshibi：这个类产出的九个条目全是 `status.editor.*`，一个都过不了状态栏的
-		// 白名单（statusbarPart.ts 的 isTomoshibiStatusbarEntry），addEntry 拿回来的永远是空壳。
-		// 但计算链一点不省：光标每动一次都要 getCharacterCountInRange 把选区完整数一遍、
-		// 再排一帧 animation frame 去更新九个根本不存在的 DOM 条目，全在用户输入的关键路径上。
-		// 既然一个都渲染不出来，就别挂那些编辑器监听。语言 / 换行符 / 编码三个 Action2 是独立
-		// 注册的，命令面板那条路不受影响。
-		if (!this.statusbarService.isEntryVisible('status.editor.selection')) {
-			return;
-		}
-
-		const tabFocusMode = this._register(instantiationService.createInstance(TabFocusMode));
-		const inputMode = this._register(instantiationService.createInstance(StatusInputMode));
+		this.tabFocusMode = this._register(instantiationService.createInstance(TabFocusMode));
+		this.inputMode = this._register(instantiationService.createInstance(StatusInputMode));
 
 		this.registerCommands();
-		this.registerListeners(tabFocusMode, inputMode);
+		this.registerListeners();
 	}
 
-	private registerListeners(tabFocusMode: TabFocusMode, inputMode: StatusInputMode): void {
+	private registerListeners(): void {
 		this._register(this.editorService.onDidActiveEditorChange(() => this.updateStatusBar()));
 		this._register(this.textFileService.untitled.onDidChangeEncoding(model => this.onResourceEncodingChange(model.resource)));
 		this._register(this.textFileService.files.onDidChangeEncoding(model => this.onResourceEncodingChange((model.resource))));
-		this._register(Event.runAndSubscribe(tabFocusMode.onDidChange, (tabFocusMode) => {
+		this._register(Event.runAndSubscribe(this.tabFocusMode.onDidChange, (tabFocusMode) => {
 			if (tabFocusMode !== undefined) {
 				this.onTabFocusModeChange(tabFocusMode);
 			} else {
 				this.onTabFocusModeChange(this.configurationService.getValue('editor.tabFocusMode'));
 			}
 		}));
-		this._register(Event.runAndSubscribe(inputMode.onDidChange, (inputMode) => this.onInputModeChange(inputMode ?? 'insert')));
+		this._register(Event.runAndSubscribe(this.inputMode.onDidChange, (inputMode) => this.onInputModeChange(inputMode ?? 'insert')));
 	}
 
 	private registerCommands(): void {

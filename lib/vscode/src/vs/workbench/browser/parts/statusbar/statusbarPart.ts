@@ -421,13 +421,6 @@ class StatusbarPart extends Part implements IStatusbarEntryContainer {
 	}
 
 	isEntryVisible(id: string): boolean {
-		// Entries outside the Code-Tomoshibi whitelist never reach the view model (addEntry
-		// hands back a dummy accessor), so they are not visible and never will be. Answering
-		// truthfully here lets contributors ask before doing the work of computing them.
-		if (!this.isTomoshibiStatusbarEntry(id)) {
-			return false;
-		}
-
 		return !this.viewModel.isHidden(id);
 	}
 
