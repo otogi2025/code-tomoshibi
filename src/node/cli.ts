@@ -726,12 +726,16 @@ export async function readConfigFile(configPath?: string): Promise<ConfigArgs> {
     }
   }
 
-  await fs.mkdir(path.dirname(configPath), { recursive: true })
+  // The file we are about to write holds a generated password, so keep both it
+  // and the directory to ourselves.  (mode only applies to what we create; an
+  // existing directory keeps its permissions.)
+  await fs.mkdir(path.dirname(configPath), { recursive: true, mode: 0o700 })
 
   try {
     const generatedPassword = await generatePassword()
     await fs.writeFile(configPath, defaultConfigFile(generatedPassword), {
       flag: "wx", // wx means to fail if the path exists.
+      mode: 0o600,
     })
     logger.info(`Wrote default config file to ${configPath}`)
   } catch (error: any) {
