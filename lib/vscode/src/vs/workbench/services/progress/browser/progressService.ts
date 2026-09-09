@@ -109,7 +109,9 @@ export class ProgressService extends Disposable implements IProgressService {
 				// progress as a silent notification (status bar) instead of failing.
 				return this.withNotificationProgress({ delay: 150, ...options, priority: NotificationPriority.SILENT, location: ProgressLocation.Notification }, task, onDidCancel);
 			case ProgressLocation.Extensions:
-				return this.withPaneCompositeProgress('workbench.view.extensions', ViewContainerLocation.Sidebar, task, { ...options, location });
+				// The extensions view container has been removed, so show the
+				// progress as a silent notification (status bar) instead of failing.
+				return this.withNotificationProgress({ delay: 150, ...options, priority: NotificationPriority.SILENT, location: ProgressLocation.Notification }, task, onDidCancel);
 			case ProgressLocation.Dialog:
 				return this.withDialogProgress(options, task, onDidCancel);
 			default:
