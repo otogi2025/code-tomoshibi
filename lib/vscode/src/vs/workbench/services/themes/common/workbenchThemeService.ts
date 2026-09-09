@@ -290,7 +290,6 @@ export const COLOR_THEME_LIGHT_INITIAL_COLORS = {
 	'progressBar.background': '#005FB8',
 	'quickInput.background': '#F8F8F8',
 	'quickInput.foreground': '#3B3B3B',
-	'searchEditor.textInputBorder': '#CECECE',
 	'settings.dropdownBackground': '#FFFFFF',
 	'settings.dropdownBorder': '#CECECE',
 	'settings.headerForeground': '#1F1F1F',

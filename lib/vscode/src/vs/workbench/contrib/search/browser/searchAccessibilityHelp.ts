@@ -139,7 +139,6 @@ class SearchAccessibilityHelpProvider extends Disposable implements IAccessibleV
 		content.push(localize('search.settingCollapse', "- `search.collapseResults`: 展开或折叠结果。"));
 		content.push(localize('search.settingLineNumbers', "- `search.showLineNumbers`: 显示结果的行号。"));
 		content.push(localize('search.settingSortOrder', "- `search.sortOrder`: 按文件名、类型、修改时间或匹配计数对结果进行排序。"));
-		content.push(localize('search.settingContextLines', "- `search.searchEditor.defaultNumberOfContextLines`: 匹配项周围显示的上下文行数。"));
 		content.push(localize('search.settingViewMode', "- `search.defaultViewMode`: 将结果显示为列表或树。"));
 		content.push(localize('search.settingActions', "- `search.actionsPosition`: 操作按钮的位置。"));
 

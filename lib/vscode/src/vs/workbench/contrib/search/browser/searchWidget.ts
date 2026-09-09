@@ -11,7 +11,7 @@ import { ActionBar } from '../../../../base/browser/ui/actionbar/actionbar.js';
 import { Button, IButtonOptions } from '../../../../base/browser/ui/button/button.js';
 import { IFindInputOptions } from '../../../../base/browser/ui/findinput/findInput.js';
 import { ReplaceInput } from '../../../../base/browser/ui/findinput/replaceInput.js';
-import { IInputBoxStyles, IMessage, InputBox } from '../../../../base/browser/ui/inputbox/inputBox.js';
+import { IInputBoxStyles, IMessage } from '../../../../base/browser/ui/inputbox/inputBox.js';
 import { Widget } from '../../../../base/browser/ui/widget.js';
 import { Action } from '../../../../base/common/actions.js';
 import { Delayer, disposableTimeout } from '../../../../base/common/async.js';
@@ -33,10 +33,9 @@ import { IAccessibilityService } from '../../../../platform/accessibility/common
 import { isMacintosh } from '../../../../base/common/platform.js';
 import { IToggleStyles, Toggle } from '../../../../base/browser/ui/toggle/toggle.js';
 import { IViewsService } from '../../../services/views/common/viewsService.js';
-import { searchReplaceAllIcon, searchHideReplaceIcon, searchShowContextIcon, searchShowReplaceIcon, searchTerminalIcon } from './searchIcons.js';
-import { ToggleSearchEditorContextLinesCommandId } from '../../searchEditor/browser/constants.js';
+import { searchReplaceAllIcon, searchHideReplaceIcon, searchShowReplaceIcon, searchTerminalIcon } from './searchIcons.js';
 import { showHistoryKeybindingHint } from '../../../../platform/history/browser/historyWidgetKeybindingHint.js';
-import { defaultInputBoxStyles, defaultToggleStyles } from '../../../../platform/theme/browser/defaultStyles.js';
+import { defaultToggleStyles } from '../../../../platform/theme/browser/defaultStyles.js';
 import { getDefaultHoverDelegate } from '../../../../base/browser/ui/hover/hoverDelegateFactory.js';
 import { IDisposable, MutableDisposable } from '../../../../base/common/lifecycle.js';
 
@@ -52,8 +51,6 @@ export interface ISearchWidgetOptions {
 	searchHistory?: string[];
 	replaceHistory?: string[];
 	preserveCase?: boolean;
-	_hideReplaceToggle?: boolean; // TODO: Search Editor's replace experience
-	showContextToggle?: boolean;
 	showTerminalToggle?: boolean;
 	terminalMode?: boolean;
 	inputBoxStyles: IInputBoxStyles;
@@ -161,9 +158,6 @@ export class SearchWidget extends Widget {
 	private _onDidHeightChange = this._register(new Emitter<void>());
 	readonly onDidHeightChange: Event<void> = this._onDidHeightChange.event;
 
-	private readonly _onDidToggleContext = this._register(new Emitter<void>());
-	readonly onDidToggleContext: Event<void> = this._onDidToggleContext.event;
-
 	/** Fires when the "find in terminal" toggle flips. The payload is the new checked state. */
 	private readonly _onDidToggleTerminalMode = this._register(new Emitter<boolean>());
 	readonly onDidToggleTerminalMode: Event<boolean> = this._onDidToggleTerminalMode.event;
@@ -176,9 +170,7 @@ export class SearchWidget extends Widget {
 	private readonly _onTerminalFindNavigate = this._register(new Emitter<boolean>());
 	readonly onTerminalFindNavigate: Event<boolean> = this._onTerminalFindNavigate.event;
 
-	private showContextToggle!: Toggle;
 	private terminalModeToggle!: Toggle;
-	public contextLinesInput!: InputBox;
 
 	private readonly _toggleReplaceButtonListener: MutableDisposable<IDisposable>;
 
@@ -364,9 +356,7 @@ export class SearchWidget extends Widget {
 		this.domNode = dom.append(container, dom.$('.search-widget'));
 		this.domNode.style.position = 'relative';
 
-		if (!options._hideReplaceToggle) {
-			this.renderToggleReplaceButton(this.domNode);
-		}
+		this.renderToggleReplaceButton(this.domNode);
 
 		this.renderSearchInput(this.domNode, options);
 		this.renderReplaceInput(this.domNode, options);
@@ -461,28 +451,6 @@ export class SearchWidget extends Widget {
 		this._register(this.searchInputFocusTracker.onDidBlur(() => this.searchInputBoxFocused.set(false)));
 
 
-		this.showContextToggle = new Toggle({
-			isChecked: false,
-			title: this.keybindingService.appendKeybinding(nls.localize('showContext', "切换上下文行"), ToggleSearchEditorContextLinesCommandId),
-			icon: searchShowContextIcon,
-			hoverLifecycleOptions,
-			...defaultToggleStyles
-		});
-		this._register(this.showContextToggle.onChange(() => this.onContextLinesChanged()));
-
-		if (options.showContextToggle) {
-			this.contextLinesInput = new InputBox(searchInputContainer, this.contextViewService, { type: 'number', inputBoxStyles: defaultInputBoxStyles });
-			this.contextLinesInput.element.classList.add('context-lines-input');
-			this.contextLinesInput.value = '' + (this.configurationService.getValue<ISearchConfigurationProperties>('search').searchEditor.defaultNumberOfContextLines ?? 1);
-			this._register(this.contextLinesInput.onDidChange((value: string) => {
-				if (value !== '0') {
-					this.showContextToggle.checked = true;
-				}
-				this.onContextLinesChanged();
-			}));
-			dom.append(searchInputContainer, this.showContextToggle.domNode);
-		}
-
 		this.terminalModeToggle = this._register(new Toggle({
 			isChecked: !!options.terminalMode,
 			title: nls.localize('search.terminalMode.toggle', "在终端中查找"),
@@ -512,26 +480,6 @@ export class SearchWidget extends Widget {
 	setTerminalMode(enabled: boolean): void {
 		if (this.terminalModeToggle) {
 			this.terminalModeToggle.checked = enabled;
-		}
-	}
-
-	private onContextLinesChanged() {
-		this._onDidToggleContext.fire();
-
-		if (this.contextLinesInput.value.includes('-')) {
-			this.contextLinesInput.value = '0';
-		}
-
-		this._onDidToggleContext.fire();
-	}
-
-	public setContextLines(lines: number) {
-		if (!this.contextLinesInput) { return; }
-		if (lines === 0) {
-			this.showContextToggle.checked = false;
-		} else {
-			this.showContextToggle.checked = true;
-			this.contextLinesInput.value = '' + lines;
 		}
 	}
 
@@ -831,22 +779,6 @@ export class SearchWidget extends Widget {
 			await this.clipboardServce.writeFindText(value);
 		}
 		this._onSearchSubmit.fire({ triggeredOnType, delay });
-	}
-
-	getContextLines() {
-		return this.showContextToggle.checked ? +this.contextLinesInput.value : 0;
-	}
-
-	modifyContextLines(increase: boolean) {
-		const current = +this.contextLinesInput.value;
-		const modified = current + (increase ? 1 : -1);
-		this.showContextToggle.checked = modified !== 0;
-		this.contextLinesInput.value = '' + modified;
-	}
-
-	toggleContextLines() {
-		this.showContextToggle.checked = !this.showContextToggle.checked;
-		this.onContextLinesChanged();
 	}
 
 	override dispose(): void {

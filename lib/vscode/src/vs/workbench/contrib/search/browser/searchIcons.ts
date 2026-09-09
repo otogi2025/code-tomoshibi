@@ -11,7 +11,6 @@ import { registerIcon } from '../../../../platform/theme/common/iconRegistry.js'
 export const searchDetailsIcon = registerIcon('search-details', Codicon.ellipsis, localize('searchDetailsIcon', '用于使搜索详细信息可见的图标。'));
 export const searchActivityBarIcon = registerIcon('search-see-more', Codicon.goToSearch, localize('searchSeeMoreIcon', '用于在搜索视图中查看更多上下文的图标。'));
 
-export const searchShowContextIcon = registerIcon('search-show-context', Codicon.listSelection, localize('searchShowContextIcon', '搜索编辑器中的“切换上下文”图标。'));
 export const searchTerminalIcon = registerIcon('search-terminal', Codicon.terminal, localize('searchTerminalIcon', '搜索视图中的“在终端中查找”图标。'));
 export const searchHideReplaceIcon = registerIcon('search-hide-replace', Codicon.chevronRight, localize('searchHideReplaceIcon', '用于折叠搜索视图中的替换部分的图标。'));
 export const searchShowReplaceIcon = registerIcon('search-show-replace', Codicon.chevronDown, localize('searchShowReplaceIcon', '用于在搜索视图中展开“替换”部分的图标。'));
@@ -29,7 +28,6 @@ export const searchStopIcon = registerIcon('search-stop', Codicon.searchStop, lo
 
 export const searchViewIcon = registerIcon('search-view-icon', Codicon.searchLarge, localize('searchViewIcon', '查看搜索视图的图标。'));
 
-export const searchNewEditorIcon = registerIcon('search-new-editor', Codicon.newFile, localize('searchNewEditorIcon', '用于打开新搜索编辑器的操作的图标。'));
 export const searchOpenInFileIcon = registerIcon('search-open-in-file', Codicon.goToFile, localize('searchOpenInFile', '要转到当前搜索结果文件的操作的图标。'));
 
 export const searchSparkleFilled = registerIcon('search-sparkle-filled', Codicon.sparkleFilled, localize('searchSparkleFilled', '用于在搜索中显示 AI 结果的图标。'));

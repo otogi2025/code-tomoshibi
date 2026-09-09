@@ -434,15 +434,6 @@ export interface ISearchConfigurationProperties {
 	seedOnFocus: boolean;
 	seedWithNearestWord: boolean;
 	searchOnTypeDebouncePeriod: number;
-	mode: 'view' | 'reuseEditor' | 'newEditor';
-	searchEditor: {
-		doubleClickBehaviour: 'selectWord' | 'goToLocation' | 'openLocationToSide';
-		singleClickBehaviour: 'default' | 'peekDefinition';
-		reusePriorSearchConfiguration: boolean;
-		defaultNumberOfContextLines: number | null;
-		focusResultsOnSearch: boolean;
-		experimental: {};
-	};
 	sortOrder: SearchSortOrder;
 	decorations: {
 		colors: boolean;

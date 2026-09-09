@@ -12,10 +12,6 @@ import { ServicesAccessor } from '../../../../platform/instantiation/common/inst
 import { WorkbenchCompressibleAsyncDataTree } from '../../../../platform/list/browser/listService.js';
 import { IViewsService } from '../../../services/views/common/viewsService.js';
 import * as Constants from '../common/constants.js';
-import * as SearchEditorConstants from '../../searchEditor/browser/constants.js';
-import { SearchEditor } from '../../searchEditor/browser/searchEditor.js';
-import { SearchEditorInput } from '../../searchEditor/browser/searchEditorInput.js';
-import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { IsSessionsWindowContext } from '../../../common/contextkeys.js';
 import { ContextKeyExpr, IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { assertReturnsDefined } from '../../../../base/common/types.js';
@@ -37,7 +33,7 @@ registerAction2(class ToggleQueryDetailsAction extends Action2 {
 			category,
 			keybinding: {
 				weight: KeybindingWeight.WorkbenchContrib,
-				when: ContextKeyExpr.or(Constants.SearchContext.SearchViewFocusedKey, SearchEditorConstants.InSearchEditor),
+				when: Constants.SearchContext.SearchViewFocusedKey,
 				primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.KeyJ,
 			},
 		});
@@ -45,9 +41,7 @@ registerAction2(class ToggleQueryDetailsAction extends Action2 {
 	run(accessor: ServicesAccessor, ...args: unknown[]) {
 		const options = args[0] as { show?: boolean } | undefined;
 		const contextService = accessor.get(IContextKeyService).getContext(getActiveElement());
-		if (contextService.getValue(SearchEditorConstants.InSearchEditor.serialize())) {
-			(accessor.get(IEditorService).activeEditorPane as SearchEditor).toggleQueryDetails(options?.show);
-		} else if (contextService.getValue(Constants.SearchContext.SearchViewFocusedKey.serialize())) {
+		if (contextService.getValue(Constants.SearchContext.SearchViewFocusedKey.serialize())) {
 			const searchView = getSearchView(accessor.get(IViewsService));
 			assertReturnsDefined(searchView).toggleQueryDetails(undefined, options?.show);
 		}
@@ -248,22 +242,13 @@ registerAction2(class FocusNextInputAction extends Action2 {
 			category,
 			keybinding: {
 				weight: KeybindingWeight.WorkbenchContrib,
-				when: ContextKeyExpr.or(
-					ContextKeyExpr.and(SearchEditorConstants.InSearchEditor, Constants.SearchContext.InputBoxFocusedKey),
-					ContextKeyExpr.and(Constants.SearchContext.SearchViewVisibleKey, Constants.SearchContext.InputBoxFocusedKey)),
+				when: ContextKeyExpr.and(Constants.SearchContext.SearchViewVisibleKey, Constants.SearchContext.InputBoxFocusedKey),
 				primary: KeyMod.CtrlCmd | KeyCode.DownArrow,
 			},
 		});
 	}
 
 	override async run(accessor: ServicesAccessor): Promise<any> {
-		const editorService = accessor.get(IEditorService);
-		const input = editorService.activeEditor;
-		if (input instanceof SearchEditorInput) {
-			// cast as we cannot import SearchEditor as a value b/c cyclic dependency.
-			(editorService.activeEditorPane as SearchEditor).focusNextInput();
-		}
-
 		const searchView = getSearchView(accessor.get(IViewsService));
 		searchView?.focusNextInputBox();
 	}
@@ -277,22 +262,13 @@ registerAction2(class FocusPreviousInputAction extends Action2 {
 			category,
 			keybinding: {
 				weight: KeybindingWeight.WorkbenchContrib,
-				when: ContextKeyExpr.or(
-					ContextKeyExpr.and(SearchEditorConstants.InSearchEditor, Constants.SearchContext.InputBoxFocusedKey),
-					ContextKeyExpr.and(Constants.SearchContext.SearchViewVisibleKey, Constants.SearchContext.InputBoxFocusedKey, Constants.SearchContext.SearchInputBoxFocusedKey.toNegated())),
+				when: ContextKeyExpr.and(Constants.SearchContext.SearchViewVisibleKey, Constants.SearchContext.InputBoxFocusedKey, Constants.SearchContext.SearchInputBoxFocusedKey.toNegated()),
 				primary: KeyMod.CtrlCmd | KeyCode.UpArrow,
 			},
 		});
 	}
 
 	override async run(accessor: ServicesAccessor): Promise<any> {
-		const editorService = accessor.get(IEditorService);
-		const input = editorService.activeEditor;
-		if (input instanceof SearchEditorInput) {
-			// cast as we cannot import SearchEditor as a value b/c cyclic dependency.
-			(editorService.activeEditorPane as SearchEditor).focusPrevInput();
-		}
-
 		const searchView = getSearchView(accessor.get(IViewsService));
 		searchView?.focusPreviousInputBox();
 	}
@@ -365,7 +341,7 @@ registerAction2(class FocusNextSearchResultAction extends Action2 {
 			}],
 			category,
 			f1: true,
-			precondition: ContextKeyExpr.or(Constants.SearchContext.HasSearchResults, SearchEditorConstants.InSearchEditor),
+			precondition: Constants.SearchContext.HasSearchResults,
 		});
 	}
 
@@ -385,7 +361,7 @@ registerAction2(class FocusPreviousSearchResultAction extends Action2 {
 			}],
 			category,
 			f1: true,
-			precondition: ContextKeyExpr.or(Constants.SearchContext.HasSearchResults, SearchEditorConstants.InSearchEditor),
+			precondition: Constants.SearchContext.HasSearchResults,
 		});
 	}
 
@@ -451,24 +427,10 @@ const focusSearchListCommand: ICommandHandler = accessor => {
 };
 
 async function focusNextSearchResult(accessor: ServicesAccessor): Promise<any> {
-	const editorService = accessor.get(IEditorService);
-	const input = editorService.activeEditor;
-	if (input instanceof SearchEditorInput) {
-		// cast as we cannot import SearchEditor as a value b/c cyclic dependency.
-		return (editorService.activeEditorPane as SearchEditor).focusNextResult();
-	}
-
 	return openSearchView(accessor.get(IViewsService)).then(searchView => searchView?.selectNextMatch());
 }
 
 async function focusPreviousSearchResult(accessor: ServicesAccessor): Promise<any> {
-	const editorService = accessor.get(IEditorService);
-	const input = editorService.activeEditor;
-	if (input instanceof SearchEditorInput) {
-		// cast as we cannot import SearchEditor as a value b/c cyclic dependency.
-		return (editorService.activeEditorPane as SearchEditor).focusPreviousResult();
-	}
-
 	return openSearchView(accessor.get(IViewsService)).then(searchView => searchView?.selectPreviousMatch());
 }
 

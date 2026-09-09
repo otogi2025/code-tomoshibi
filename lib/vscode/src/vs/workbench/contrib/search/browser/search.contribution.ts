@@ -46,8 +46,6 @@ searchWidgetContributions();
 
 AccessibleViewRegistry.register(new SearchAccessibilityHelp());
 
-const SEARCH_MODE_CONFIG = 'search.mode';
-
 const viewContainer = Registry.as<IViewContainersRegistry>(ViewExtensions.ViewContainersRegistry).registerViewContainer({
 	id: VIEWLET_ID,
 	title: nls.localize2('search', "搜索"),
@@ -125,17 +123,6 @@ configurationRegistry.registerConfiguration({
 				]
 			},
 			scope: ConfigurationScope.RESOURCE
-		},
-		[SEARCH_MODE_CONFIG]: {
-			type: 'string',
-			enum: ['view', 'reuseEditor', 'newEditor'],
-			default: 'view',
-			markdownDescription: nls.localize('search.mode', "控制新的“搜索: 在文件中查找”和“在文件夹中查找”操作发生的位置: 是在搜索视图中，还是在搜索编辑器中。"),
-			enumDescriptions: [
-				nls.localize('search.mode.view', "在面板或边栏的搜索视图中进行搜索。"),
-				nls.localize('search.mode.reuseEditor', "在现有搜索编辑器(若有)中搜索，否则在新的搜索编辑器中进行搜索。"),
-				nls.localize('search.mode.newEditor', "在新的搜索编辑器中搜索。"),
-			]
 		},
 		'search.useIgnoreFiles': {
 			type: 'boolean',

@@ -5,14 +5,12 @@
 // allow-any-unicode-file
 import { dirname } from '../../../../base/common/resources.js';
 import * as nls from '../../../../nls.js';
-import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { IListService, WorkbenchCompressibleAsyncDataTree } from '../../../../platform/list/browser/listService.js';
 import { ViewContainerLocation } from '../../../common/views.js';
 import { IViewsService } from '../../../services/views/common/viewsService.js';
 import * as Constants from '../common/constants.js';
-import * as SearchEditorConstants from '../../searchEditor/browser/constants.js';
 import { ISearchConfiguration, ISearchConfigurationProperties } from '../../../services/search/common/search.js';
 import { URI } from '../../../../base/common/uri.js';
 import { IsSessionsWindowContext } from '../../../common/contextkeys.js';
@@ -200,7 +198,7 @@ registerAction2(class RevealInSideBarForSearchResultsAction extends Action2 {
 	}
 });
 
-// Find in Files by default is the same as View: Show Search, but can be configured to open a search editor instead with the `search.mode` binding
+// Find in Files is the same as View: Show Search
 registerAction2(class FindInFilesAction extends Action2 {
 
 	constructor(
@@ -304,19 +302,8 @@ registerAction2(class FindInWorkspaceAction extends Action2 {
 		});
 	}
 	async run(accessor: ServicesAccessor) {
-		const searchConfig = accessor.get(IConfigurationService).getValue<ISearchConfiguration>().search;
-		const mode = searchConfig?.mode;
-
-		if (mode === 'view') {
-			const searchView = await openSearchView(accessor.get(IViewsService), true);
-			searchView?.searchInFolders();
-		}
-		else {
-			await accessor.get(ICommandService).executeCommand(SearchEditorConstants.OpenEditorCommandId, {
-				location: mode === 'newEditor' ? 'new' : 'reuse',
-				filesToInclude: '',
-			});
-		}
+		const searchView = await openSearchView(accessor.get(IViewsService), true);
+		searchView?.searchInFolders();
 	}
 });
 
@@ -360,9 +347,7 @@ async function searchWithFolderCommand(accessor: ServicesAccessor, isFromExplore
 	const fileService = accessor.get(IFileService);
 	const viewsService = accessor.get(IViewsService);
 	const contextService = accessor.get(IWorkspaceContextService);
-	const commandService = accessor.get(ICommandService);
 	const searchConfig = accessor.get(IConfigurationService).getValue<ISearchConfiguration>().search;
-	const mode = searchConfig?.mode;
 
 	let resources: URI[];
 
@@ -386,32 +371,15 @@ async function searchWithFolderCommand(accessor: ServicesAccessor, isFromExplore
 		return resolveResourcesForSearchIncludes(folders, contextService);
 	});
 
-	if (mode === 'view') {
-		const searchView = await openSearchView(viewsService, true);
-		if (resources && resources.length && searchView) {
-			if (isIncludes) {
-				searchView.searchInFolders(await resolvedResources);
-			} else {
-				searchView.searchOutsideOfFolders(await resolvedResources);
-			}
-		}
-		return undefined;
-	} else {
+	const searchView = await openSearchView(viewsService, true);
+	if (resources && resources.length && searchView) {
 		if (isIncludes) {
-			return commandService.executeCommand(SearchEditorConstants.OpenEditorCommandId, {
-				filesToInclude: (await resolvedResources).join(', '),
-				showIncludesExcludes: true,
-				location: mode === 'newEditor' ? 'new' : 'reuse',
-			});
-		}
-		else {
-			return commandService.executeCommand(SearchEditorConstants.OpenEditorCommandId, {
-				filesToExclude: (await resolvedResources).join(', '),
-				showIncludesExcludes: true,
-				location: mode === 'newEditor' ? 'new' : 'reuse',
-			});
+			searchView.searchInFolders(await resolvedResources);
+		} else {
+			searchView.searchOutsideOfFolders(await resolvedResources);
 		}
 	}
+	return undefined;
 }
 
 function getMultiSelectedSearchResources(viewer: WorkbenchCompressibleAsyncDataTree<ISearchResult, RenderableMatch, void>, currElement: RenderableMatch | undefined, sortConfig: ISearchConfigurationProperties | undefined): URI[] {

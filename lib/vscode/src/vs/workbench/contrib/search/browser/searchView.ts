@@ -68,7 +68,6 @@ import * as Constants from '../common/constants.js';
 import { IReplaceService } from './replace.js';
 import { getOutOfWorkspaceEditorResources, SearchStateKey, SearchUIState } from '../common/search.js';
 import { ISearchHistoryService, ISearchHistoryValues, SearchHistoryService } from '../common/searchHistoryService.js';
-import { createEditorFromSearchResult } from '../../searchEditor/browser/searchEditorActions.js';
 import { ACTIVE_GROUP, IEditorService, SIDE_GROUP } from '../../../services/editor/common/editorService.js';
 import { IPreferencesService, ISettingsEditorOptions } from '../../../services/preferences/common/preferences.js';
 import { ITextQueryBuilderOptions, QueryBuilder } from '../../../services/search/common/queryBuilder.js';
@@ -2331,17 +2330,6 @@ export class SearchView extends ViewPane {
 				const disableOpenEditorsButton = this.messageDisposables.add(new SearchLinkButton(nls.localize('openEditors.disable', "禁用"), this.onDisableSearchInOpenEditors.bind(this), this.hoverService, nls.localize('disableOpenEditors', "在整个工作区中搜索")));
 				dom.append(messageEl, $('span', undefined, searchingInOpenMessage, '(', disableOpenEditorsButton.element, ')'));
 			}
-
-			dom.append(messageEl, ' - ');
-
-			const openInEditorTooltip = this.keybindingService.appendKeybinding(
-				nls.localize('openInEditor.tooltip', "将当前搜索结果复制到编辑器"),
-				Constants.SearchCommandIds.OpenInEditorCommandId);
-			const openInEditorButton = this.messageDisposables.add(new SearchLinkButton(
-				nls.localize('openInEditor.message', "在编辑器中打开"),
-				() => this.instantiationService.invokeFunction(createEditorFromSearchResult, this.searchResult, this.searchIncludePattern.getValue(), this.searchExcludePattern.getValue(), this.searchIncludePattern.onlySearchInOpenEditors()), this.hoverService,
-				openInEditorTooltip));
-			dom.append(messageEl, openInEditorButton.element);
 
 			if (this.shouldShowAIResults()) {
 				dom.append(messageEl, ' - ');

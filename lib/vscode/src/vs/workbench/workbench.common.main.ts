@@ -199,9 +199,6 @@ import './contrib/inlineCompletions/browser/renameSymbolTrackerService.js';
 import './contrib/search/browser/search.contribution.js';
 import './contrib/search/browser/searchView.js';
 
-// Search Editor
-import './contrib/searchEditor/browser/searchEditor.contribution.js';
-
 // Sash
 import './contrib/sash/browser/sash.contribution.js';
 

@@ -15,7 +15,6 @@ export const enum SearchCommandIds {
 	CopyPathCommandId = 'search.action.copyPath',
 	CopyMatchCommandId = 'search.action.copyMatch',
 	CopyAllCommandId = 'search.action.copyAll',
-	OpenInEditorCommandId = 'search.action.openInEditor',
 	ClearSearchHistoryCommandId = 'search.action.clearHistory',
 	FocusSearchListCommandID = 'search.action.focusSearchList',
 	ReplaceActionId = 'search.action.replace',
