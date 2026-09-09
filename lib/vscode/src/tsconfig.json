@@ -34,6 +34,18 @@
 		"./vscode-dts/vscode.d.ts"
 	],
 	"exclude": [
-		"vs/workbench/contrib/webview/browser/pre/service-worker.js"
+		"vs/workbench/contrib/webview/browser/pre/service-worker.js",
+		"vs/editor/editor.api.ts",
+		"vs/editor/editor.main.ts",
+		"vs/editor/standalone/**",
+		"vs/platform/agentHost/browser/**",
+		"vs/platform/agentHost/common/webPubSub/**",
+		"vs/platform/browserView/node/**",
+		"vs/workbench/contrib/authentication/**",
+		"vs/workbench/contrib/imageCarousel/**",
+		"vs/workbench/contrib/onboarding/**",
+		"vs/workbench/contrib/welcomeWalkthrough/**",
+		"vs/workbench/services/agentHost/**",
+		"vs/workbench/services/chat/**"
 	]
 }
