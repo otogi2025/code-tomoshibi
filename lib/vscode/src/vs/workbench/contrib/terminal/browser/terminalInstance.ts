@@ -290,6 +290,12 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 	private _labelComputer?: TerminalLabelComputer;
 	private _userHome?: string;
 	private _hasScrollBar?: boolean;
+	/**
+	 * Whether the process manager has reported a `HasChildProcesses` property change yet. Once it
+	 * has, its value is the only source of truth; before that the (one-shot) snapshot taken from
+	 * the persistent process at reconnection time is used.
+	 */
+	private _processManagerReportedChildProcesses: boolean = false;
 	private _usedShellIntegrationInjection: boolean = false;
 	get usedShellIntegrationInjection(): boolean { return this._usedShellIntegrationInjection; }
 	private _shellIntegrationInjectionInfo: ShellIntegrationInjectionFailureReason | undefined;
@@ -363,7 +369,7 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 	// TODO: How does this work with detached processes?
 	// TODO: Should this be an event as it can fire twice?
 	get processReady(): Promise<void> { return this._processManager.ptyProcessReady; }
-	get hasChildProcesses(): boolean { return this.shellLaunchConfig.attachPersistentProcess?.hasChildProcesses || this._processManager.hasChildProcesses; }
+	get hasChildProcesses(): boolean { return this._processManagerReportedChildProcesses ? this._processManager.hasChildProcesses : (this.shellLaunchConfig.attachPersistentProcess?.hasChildProcesses ?? this._processManager.hasChildProcesses); }
 	get reconnectionProperties(): IReconnectionProperties | undefined { return this.shellLaunchConfig.attachPersistentProcess?.reconnectionProperties || this.shellLaunchConfig.reconnectionProperties; }
 	get areLinksReady(): boolean { return this._areLinksReady; }
 	get initialDataEvents(): string[] | undefined { return this._initialDataEvents; }
@@ -1821,6 +1827,7 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 					this._handleShellTypeChange(value as IProcessPropertyMap[ProcessPropertyType.ShellType]);
 					break;
 				case ProcessPropertyType.HasChildProcesses:
+					this._processManagerReportedChildProcesses = true;
 					this._onDidChangeHasChildProcesses.fire(value as IProcessPropertyMap[ProcessPropertyType.HasChildProcesses]);
 					break;
 				case ProcessPropertyType.UsedShellIntegrationInjection:
