@@ -384,11 +384,29 @@ export const getCookieOptions = (req: express.Request): express.CookieOptions =>
     req.query.base || req.body?.base || "/",
     req.query.href || req.body?.href || "http://" + (req.headers.host || "localhost"),
   )
+
+  // `req.protocol` only takes X-Forwarded-Proto into account when Express'
+  // "trust proxy" is enabled, and we never enable it, so read the header
+  // ourselves.  Behind a TLS-terminating reverse proxy the connection reaching
+  // us is plain HTTP even though the browser is on HTTPS, and without this the
+  // session cookie would be handed out without `secure`.
+  const forwardedProto = req.headers["x-forwarded-proto"]
+  const firstForwardedProto = (Array.isArray(forwardedProto) ? forwardedProto[0] : forwardedProto || "")
+    .split(",")[0]
+    .trim()
+    .toLowerCase()
+
   return {
     domain: getCookieDomain(url.host, req.args["proxy-domain"]),
     path: normalize(url.pathname) || "/",
     sameSite: "lax",
     httpOnly: true,
+    // Only when we can tell the browser is on HTTPS; setting it on a plain HTTP
+    // instance would make the cookie unusable and lock everyone out.
+    secure: req.protocol === "https" || firstForwardedProto === "https",
+    // Without this the session is a browser-session cookie that never expires
+    // on its own.  Thirty days.
+    maxAge: 30 * 24 * 60 * 60 * 1000,
   }
 }
 
