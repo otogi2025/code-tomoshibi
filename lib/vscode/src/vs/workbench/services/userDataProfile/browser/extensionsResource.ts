@@ -302,11 +302,6 @@ export abstract class ExtensionsResourceTreeItem implements IProfileResourceTree
 				}
 			} : undefined,
 			themeIcon: Codicon.extensions,
-			command: {
-				id: 'extension.open',
-				title: '',
-				arguments: [e.identifier.id, undefined, true]
-			}
 		}));
 	}
 

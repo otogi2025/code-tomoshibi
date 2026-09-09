@@ -44,7 +44,7 @@ import { IStorageService, StorageScope, StorageTarget } from '../../../../platfo
 import { IUriIdentityService } from '../../../../platform/uriIdentity/common/uriIdentity.js';
 import { ITelemetryService } from '../../../../platform/telemetry/common/telemetry.js';
 import { IUserDataProfilesService } from '../../../../platform/userDataProfile/common/userDataProfile.js';
-import { createCommandUri, IMarkdownString, MarkdownString } from '../../../../base/common/htmlContent.js';
+import { IMarkdownString, MarkdownString } from '../../../../base/common/htmlContent.js';
 import { verifiedPublisherIcon } from './extensionsIcons.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { IStringDictionary } from '../../../../base/common/collections.js';
@@ -883,15 +883,13 @@ export class ExtensionManagementService extends CommontExtensionManagementServic
 
 		if (untrustedExtensions.length === 1) {
 			const extension = untrustedExtensions[0];
-			const manifest = untrustedExtensionManifests[0];
 			if (otherUntrustedPublishers.length) {
 				customMessage.appendMarkdown(localize('extension published by message', "扩展 {0} 由 {1} 发布。", `[${extension.displayName}](${extension.detailsLink})`, getPublisherLink(extension)));
 				customMessage.appendMarkdown('&nbsp;');
-				const commandUri = createCommandUri('extension.open', extension.identifier.id, manifest.extensionPack?.length ? 'extensionPack' : 'dependencies').toString();
 				if (otherUntrustedPublishers.length === 1) {
-					customMessage.appendMarkdown(localize('singleUntrustedPublisher', "安装此扩展还将安装 {1} 发布的 [extensions]({0})。", commandUri, getPublisherLink(otherUntrustedPublishers[0])));
+					customMessage.appendMarkdown(localize('singleUntrustedPublisher', "安装此扩展还将安装 {0} 发布的 extensions。", getPublisherLink(otherUntrustedPublishers[0])));
 				} else {
-					customMessage.appendMarkdown(localize('message3', "安装此扩展还将安装 {1} 和 {2} 发布的 [extensions]({0})。", commandUri, otherUntrustedPublishers.slice(0, otherUntrustedPublishers.length - 1).map(p => getPublisherLink(p)).join(', '), getPublisherLink(otherUntrustedPublishers[otherUntrustedPublishers.length - 1])));
+					customMessage.appendMarkdown(localize('message3', "安装此扩展还将安装 {0} 和 {1} 发布的 extensions。", otherUntrustedPublishers.slice(0, otherUntrustedPublishers.length - 1).map(p => getPublisherLink(p)).join(', '), getPublisherLink(otherUntrustedPublishers[otherUntrustedPublishers.length - 1])));
 				}
 				customMessage.appendMarkdown('&nbsp;');
 				customMessage.appendMarkdown(localize('firstTimeInstallingMessage', "这是你第一次安装来自这些发布者的扩展。"));
@@ -1060,17 +1058,11 @@ export class ExtensionManagementService extends CommontExtensionManagementServic
 			run: () => { }
 		};
 
-		const showExtensionsButton: IPromptButton<void> = {
-			label: localize({ key: 'showExtensions', comment: ['&& denotes a mnemonic'] }, "显示扩展(&&S)"),
-			run: () => this.instantiationService.invokeFunction(accessor => accessor.get(ICommandService).executeCommand('extension.open', extension.identifier.id, 'extensionPack'))
-		};
-
 		if (nonWebExtensions.length && hasLimitedSupport) {
 			message = limitedSupportMessage;
 			detail = `${virtualWorkspaceSupportReason ? `${virtualWorkspaceSupportReason}\n` : ''}${localize('non web extensions detail', "包含不受支持的扩展。")}`;
 			buttons = [
-				installAnywayButton,
-				showExtensionsButton
+				installAnywayButton
 			];
 		}
 
@@ -1083,8 +1075,7 @@ export class ExtensionManagementService extends CommontExtensionManagementServic
 		else {
 			message = localize('non web extensions', "“{0}”包含在“{1}”中不支持的扩展。", extension.displayName || extension.identifier.id, productName);
 			buttons = [
-				installAnywayButton,
-				showExtensionsButton
+				installAnywayButton
 			];
 		}
 
