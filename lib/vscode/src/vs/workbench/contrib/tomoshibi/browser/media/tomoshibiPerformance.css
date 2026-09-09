@@ -37,6 +37,12 @@
 	background: var(--vscode-statusBarItem-hoverBackground);
 }
 
+/* The numbers are still the last valid sample, but nothing new has arrived for several polls:
+ * dim the whole readout so a frozen value cannot pass for a live one. */
+.monaco-workbench .part.statusbar .tomoshibi-perf-status.is-stale {
+	opacity: .45;
+}
+
 .monaco-workbench .part.statusbar .tomoshibi-perf-status:active,
 .monaco-workbench .part.statusbar .tomoshibi-perf-status.active {
 	background: var(--vscode-statusBarItem-activeBackground);

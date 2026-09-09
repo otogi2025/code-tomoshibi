@@ -53,6 +53,19 @@ const latencyBarFullScaleMs = 200;
  */
 const latencySampleCount = 9;
 
+/**
+ * 一发请求最多等这么久。不设上限的话，切网 / 合盖那一刻正在飞的请求会挂到浏览器自己的超时
+ * （几十秒到几分钟）才 reject，这段时间并发锁一直不放，状态栏就冻在切网前那一刻。
+ */
+const maxRequestTimeoutMs = 3000;
+
+/**
+ * 距上一次成功的基础采样超过「间隔 × 这个倍数」就算过期，状态栏灰掉。下限见 minStaleAfterMs：
+ * 实时档的间隔只有 250ms，光按倍数算会因为一次正常的网络抖动就闪一下灰。
+ */
+const staleIntervalFactor = 5;
+const minStaleAfterMs = 3000;
+
 /** One touch on an iPad fires both a tap and a click; the second one within this window is dropped. */
 const activationDedupeMs = 400;
 
@@ -173,6 +186,8 @@ export class TomoshibiPerformanceContribution extends Disposable implements IWor
 	private _lastActivation = 0;
 
 	private _snapshot: IPerformanceSnapshot | undefined;
+	/** 只记基础那一路：detail 成功说明服务端活着，但它不写状态栏的数字。 */
+	private _lastBasicSampleAt = 0;
 	private _unauthorized = false;
 	private _latencySamples: number[] = [];
 	private _requestRunning = false;
@@ -269,6 +284,8 @@ export class TomoshibiPerformanceContribution extends Disposable implements IWor
 
 	// 标签页在后台时一律不发请求：间隔缩短之后这一条比原来更要紧，别让后台标签页烧电。
 	private _refresh(): void {
+		// 一直没有新响应回来时 _render 不会被调用，过期状态就只能在这里每一拍自己重算。
+		this._updateStale();
 		if (this._enabled() && !this._unauthorized && !mainWindow.document.hidden) {
 			void this._update(false);
 		}
@@ -328,7 +345,12 @@ export class TomoshibiPerformanceContribution extends Disposable implements IWor
 		const startedAt = mainWindow.performance.now();
 		try {
 			const url = detail ? `${performanceUrl}?detail=1` : performanceUrl;
-			const response = await mainWindow.fetch(url, { cache: 'no-store', credentials: 'same-origin' });
+			const timeout = Math.min(maxRequestTimeoutMs, (detail ? detailPollInterval : this._pollInterval()) * 4);
+			const response = await mainWindow.fetch(url, {
+				cache: 'no-store',
+				credentials: 'same-origin',
+				signal: AbortSignal.timeout(timeout),
+			});
 			if (!response.ok) {
 				if (response.status === 401) {
 					this._handleUnauthorized();
@@ -338,8 +360,11 @@ export class TomoshibiPerformanceContribution extends Disposable implements IWor
 			const value = await response.json() as Partial<IPerformanceSnapshot>;
 			// A sample taken while the tab was in the background says nothing about the link, and
 			// the detail request is inherently slower, so only the basic one feeds the stopwatch.
-			if (!detail && !mainWindow.document.hidden) {
-				this._pushLatency(mainWindow.performance.now() - startedAt);
+			if (!detail) {
+				this._lastBasicSampleAt = Date.now();
+				if (!mainWindow.document.hidden) {
+					this._pushLatency(mainWindow.performance.now() - startedAt);
+				}
 			}
 			// 两路响应各写各的字段。detail 那一发跟基础轮询共用服务端那一条速率基线，它的 CPU
 			// 和上下行是在「距上一发基础请求」那几十毫秒的窗口上算出来的，还可能命中服务端两秒
@@ -391,6 +416,7 @@ export class TomoshibiPerformanceContribution extends Disposable implements IWor
 		this._unauthorized = true;
 		this._stopTimer();
 		this._snapshot = undefined;
+		this._lastBasicSampleAt = 0;
 		this._latencySamples = [];
 		this._render();
 	}
@@ -418,7 +444,18 @@ export class TomoshibiPerformanceContribution extends Disposable implements IWor
 		this._downloadValue.textContent = formatRateShort(snapshot?.downloadBytesPerSecond ?? null);
 		this._uploadValue.textContent = formatRateShort(snapshot?.uploadBytesPerSecond ?? null);
 		this._latencyValue.textContent = latency === null ? dash : `${Math.round(latency)}ms`;
+		this._updateStale();
 		this._renderDetail();
+	}
+
+	/**
+	 * 请求超时、服务端一直返回非 200、或者网络断了：状态栏还挂着上一份有效样本，数字一动不动
+	 * 却看不出来。灰掉整块，让「这不是实时值」一眼可见。
+	 */
+	private _updateStale(): void {
+		const limit = Math.max(minStaleAfterMs, this._pollInterval() * staleIntervalFactor);
+		const stale = this._snapshot !== undefined && Date.now() - this._lastBasicSampleAt > limit;
+		this._root.classList.toggle('is-stale', stale);
 	}
 
 	private _renderDetail(): void {
