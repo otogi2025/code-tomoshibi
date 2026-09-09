@@ -167,9 +167,7 @@ export const options: Options<Required<UserProvidedArgs>> = {
   "disable-telemetry": { type: "boolean", description: "Disable telemetry." },
   "disable-update-check": {
     type: "boolean",
-    description:
-      "Disable update check. Without this flag, code-server checks every 6 hours against the latest github release and \n" +
-      "then notifies you once every week that a new release is available.",
+    description: "No longer does anything; the update check is gone. Kept so existing start-up arguments still work.",
   },
   "session-socket": {
     type: "string",

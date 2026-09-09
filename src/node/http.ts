@@ -11,7 +11,6 @@ import { AuthType, DefaultedArgs } from "./cli"
 import { version as codeServerVersion } from "./constants"
 import { Heart } from "./heart"
 import { CoderSettings, SettingsProvider } from "./settings"
-import { UpdateProvider } from "./update"
 import {
   getPasswordMethod,
   IsCookieValidArgs,
@@ -40,7 +39,6 @@ declare global {
       args: DefaultedArgs
       heart: Heart
       settings: SettingsProvider<CoderSettings>
-      updater: UpdateProvider
       cookieSessionName: string
     }
   }

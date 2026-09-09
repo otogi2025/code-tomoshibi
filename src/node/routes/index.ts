@@ -14,7 +14,6 @@ import { commit, rootPath } from "../constants"
 import { Heart } from "../heart"
 import { ensureAuthenticated, ensureOrigin, redirect } from "../http"
 import { CoderSettings, SettingsProvider } from "../settings"
-import { UpdateProvider } from "../update"
 import { getMediaMime, paths } from "../util"
 import type { WebsocketRequest } from "../wsRouter"
 import * as domainProxy from "./domainProxy"
@@ -24,7 +23,6 @@ import * as login from "./login"
 import * as logout from "./logout"
 import * as pathProxy from "./pathProxy"
 import * as tomoshibi from "./tomoshibi"
-import * as update from "./update"
 import * as vscode from "./vscode"
 
 const TOMOSHIBI_MAX_UPLOAD_BYTES = 50 * 1024 * 1024
@@ -108,7 +106,6 @@ export const register = async (
   app.wsRouter.use(cookieParser())
 
   const settings = new SettingsProvider<CoderSettings>(path.join(args["user-data-dir"], "coder.json"))
-  const updater = new UpdateProvider("https://api.github.com/repos/coder/code-server/releases/latest", settings)
 
   const cookieSessionName = getCookieSessionName(args["cookie-suffix"])
 
@@ -125,7 +122,6 @@ export const register = async (
     req.args = args
     req.heart = heart
     req.settings = settings
-    req.updater = updater
     req.cookieSessionName = cookieSessionName
 
     next()
@@ -249,8 +245,6 @@ export const register = async (
   /* The workbench status bar reads this while its tab is visible. Sampling happens inside the
    * handler on demand, so an idle Code-Tomoshibi costs the VPS nothing. */
   app.router.get("/_tomoshibi/performance", ensureAuthenticated, tomoshibi.performance)
-
-  app.router.use("/update", update.router)
 
   // For historic reasons we also load at /vscode because the root was replaced
   // by a plugin in v1 of Coder.  The plugin system (which was for internal use
