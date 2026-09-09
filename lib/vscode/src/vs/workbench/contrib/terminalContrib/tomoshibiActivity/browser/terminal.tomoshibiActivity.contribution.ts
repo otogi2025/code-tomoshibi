@@ -9,6 +9,7 @@ import { Disposable } from '../../../../../base/common/lifecycle.js';
 import { ITerminalContribution, IXtermTerminal } from '../../../terminal/browser/terminal.js';
 import { registerTerminalContribution, type ITerminalContributionContext } from '../../../terminal/browser/terminalExtensions.js';
 import { ITomoshibiSessionService } from '../../../terminal/browser/tomoshibiSessionService.js';
+import { TOMOSHIBI_OPTION_LINE } from '../../../terminal/common/tomoshibiActivity.js';
 
 /** Output has to settle for this long before the screen is inspected at all. */
 const EVALUATE_DEBOUNCE_MS = 1200;
@@ -16,9 +17,6 @@ const EVALUATE_DEBOUNCE_MS = 1200;
 const QUIET_EVALUATE_MS = 5000;
 /** How many rows up from the last non-blank row are inspected; see `_readTail`. */
 const TAIL_LINE_COUNT = 14;
-
-/** Numbered choice lines, as Claude Code and Codex render their permission prompts. */
-const OPTION_LINE = /^\s*(❯|>|›)?\s*\d+[.)]\s+(Yes|No|Allow|Deny|是|否)/i;
 
 /** Matched case insensitively against each of the tail lines. */
 const QUESTION_NEEDLES: readonly string[] = [
@@ -104,6 +102,13 @@ class TomoshibiActivityContribution extends Disposable implements ITerminalContr
 			this._setWaiting(false);
 			return;
 		}
+		// 硬信号，压在正则前面：没有前台子进程就是停在 shell 提示符上，屏幕上剩的选项行只是上一轮的
+		// 回显。`hasChildProcesses` 由 pty 宿主的 childProcessMonitor 读 /proc 喂上来（terminal.ts:890），
+		// 不靠猜屏幕内容。正则这边只负责在「确实有东西在跑」的前提下分「在跑」还是「在等」。
+		if (!this._ctx.instance.hasChildProcesses) {
+			this._setWaiting(false);
+			return;
+		}
 		if (this._isQuestion(this._readTail(xterm.raw), quiet)) {
 			this._setWaiting(true);
 		}
@@ -140,7 +145,7 @@ class TomoshibiActivityContribution extends Disposable implements ITerminalContr
 
 	private _isQuestion(lines: string[], quiet: boolean): boolean {
 		for (const line of lines) {
-			if (OPTION_LINE.test(line)) {
+			if (TOMOSHIBI_OPTION_LINE.test(line)) {
 				return true;
 			}
 			const lower = line.toLowerCase();

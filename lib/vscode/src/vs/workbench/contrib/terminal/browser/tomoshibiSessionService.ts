@@ -21,6 +21,7 @@ import { IStorageService, StorageScope, StorageTarget } from '../../../../platfo
 import { TerminalExitReason } from '../../../../platform/terminal/common/terminal.js';
 import { IUserDataProfileService } from '../../../services/userDataProfile/common/userDataProfile.js';
 import { TOMOSHIBI_RECONNECTION_OWNER } from '../common/terminal.js';
+import { TOMOSHIBI_OPTION_LINE } from '../common/tomoshibiActivity.js';
 import { ITerminalInstance, ITerminalService } from './terminal.js';
 
 /**
@@ -198,6 +199,34 @@ const AGENT_RUNNING_PATTERNS: readonly RegExp[] = [
 	/\bthinking\b/g,
 	/\bworking\b(?!\s+(?:tree|directory|dir|copy|set|on)\b)/g,
 ];
+
+/** shell 提示符的箭头。⛔ 只有行首、且后面不是选项格式时才算提示符，见 {@link lastIndexOfPromptMark}。 */
+const PROMPT_MARK = '❯';
+
+/**
+ * 最后一个「真提示符」的下标，返回的是它前面那个换行符的位置（跟原来的 `lastIndexOf('\n❯')` 同口径）；
+ * 一个都没有返回 -1。
+ *
+ * ⛔ 不许见 `\n❯` 就当完成标记：Claude Code 的确认框把每条选项都画成 `❯ 1. Yes`，箭头跟着光标走，
+ * 于是用户一按出确认框、agent 正在「等你回答」的那一刻，这里会判成 agentIdle，`wasRunning && agentIdle`
+ * 成立就弹「xxx 已完成」，胶囊也从黄点掉回灰。判据用的是终端层嗅提问的同一条 {@link TOMOSHIBI_OPTION_LINE}。
+ */
+function lastIndexOfPromptMark(text: string): number {
+	for (let at = text.lastIndexOf(PROMPT_MARK); at > 0; at = text.lastIndexOf(PROMPT_MARK, at - 1)) {
+		const before = text[at - 1];
+		if (before !== '\n' && before !== '\r') {
+			continue;
+		}
+		let end = at;
+		while (end < text.length && text[end] !== '\n' && text[end] !== '\r') {
+			end++;
+		}
+		if (!TOMOSHIBI_OPTION_LINE.test(text.slice(at, end))) {
+			return at - 1;
+		}
+	}
+	return -1;
+}
 
 /** 任意一个模式在 `text` 里最后一次出现的下标；一个都没命中返回 -1。 */
 function lastIndexOfAnyPattern(text: string, patterns: readonly RegExp[]): number {
@@ -949,8 +978,7 @@ export class TomoshibiSessionService extends Disposable implements ITomoshibiSes
 		const lower = state.tail.toLowerCase();
 		const completeAt = Math.max(
 			...AGENT_COMPLETE_NEEDLES.map(needle => lower.lastIndexOf(needle)),
-			state.tail.lastIndexOf('\n❯'),
-			state.tail.lastIndexOf('\r❯'),
+			lastIndexOfPromptMark(state.tail),
 		);
 		const runningAt = lastIndexOfAnyPattern(lower, AGENT_RUNNING_PATTERNS);
 		// ⛔「没看到完成标记」不等于「正在跑」。老写法 `running = !agentIdle` 是拿完成标记的缺失反推
