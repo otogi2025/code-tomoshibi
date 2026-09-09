@@ -443,10 +443,6 @@
 			"project": "vscode-workbench"
 		},
 		{
-			"name": "vs/workbench/contrib/telemetry",
-			"project": "vscode-workbench"
-		},
-		{
 			"name": "vs/workbench/services/chat",
 			"project": "vscode-workbench"
 		},
