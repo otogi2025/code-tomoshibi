@@ -86,5 +86,4 @@ export const SearchContext = {
 	hasAIResultProvider: new RawContextKey<boolean>('hasAIResultProviderKey', false),
 	AIResultsTitle: new RawContextKey<boolean>('aiResultsTitle', false),
 	AIResultsRequested: new RawContextKey<boolean>('aiResultsRequested', false),
-	SearchViewTerminalModeKey: new RawContextKey<boolean>('searchViewTerminalMode', false),
 };

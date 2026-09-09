@@ -157,8 +157,9 @@ export class SearchView extends ViewPane {
 	private hasReplacePatternKey: IContextKey<boolean>;
 	private hasFilePatternKey: IContextKey<boolean>;
 	private hasSomeCollapsibleResultKey: IContextKey<boolean>;
-	private terminalModeKey: IContextKey<boolean>;
 
+	// 刻意不做持久化：终端模式会让 triggerQueryChange 整条文件搜索路径直接 return，
+	// 页面重开后恢复成「开」的话，Ctrl+Shift+F / 在文件夹中查找 / 刷新 全都静默失效。
 	private terminalMode = false;
 	/** 上一次被画上查找高亮的终端；切换终端时要靠它把旧终端的高亮清掉。 */
 	private lastDecoratedTerminal: ITerminalInstance | undefined;
@@ -290,11 +291,6 @@ export class SearchView extends ViewPane {
 		this.inputPatternIncludesFocused = Constants.SearchContext.PatternIncludesFocusedKey.bindTo(this.contextKeyService);
 		this.inputPatternExclusionsFocused = Constants.SearchContext.PatternExcludesFocusedKey.bindTo(this.contextKeyService);
 		this.isEditableItem = Constants.SearchContext.IsEditableItemKey.bindTo(this.contextKeyService);
-		this.terminalModeKey = Constants.SearchContext.SearchViewTerminalModeKey.bindTo(this.contextKeyService);
-		// 终端查找模式刻意不做持久化：它会让 triggerQueryChange 整条文件搜索路径直接 return，
-		// 页面重开后恢复成「开」的话，Ctrl+Shift+F / 在文件夹中查找 / 刷新 全都静默失效。
-		this.terminalModeKey.set(this.terminalMode);
-
 		this.instantiationService = this._register(this.instantiationService.createChild(
 			new ServiceCollection([IContextKeyService, this.contextKeyService])));
 
@@ -1052,7 +1048,6 @@ export class SearchView extends ViewPane {
 	 */
 	private applyTerminalMode(enabled: boolean): void {
 		this.terminalMode = enabled;
-		this.terminalModeKey.set(enabled);
 		this.container.classList.toggle(TERMINAL_MODE_CLASS_NAME, enabled);
 
 		if (enabled) {
