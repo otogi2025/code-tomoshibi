@@ -39,4 +39,17 @@ describe("health", () => {
     ws.terminate()
     expect(message).toStrictEqual({ event: "health", status: "expired", lastHeartbeat: 0 })
   })
+
+  it("/healthz (websocket) refuses a foreign origin", async () => {
+    const server = await integration.setup(["--auth=none"], "")
+    codeServer = server
+    await expect(
+      server.wsWait("/healthz", {
+        headers: {
+          host: "localhost:8080",
+          origin: "https://evil.org",
+        },
+      }),
+    ).rejects.toThrow()
+  })
 })

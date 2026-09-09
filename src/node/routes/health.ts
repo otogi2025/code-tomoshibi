@@ -1,4 +1,5 @@
 import { Router } from "express"
+import { ensureOrigin } from "../http"
 import { wss, Router as WsRouter } from "../wsRouter"
 
 export const router = Router()
@@ -12,7 +13,10 @@ router.get("/", (req, res) => {
 
 export const wsRouter = WsRouter()
 
-wsRouter.ws("/", async (req) => {
+// `wsRouter.ws` does not check the origin for us, so ask for it here the same
+// way routes/vscode.ts does.  Otherwise any page on the internet could open
+// this socket against a code-server the visitor can reach.
+wsRouter.ws("/", ensureOrigin, async (req) => {
   wss.handleUpgrade(req, req.ws, req.head, (ws) => {
     ws.addEventListener("message", () => {
       ws.send(

@@ -44,8 +44,8 @@ export class WebsocketRouter {
    * Handle a websocket at this route. Note that websockets are immediately
    * paused when they come in.
    *
-   * If the origin header exists it must match the host or the connection will
-   * be prevented.
+   * No origin check happens here; a route that needs one passes `ensureOrigin`
+   * (from ./http) as its first handler.
    */
   public ws(route: expressCore.PathParams, ...handlers: WebSocketHandler[]): void {
     this.router.get(
