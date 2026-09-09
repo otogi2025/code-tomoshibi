@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { binarySearch } from '../../../base/common/arrays.js';
-import { errorHandler, ErrorNoTelemetry, PendingMigrationError } from '../../../base/common/errors.js';
+import { errorHandler, ErrorNoTelemetry, isCancellationError, PendingMigrationError } from '../../../base/common/errors.js';
 import { ListenerLeakError } from '../../../base/common/event.js';
 import { DisposableStore, toDisposable } from '../../../base/common/lifecycle.js';
 import { safeStringify } from '../../../base/common/objects.js';
@@ -106,6 +106,10 @@ export default abstract class BaseErrorTelemetry {
 	}
 
 	private _onErrorEvent(err: any): void {
+
+		if (isCancellationError(err)) {
+			return;
+		}
 
 		if (!err || err.code) {
 			return;
