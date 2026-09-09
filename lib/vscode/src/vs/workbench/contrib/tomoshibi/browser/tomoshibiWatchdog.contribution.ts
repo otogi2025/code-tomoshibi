@@ -19,6 +19,13 @@ const externalBaseUrl = '/_watchdog-la';
 const pollInterval = 5000;
 const heartbeatInterval = 15000;
 
+/**
+ * 「确认并关闭」压下的那把去重键最多活这么久。清空它本来只有一个时机（一次所有端点都成功、
+ * 且都报 inactive 的轮询），标签页在后台那一拍没轮询、或者故障窗口首尾相接，这个时机就整场
+ * 都碰不到，看门狗对同一类故障从此哑掉。加个失效时间当兜底。
+ */
+const dismissTtl = 10 * 60 * 1000;
+
 type WatchdogSource = 'tokyo' | 'la';
 
 interface IWatchdogStatus {
@@ -55,6 +62,7 @@ export class TomoshibiWatchdogContribution extends Disposable implements IWorkbe
 	private readonly _cancelButton: HTMLButtonElement;
 	private _current: IWatchdogStatus | undefined;
 	private _dismissedAlertKey = '';
+	private _dismissedAt = 0;
 	private _externalToken = '';
 	private _countdownTimer = 0;
 	private _pollTimer = 0;
@@ -125,6 +133,9 @@ export class TomoshibiWatchdogContribution extends Disposable implements IWorkbe
 	}
 
 	private _show(value: IWatchdogStatus): void {
+		if (this._dismissedAlertKey && Date.now() - this._dismissedAt > dismissTtl) {
+			this._dismissedAlertKey = '';
+		}
 		if (this._alertKey(value) === this._dismissedAlertKey) {
 			this._hide();
 			return;
@@ -154,8 +165,13 @@ export class TomoshibiWatchdogContribution extends Disposable implements IWorkbe
 		this._root.setAttribute('aria-hidden', 'true');
 	}
 
+	/**
+	 * incidentId 必须进去。watchdog.sh 的 title 是每条代码路径写死的常量，source + phase +
+	 * title 这三元组在同一类故障复发时必然重合，新故障会被当成用户关过的那一张直接吞掉。
+	 * incidentId 是可选字段，缺失时退回原来的三元组。
+	 */
 	private _alertKey(value: IWatchdogStatus): string {
-		return JSON.stringify([value.source ?? '', value.phase ?? '', value.title ?? '']);
+		return JSON.stringify([value.source ?? '', value.incidentId ?? '', value.phase ?? '', value.title ?? '']);
 	}
 
 	private _dismiss(): void {
@@ -163,6 +179,7 @@ export class TomoshibiWatchdogContribution extends Disposable implements IWorkbe
 			return;
 		}
 		this._dismissedAlertKey = this._alertKey(this._current);
+		this._dismissedAt = Date.now();
 		this._hide();
 	}
 
