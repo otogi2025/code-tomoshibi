@@ -9,6 +9,7 @@ import { Schemas } from '../../../../base/common/network.js';
 import { URI } from '../../../../base/common/uri.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { LogLevel } from '../../../../platform/log/common/log.js';
+import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { Extensions, ILogEntry, IOutputChannel, IOutputChannelDescriptor, IOutputChannelRegistry, IOutputService, IOutputViewFilters } from '../common/output.js';
 
@@ -18,13 +19,23 @@ import { Extensions, ILogEntry, IOutputChannel, IOutputChannelDescriptor, IOutpu
  * replacement makes every one of those throw `[UNKNOWN service outputService]` at startup.
  *
  * This stub keeps those call sites alive. Channels can still be registered — the registry lives in
- * `../common/output.ts` and is untouched — their content is simply discarded instead of rendered.
+ * `../common/output.ts` and is untouched — but there is no view to render them into, so each
+ * channel keeps only a short tail of what was appended to it and `showChannel` hands that tail
+ * back through a notification.
  */
+
+/** Per channel. A few KB is enough to carry the last error out of a failed task. */
+const channelTailLimit = 8 * 1024;
+
+/** How many of the tail's lines a single notification carries; more than this is unreadable. */
+const noticeLineLimit = 10;
 
 class NoOpOutputChannel implements IOutputChannel {
 
 	readonly label: string;
 	readonly uri: URI;
+
+	private _tail = '';
 
 	constructor(readonly id: string) {
 		this.label = id;
@@ -35,16 +46,28 @@ class NoOpOutputChannel implements IOutputChannel {
 		return [];
 	}
 
-	append(_output: string): void {
-		// discarded: no output view to render into
+	append(output: string): void {
+		// No view to render into, but throwing all of it away leaves the "show output" button on
+		// a failed task with nothing to show. Keep the tail, bounded.
+		this._tail = (this._tail + output).slice(-channelTailLimit);
 	}
 
 	clear(): void {
-		// discarded
+		this._tail = '';
 	}
 
-	replace(_output: string): void {
-		// discarded
+	replace(output: string): void {
+		this._tail = output.slice(-channelTailLimit);
+	}
+
+	/** The last few non-empty lines, which is all a notification has room for. */
+	tail(): string {
+		return this._tail
+			.split('\n')
+			.map(line => line.trimEnd())
+			.filter(line => line.length > 0)
+			.slice(-noticeLineLimit)
+			.join(' · ');
 	}
 
 	update(): void {
@@ -93,7 +116,7 @@ export class TomoshibiOutputService extends Disposable implements IOutputService
 	 * Cached so that repeated `getChannel(id)` calls return the same object — `abstractTaskService`
 	 * reads `.id` off the result and compares it across calls.
 	 */
-	private readonly channels = new Map<string, IOutputChannel>();
+	private readonly channels = new Map<string, NoOpOutputChannel>();
 
 	/**
 	 * Descriptor lookups are forwarded to the real registry, which is still alive. This keeps
@@ -101,6 +124,12 @@ export class TomoshibiOutputService extends Disposable implements IOutputService
 	 */
 	private get registry(): IOutputChannelRegistry {
 		return Registry.as<IOutputChannelRegistry>(Extensions.OutputChannels);
+	}
+
+	constructor(
+		@INotificationService private readonly notificationService: INotificationService,
+	) {
+		super();
 	}
 
 	getChannel(id: string): IOutputChannel | undefined {
@@ -134,8 +163,29 @@ export class TomoshibiOutputService extends Disposable implements IOutputService
 		return undefined;
 	}
 
-	async showChannel(_id: string, _preserveFocus?: boolean): Promise<void> {
-		// No output view to reveal. Must not throw: callers await this on task failure paths.
+	/**
+	 * There is no view to reveal, but every caller reaching this point is asking on the user's
+	 * behalf -- the "show output" button on the task-failure prompt, the "show task log" command.
+	 * Doing nothing silently is what put the failure reason out of reach, so hand back the tail
+	 * the channel kept, as a sticky notification (an Info one would time out before it is read).
+	 *
+	 * Nothing appended, nothing to hand back: log channels write to files rather than through
+	 * `append`, so their entries stay silent. Saying so would need a string of our own, and this
+	 * folder is not in `build/lib/i18n.resources.json`, so `nls` cannot be imported here.
+	 *
+	 * Must not throw: callers await this on task failure paths.
+	 */
+	async showChannel(id: string, _preserveFocus?: boolean): Promise<void> {
+		const tail = this.channels.get(id)?.tail();
+		if (!tail) {
+			return;
+		}
+		this.notificationService.notify({
+			severity: Severity.Info,
+			source: this.registry.getChannel(id)?.label ?? id,
+			sticky: true,
+			message: tail,
+		});
 	}
 
 	registerCompoundLogChannel(_channels: IOutputChannelDescriptor[]): string {
