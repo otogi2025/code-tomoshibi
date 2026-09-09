@@ -12,20 +12,16 @@ The runtime side (`src/vs/platform/agentHost/`) downloads and caches
 the SDK tarball at first use. See `IAgentSdkProductConfig` in
 `src/vs/base/common/product.ts` for the contract.
 
-## How the pipeline uses this
+## How a build uses this
 
-The platform packaging jobs (Linux, macOS, Windows, Alpine) each include
-the shared template `build/azure-pipelines/common/agent-sdk-produce.yml`
-before the existing `gulp vscode-<platform>-<arch>-min-ci` step:
+Run the producer before the `gulp vscode-<platform>-<arch>-min-ci` step on
+the same machine:
 
-```yaml
-- template: ../../common/agent-sdk-produce.yml@self
-  parameters:
-    vscodePlatform: linux
+```sh
+node build/agent-sdk/produce.ts --vscode-platform=linux --arch=x64
 ```
 
-The template runs `node build/agent-sdk/produce.ts --vscode-platform=<x>
---arch=$(VSCODE_ARCH)`, which iterates the SDKs (`SDKS = ['claude',
+It iterates the SDKs (`SDKS = ['claude',
 'codex']`), figures out the matching `sdkTarget` for `(vscode-platform,
 arch, sdk)` via `getSdkTargetForBuild`, runs `buildOne` for each in
 parallel, and drops the tarballs in
