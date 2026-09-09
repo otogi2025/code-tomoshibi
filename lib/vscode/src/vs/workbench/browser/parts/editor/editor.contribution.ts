@@ -132,12 +132,11 @@ Registry.as<IEditorFactoryRegistry>(EditorExtensions.EditorFactory).registerEdit
 //#region Workbench Contributions
 
 registerWorkbenchContribution2(EditorAutoSave.ID, EditorAutoSave, WorkbenchPhase.BlockRestore);
-// Code-Tomoshibi：EditorStatusContribution 不再注册。它给每个编辑器部件挂一个 EditorStatus，
-// 算出来的九个条目 id 全是 `status.editor.*`，一个都过不了状态栏白名单
-// （statusbarPart.ts 的 isTomoshibiStatusbarEntry），addEntry 拿回来的永远是空壳；
-// 而计算链一点不省：光标每动一次都要把选区字符数完整数一遍、再排一帧 animation frame
-// 去更新九个根本不存在的 DOM 条目，全压在用户输入的关键路径上。
-// ChangeLanguageAction / ChangeEOLAction / ChangeEncodingAction 是独立注册的 Action2，
+// Code-Tomoshibi：编辑器状态栏那一套（原 EditorStatusContribution / EditorStatus）已整个删除，
+// 见 editorStatus.js —— 它算出来的九个条目 id 全是 `status.editor.*`，一个都过不了状态栏白名单
+// （statusbarPart.ts 的 isTomoshibiStatusbarEntry），却要在光标每动一次时把选区字符数完整数一遍、
+// 再排一帧 animation frame 去更新九个根本不存在的 DOM 条目，全压在用户输入的关键路径上。
+// 该文件现在只留 ChangeLanguageAction / ChangeEOLAction / ChangeEncodingAction 三个 Action2，
 // 命令面板那条路不受影响。
 registerWorkbenchContribution2(UntitledTextEditorWorkingCopyEditorHandler.ID, UntitledTextEditorWorkingCopyEditorHandler, WorkbenchPhase.BlockRestore);
 registerWorkbenchContribution2(DynamicEditorConfigurations.ID, DynamicEditorConfigurations, WorkbenchPhase.BlockRestore);
