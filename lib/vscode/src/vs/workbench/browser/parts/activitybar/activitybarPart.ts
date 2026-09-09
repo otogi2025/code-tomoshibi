@@ -319,23 +319,28 @@ export class ActivitybarPart extends Part {
 		key.title = label;
 		key.setAttribute('aria-label', label);
 
-		let lastSent = 0;
 		const send = (event: Event) => {
-			// Swallow the gesture so the terminal keeps focus (and the iPad soft keyboard
-			// stays up); whichever of the four events lands first sends, the rest are debounced.
+			// Swallow the gesture so the terminal keeps focus (and the iPad soft keyboard stays up).
 			event.preventDefault();
 			event.stopPropagation();
-			const now = Date.now();
-			if (now - lastSent < 500) {
-				return;
-			}
-			lastSent = now;
 			void this.commandService.executeCommand(commandId);
 		};
-		this._register(addDisposableListener(key, 'touchstart', send, { passive: false }));
+
+		// 一次手势只发一个 Esc，靠「哪个事件负责发」去重，不靠时间节流：原来 touchstart /
+		// pointerdown / mousedown / click 四路共用一个 500ms 阈值，人连按两下（间隔通常
+		// 200~400ms）的第二下会被一起吞掉，Claude Code 的「Esc Esc」在 iPad 上按不出来。
+		// pointerdown 一路就涵盖触摸、手写笔和鼠标，是唯一会发送的路径。
 		this._register(addDisposableListener(key, EventType.POINTER_DOWN, send));
-		this._register(addDisposableListener(key, EventType.MOUSE_DOWN, send));
-		this._register(addDisposableListener(key, EventType.CLICK, send));
+		// touchstart 只负责 preventDefault：Safari 靠它才不会把焦点从终端挪走、不收起软键盘，
+		// 也是它挡掉触摸合成出来的 mousedown / click（取消 pointerdown 挡不掉这些）。
+		this._register(addDisposableListener(key, 'touchstart', (event: Event) => event.preventDefault(), { passive: false }));
+		// 键盘激活（按钮获得焦点后按 Enter / 空格）到达时是一个背后没有指针的 click
+		// （detail === 0）；指针产生的 click 上面已经处理过了，这里不能重复发。
+		this._register(addDisposableListener(key, EventType.CLICK, (event: MouseEvent) => {
+			if (event.detail === 0) {
+				send(event);
+			}
+		}));
 		this._register(toDisposable(() => key.remove()));
 
 		this.tomoshibiSoftKeys.push(key);
