@@ -51,6 +51,9 @@ export class TerminalEditor extends EditorPane {
 
 	private readonly _disposableStore = this._register(new DisposableStore());
 
+	/** 上一次用来搭新建下拉的分组签名，见 _updateTabActionBar。 */
+	private _tabActionBarGroups: string | undefined;
+
 	constructor(
 		group: IEditorGroup,
 		@ITelemetryService telemetryService: ITelemetryService,
@@ -154,7 +157,19 @@ export class TerminalEditor extends EditorPane {
 		}));
 	}
 
+	/** 新建下拉的全部内容只取决于分组的 id 和名字（terminalMenus.ts 的 getTerminalActionBarArgs）。 */
+	private _sessionGroupSignature(): string {
+		return this._sessionService.groups.map(group => `${group.id}:${group.name}`).join('\n');
+	}
+
 	private _updateTabActionBar(): void {
+		// onDidChange 是 sessionService._save() 统一 fire 的：改标题、置顶、换分组、折叠/展开都会来一次，
+		// 而这个下拉只列分组。分组的 id 和名字没变就什么都不做。
+		const signature = this._sessionGroupSignature();
+		if (signature === this._tabActionBarGroups) {
+			return;
+		}
+		this._tabActionBarGroups = signature;
 		this._disposableStore.clear();
 		const actions = getTerminalActionBarArgs(TerminalLocation.Editor, this._terminalService, this._sessionService, this._quickInputService, this._disposableStore);
 		this._newDropdown.value?.update(actions.dropdownAction, actions.dropdownMenuActions);
@@ -180,6 +195,7 @@ export class TerminalEditor extends EditorPane {
 				if (action instanceof MenuItemAction) {
 					const location = { viewColumn: ACTIVE_GROUP };
 					this._disposableStore.clear();
+					this._tabActionBarGroups = this._sessionGroupSignature();
 					const actions = getTerminalActionBarArgs(location, this._terminalService, this._sessionService, this._quickInputService, this._disposableStore);
 					this._newDropdown.value = this._instantiationService.createInstance(DropdownWithPrimaryActionViewItem, action, actions.dropdownAction, actions.dropdownMenuActions, actions.className, { hoverDelegate: options.hoverDelegate });
 					this._newDropdown.value?.update(actions.dropdownAction, actions.dropdownMenuActions);
