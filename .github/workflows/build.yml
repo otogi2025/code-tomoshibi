@@ -23,6 +23,13 @@ env:
   PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+# 快照仓每次 push 都是全量重建，跑到一半的旧构建没有保留价值。
+# 不加这段的话连推几个 commit 会并排跑几个 240 分钟上限的构建，
+# 而且先推的可能后完成，Actions 页上「最新一次成功」会指向旧 commit。
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     name: linux-x64
