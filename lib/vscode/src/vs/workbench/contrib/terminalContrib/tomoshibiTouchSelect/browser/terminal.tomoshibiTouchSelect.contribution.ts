@@ -191,8 +191,11 @@ class TomoshibiTouchSelectContribution extends Disposable implements ITerminalCo
 		store.add(raw.onSelectionChange(() => this._onSelectionChange()));
 		store.add(raw.onScroll(() => this._layout()));
 		store.add(raw.onResize(() => this._layout()));
-		// Any keyboard input dismisses the whole thing, as it does on iOS.
-		store.add(raw.onData(() => this._dismiss(true)));
+		// Typing dismisses the whole thing, as it does on iOS. `onKey` and not `onData`:
+		// `onData` carries everything that goes to the pty, the terminal's own replies
+		// included -- focus reports, DA/CPR answers, mouse tracking -- so a full screen TUI
+		// answering a query would tear the selection down with nobody having pressed a key.
+		store.add(raw.onKey(() => this._dismiss(true)));
 		store.add(toDisposable(() => this._teardownUi()));
 	}
 
