@@ -86,13 +86,31 @@ interface CachedSnapshot {
   readonly value: PerformanceSnapshot
 }
 
+/* Everything one polling stream needs to stand on its own. The basic snapshot is polled twice a
+ * second by the status bar and the detail snapshot every two seconds by the open popover; they
+ * used to share one counter baseline, so whichever request arrived second diffed against a
+ * baseline the first had written a few dozen milliseconds earlier. In a window that short
+ * /proc/stat has barely ticked (the CPU percentage comes back null) and a single HTTP response
+ * divided by a few milliseconds reads as hundreds of kilobytes a second. Each stream now keeps
+ * its own baseline, and `inFlight` makes sure only one sample per stream is ever running so two
+ * simultaneous requests cannot take the same baseline from each other either. */
+interface Sampler {
+  counters?: SystemCounters
+  cache?: CachedSnapshot
+  inFlight?: Promise<PerformanceSnapshot>
+}
+
+/** Below this the window is not measurable, so rates report null instead of a made up number. */
+const MIN_RATE_WINDOW_MS = 100
+
 /* The host name never changes while the process lives, so it is resolved once. */
 const hostname = os.hostname()
 
-let previousCounters: SystemCounters | undefined
+const basicSampler: Sampler = {}
+const detailSampler: Sampler = {}
+
+/* Only the detail stream walks /proc/<pid>, so this baseline belongs to that stream alone. */
 let previousProcesses: ProcessCounters | undefined
-let basicCache: CachedSnapshot | undefined
-let detailCache: CachedSnapshot | undefined
 
 const readCpuCounters = async (): Promise<CpuCounters | undefined> => {
   try {
@@ -269,13 +287,20 @@ const describeProcess = async (pid: number, comm: string): Promise<string> => {
 const readTopProcesses = async (cpuTotal: number | undefined, now: number): Promise<PerformanceProcess[]> => {
   const processes = await readProcessSample()
   const previous = previousProcesses
-  previousProcesses = typeof cpuTotal === "number" ? { at: now, cpuTotal, processes } : undefined
+  if (typeof cpuTotal !== "number") {
+    previousProcesses = undefined
+  } else if (!previous || now - previous.at >= MIN_RATE_WINDOW_MS) {
+    // A baseline too young to diff against is kept rather than replaced, otherwise a burst of
+    // requests would keep resetting it and the list would never fill in.
+    previousProcesses = { at: now, cpuTotal, processes }
+  }
   if (!previous || typeof cpuTotal !== "number") {
     // Without a previous sample there is no rate to report yet.
     return []
   }
+  const elapsedMs = now - previous.at
   const jiffiesDelta = cpuTotal - previous.cpuTotal
-  if (!(jiffiesDelta > 0) || now - previous.at > COUNTER_MAX_AGE_MS) {
+  if (!(jiffiesDelta > 0) || elapsedMs < MIN_RATE_WINDOW_MS || elapsedMs > COUNTER_MAX_AGE_MS) {
     return []
   }
   const ranked: { pid: number; name: string; cpuPercent: number }[] = []
@@ -299,14 +324,19 @@ const readTopProcesses = async (cpuTotal: number | undefined, now: number): Prom
   )
 }
 
-const sample = async (detail: boolean): Promise<PerformanceSnapshot> => {
+const sample = async (sampler: Sampler, detail: boolean): Promise<PerformanceSnapshot> => {
   const now = Date.now()
   const [cpu, network, memoryInfo] = await Promise.all([readCpuCounters(), readNetworkCounters(), readMemoryInfo()])
 
-  const previous = previousCounters
-  previousCounters = { at: now, cpu, network }
-  const elapsedSeconds = previous ? (now - previous.at) / 1000 : 0
-  const fresh = !!previous && now - previous.at <= COUNTER_MAX_AGE_MS && elapsedSeconds > 0
+  const previous = sampler.counters
+  const elapsedMs = previous ? now - previous.at : 0
+  if (!previous || elapsedMs >= MIN_RATE_WINDOW_MS) {
+    // Same rule as the process baseline: a baseline that is still too young to diff against is
+    // left alone so the next request has a usable window instead of another empty one.
+    sampler.counters = { at: now, cpu, network }
+  }
+  const elapsedSeconds = elapsedMs / 1000
+  const fresh = !!previous && elapsedMs >= MIN_RATE_WINDOW_MS && elapsedMs <= COUNTER_MAX_AGE_MS
 
   let cpuPercent: number | null = null
   if (fresh && cpu && previous?.cpu) {
@@ -369,10 +399,30 @@ const sample = async (detail: boolean): Promise<PerformanceSnapshot> => {
   return detail ? { ...snapshot, top: await readTopProcesses(cpu?.total, now) } : snapshot
 }
 
+/* One sample per stream at a time. A second request that arrives while a sample is running waits
+ * for that one instead of starting its own, which is what keeps the two from stealing each
+ * other's baseline; it also means the cache is written exactly once per sample. */
+const sampleShared = (sampler: Sampler, detail: boolean): Promise<PerformanceSnapshot> => {
+  if (sampler.inFlight) {
+    return sampler.inFlight
+  }
+  const pending = sample(sampler, detail).then((value) => {
+    // Stamped with the moment the sample was taken, not the moment the request arrived, so the
+    // cache window measures how old the numbers are.
+    sampler.cache = { at: value.sampledAt, value }
+    return value
+  })
+  sampler.inFlight = pending
+  return pending.finally(() => {
+    sampler.inFlight = undefined
+  })
+}
+
 export const performance = async (req: express.Request, res: express.Response): Promise<void> => {
   const detail = req.query.detail === "1"
+  const sampler = detail ? detailSampler : basicSampler
   const now = Date.now()
-  const cached = detail ? detailCache : basicCache
+  const cached = sampler.cache
 
   res.setHeader("Cache-Control", "no-store")
 
@@ -382,14 +432,7 @@ export const performance = async (req: express.Request, res: express.Response): 
   }
 
   try {
-    const value = await sample(detail)
-    const entry: CachedSnapshot = { at: now, value }
-    if (detail) {
-      detailCache = entry
-    } else {
-      basicCache = entry
-    }
-    res.json(value)
+    res.json(await sampleShared(sampler, detail))
   } catch (error) {
     // Never fail the request: an empty snapshot renders as a row of dashes.
     logger.warn(`Tomoshibi performance sample failed: ${error instanceof Error ? error.message : String(error)}`)
