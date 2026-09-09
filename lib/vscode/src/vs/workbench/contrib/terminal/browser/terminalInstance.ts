@@ -1383,17 +1383,11 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 			// keyCode 13. Handle it before xterm's keyboard encoder so one physical
 			// press always produces exactly one PTY write. Never consume an IME
 			// composition confirmation, as that would execute partially composed text.
+			// ⛔ 只在这里算出要发什么，真正的处理放到下面 softDispatch 与 commandsToSkipShell 之后 ——
+			// 这条分支会 stopPropagation，而键绑定服务是挂在 window 冒泡阶段的，抢在前面吃掉 Enter
+			// 就等于把 terminalFocus 下所有 Enter 键绑定全废掉（终端补全的「回车接受」就是这么没的，
+			// 半截命令会被直接提交给 shell 执行）。
 			const iPadHardwareEnterData = getIPadHardwareEnterData(event, isIOS, iPadCompositionActive, this._configurationService.getValue<boolean>('tomoshibi.terminal.shiftEnterNewline') !== false);
-			if (iPadHardwareEnterData !== undefined) {
-				event.preventDefault();
-				event.stopPropagation();
-				if (iPadHardwareEnterData !== null) {
-					// ⛔ 同上：必须走 xterm 自己的入口，否则回车之后视口不会滚回底部（新提示符看不见）、
-					// 选区不会被清掉、PTY 已断开时还会往死连接里写一次。
-					xterm.raw.input(iPadHardwareEnterData, true);
-				}
-				return false;
-			}
 
 			const standardKeyboardEvent = new StandardKeyboardEvent(event);
 			const resolveResult = this._keybindingService.softDispatch(standardKeyboardEvent, standardKeyboardEvent.target);
@@ -1415,6 +1409,18 @@ export class TerminalInstance extends Disposable implements ITerminalInstance {
 			// Meta keys so they bubble up naturally, but the kitty handler does not.
 			if (!this._terminalConfigurationService.config.sendKeybindingsToShell && resolveResult.kind === ResultKind.KbFound && resolveResult.commandId && (event.metaKey || this._terminalConfigurationService.shouldCommandSkipShell(resolveResult.commandId))) {
 				event.preventDefault();
+				return false;
+			}
+
+			// 上面几条都没接住，才轮到 iPad 的硬件 Return 自己写进 PTY（判据见上面那段注释）。
+			if (iPadHardwareEnterData !== undefined) {
+				event.preventDefault();
+				event.stopPropagation();
+				if (iPadHardwareEnterData !== null) {
+					// ⛔ 必须走 xterm 自己的入口，否则回车之后视口不会滚回底部（新提示符看不见）、
+					// 选区不会被清掉、PTY 已断开时还会往死连接里写一次。
+					xterm.raw.input(iPadHardwareEnterData, true);
+				}
 				return false;
 			}
 
