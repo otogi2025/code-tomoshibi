@@ -326,6 +326,37 @@ describe("proxy", () => {
     }
   })
 
+  it("should strip token cookie on websockets", async () => {
+    const token = "my-super-secure-token"
+    process.env.HASHED_PASSWORD = token
+    codeServer = await integration.setup(["--auth=password"])
+
+    // A path of its own: handlers registered on `wsRouter` accumulate across
+    // tests and the first one registered for a path is the one that runs.
+    wsRouter.ws("/wscookies", async (req) => {
+      wss.handleUpgrade(req, req.ws, req.head, (ws) => {
+        ws.send(req.headers.cookie || "no cookies")
+        req.ws.resume()
+      })
+    })
+
+    const cookies = ["cookie2=hello", "cookie3=foo|bar"]
+    const ws = codeServer.ws(proxyPath.replace("wsup", "wscookies"), {
+      headers: {
+        cookie: [...cookies, `code-server-session=${token}`].join("; "),
+      },
+    })
+    const received = await new Promise<string>((resolve, reject) => {
+      ws.on("error", reject)
+      ws.on("message", (message) => resolve(message.toString()))
+    })
+    ws.terminate()
+
+    // The upgrade request only goes through the "proxyReqWs" event, so this
+    // used to hand the session cookie straight to the proxied application.
+    expect(received).toBe(cookies.join("; "))
+  })
+
   it("should proxy when no cookies", async () => {
     codeServer = await integration.setup(["--auth=none"])
 

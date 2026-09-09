@@ -1,5 +1,6 @@
 import * as cookie from "cookie"
 import type { Request } from "express"
+import type * as http from "http"
 import proxyServer from "http-proxy"
 import { getCookieSessionName, HttpCode } from "../common/http"
 
@@ -26,26 +27,37 @@ function identity<T>(val: T): T {
 
 // Strip the code-server cookie if it exists to avoid transmitting the cookie
 // to potentially malicious local ports.
-proxy.on("proxyReq", (preq, req) => {
-  if (req.headers.cookie) {
-    const cookieSessionName = getCookieSessionName((req as Request).args["cookie-suffix"])
-    // Encoding and decoding are no-ops; we just want to remove the token
-    // without changing anything else about the cookies because not all
-    // applications encode/decode the same way `cookie` here does.
-    preq.setHeader(
-      "Cookie",
-      cookie.stringifyCookie(
-        {
-          ...cookie.parseCookie(req.headers.cookie, { decode: identity }),
-          [cookieSessionName]: undefined,
-        },
-        {
-          encode: identity,
-        },
-      ),
-    )
+//
+// `req.args` is attached by the shared `common` middleware in routes/index.ts,
+// which is mounted on both the HTTP router and the websocket router, so the
+// suffix is available on either path; the optional chain only falls back to the
+// default cookie name if some future caller reaches the proxy without it.
+const stripSessionCookie = (preq: http.ClientRequest, req: http.IncomingMessage): void => {
+  if (!req.headers.cookie) {
+    return
   }
-})
+  const cookieSessionName = getCookieSessionName((req as Request).args?.["cookie-suffix"])
+  // Encoding and decoding are no-ops; we just want to remove the token
+  // without changing anything else about the cookies because not all
+  // applications encode/decode the same way `cookie` here does.
+  preq.setHeader(
+    "Cookie",
+    cookie.stringifyCookie(
+      {
+        ...cookie.parseCookie(req.headers.cookie, { decode: identity }),
+        [cookieSessionName]: undefined,
+      },
+      {
+        encode: identity,
+      },
+    ),
+  )
+}
+
+proxy.on("proxyReq", stripSessionCookie)
+// The upgrade request for a websocket never goes through "proxyReq", so without
+// this the session cookie was handed straight to the proxied application.
+proxy.on("proxyReqWs", stripSessionCookie)
 
 // Intercept the response to rewrite absolute redirects against the base path.
 // Is disabled when the request has no base path which means /absproxy is in use.
