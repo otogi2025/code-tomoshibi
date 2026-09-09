@@ -49,15 +49,13 @@
           <input
             class="code-input"
             id="code-input"
-            type="text"
+            type="password"
             name="password"
-            inputmode="numeric"
-            pattern="[0-9]*"
-            maxlength="6"
-            autocomplete="one-time-code"
+            autocomplete="current-password"
             autocapitalize="off"
             spellcheck="false"
-            aria-label="六位数字密码"
+            placeholder="输入密码"
+            aria-label="输入密码"
             aria-describedby="gate-status"
             autofocus
             required
@@ -78,7 +76,11 @@
       ;(function () {
         "use strict"
 
+        // 密码曾经写死是六位数字，现在不一定：换成 hashed-password 之后长度和字符集都由
+        // 服务端那边定。所以输入框不再限制长度和字符，六位数字只是「够了就直接提交」这个
+        // 习惯的触发条件。
         var CODE_LENGTH = 6
+        var SIX_DIGITS = /^[0-9]{6}$/
         var html = document.documentElement
         var form = document.getElementById("gate-form")
         var input = document.getElementById("code-input")
@@ -99,8 +101,14 @@
           }
         }
 
+        function isSixDigitCode(value) {
+          return SIX_DIGITS.test(value)
+        }
+
         function render() {
           var length = input.value.length
+          // 超过六位就没法再用六个格子表示了，切成普通输入框。
+          entry.classList.toggle("is-freeform", length > CODE_LENGTH)
           slots.forEach(function (slot, index) {
             slot.textContent = index < length ? "•" : ""
             slot.classList.toggle("is-filled", index < length)
@@ -146,7 +154,7 @@
         }
 
         function submitCode() {
-          if (submitting || input.value.length !== CODE_LENGTH) return
+          if (submitting || !input.value) return
           submitting = true
           input.disabled = true
           status.textContent = ""
@@ -193,10 +201,11 @@
         }
 
         input.addEventListener("input", function () {
-          input.value = input.value.replace(/\D/g, "").slice(0, CODE_LENGTH)
           status.textContent = ""
           render()
-          submitCode()
+          // 只有「恰好六位且全是数字」才自动提交，保留原来输满就进的手感；其它长度或含
+          // 非数字的密码等回车或点按钮。
+          if (isSixDigitCode(input.value)) submitCode()
         })
         input.addEventListener("focus", render)
         input.addEventListener("blur", render)

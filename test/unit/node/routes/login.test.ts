@@ -107,26 +107,35 @@ describe("login", () => {
       expect(htmlContent).toContain("密码不对")
     })
 
-    it("should render the compact six-digit Code-Tomoshibi gate", async () => {
+    // The field used to be locked to six digits (inputmode/pattern/maxlength plus
+    // a `replace(/\D/g, "")` on every keystroke).  The password will not stay a
+    // six-digit one once it becomes a hashed-password, so the field no longer
+    // restricts what can be typed; the six-digit habit survives only as the
+    // condition for submitting without pressing anything.
+    it("should render the Code-Tomoshibi gate with an unrestricted password field", async () => {
       const resp = await codeServer().fetch("/login", { method: "GET" })
       const htmlContent = await resp.text()
 
       expect(resp.status).toBe(200)
       expect(htmlContent).toContain("<title>Code-Tomoshibi</title>")
       expect(htmlContent).toContain('id="code-input"')
-      expect(htmlContent).toContain('inputmode="numeric"')
-      expect(htmlContent).toContain('maxlength="6"')
+      expect(htmlContent).toContain('type="password"')
+      expect(htmlContent).not.toContain("inputmode=")
+      expect(htmlContent).not.toContain("maxlength=")
+      expect(htmlContent).not.toContain("pattern=")
       expect(htmlContent.match(/class="slot"/g)).toHaveLength(6)
     })
 
-    it("should auto-submit only after six sanitized digits", async () => {
+    it("should auto-submit only a six-digit code", async () => {
       const resp = await codeServer().fetch("/login", { method: "GET" })
       const htmlContent = await resp.text()
 
       expect(resp.status).toBe(200)
       expect(htmlContent).toContain("var CODE_LENGTH = 6")
-      expect(htmlContent).toContain('input.value.replace(/\\D/g, "").slice(0, CODE_LENGTH)')
-      expect(htmlContent).toContain("if (submitting || input.value.length !== CODE_LENGTH) return")
+      expect(htmlContent).toContain("var SIX_DIGITS = /^[0-9]{6}$/")
+      expect(htmlContent).toContain("if (isSixDigitCode(input.value)) submitCode()")
+      // Anything else is submitted by the button or by pressing enter.
+      expect(htmlContent).toContain("if (submitting || !input.value) return")
     })
 
     it("should not leak private workbench state before authentication", async () => {

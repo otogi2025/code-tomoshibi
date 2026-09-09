@@ -261,7 +261,10 @@ body.is-ready .code-entry {
   display: none;
 }
 
-.no-js .slots {
+/* 六个格子只画得下六位。密码不再限定长度，超过六位就退回普通输入框 —— 和没有 JS 时
+   走的是同一套样式。 */
+.no-js .slots,
+.code-entry.is-freeform .slots {
   display: none;
 }
 
@@ -270,7 +273,8 @@ body.is-ready .code-entry {
   transform: none;
 }
 
-.no-js .code-input {
+.no-js .code-input,
+.code-entry.is-freeform .code-input {
   position: static;
   width: min(78vw, 320px);
   height: 52px;
@@ -280,6 +284,15 @@ body.is-ready .code-entry {
   background: rgba(24, 24, 24, 0.8);
   color: var(--text);
   caret-color: var(--text);
+}
+
+.code-entry.is-freeform.is-submitting .code-input {
+  border-color: rgba(51, 183, 224, 0.48);
+}
+
+.code-entry.is-freeform.is-error .code-input {
+  border-color: var(--danger);
+  background: rgba(102, 28, 28, 0.38);
 }
 
 .no-js .fallback-submit {
