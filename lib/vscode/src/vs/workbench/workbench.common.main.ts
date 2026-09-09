@@ -213,9 +213,6 @@ import './contrib/git/browser/git.contributions.js';
 
 // Markers
 
-// Process Explorer
-import './contrib/processExplorer/browser/processExplorer.contribution.js';
-
 // Multi Diff Editor
 import './contrib/multiDiffEditor/browser/multiDiffEditor.contribution.js';
 

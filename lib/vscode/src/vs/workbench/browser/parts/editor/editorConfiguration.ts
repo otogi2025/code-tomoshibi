@@ -26,8 +26,7 @@ export class DynamicEditorConfigurations extends Disposable implements IWorkbenc
 	private static readonly AUTO_LOCK_DEFAULT_ENABLED = new Set<string>([
 		'terminalEditor',
 		'mainThreadWebview-simpleBrowser.view',
-		'mainThreadWebview-browserPreview',
-		'workbench.editor.processExplorer'
+		'mainThreadWebview-browserPreview'
 	]);
 
 	private static readonly AUTO_LOCK_EXTRA_EDITORS: RegisteredEditorInfo[] = [
