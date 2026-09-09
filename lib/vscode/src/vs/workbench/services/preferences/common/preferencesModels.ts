@@ -222,7 +222,6 @@ export class Settings2EditorModel extends AbstractSettingsModel implements ISett
 	private readonly _onDidChangeGroups: Emitter<void> = this._register(new Emitter<void>());
 	readonly onDidChangeGroups: Event<void> = this._onDidChangeGroups.event;
 
-	private additionalGroups: ISettingsGroup[] = [];
 	private dirty = false;
 
 	constructor(
@@ -251,12 +250,7 @@ export class Settings2EditorModel extends AbstractSettingsModel implements ISett
 	get settingsGroups(): ISettingsGroup[] {
 		const groups = this._defaultSettings.getSettingsGroups(this.dirty);
 		this.dirty = false;
-		return [...groups, ...this.additionalGroups];
-	}
-
-	/** For programmatically added groups outside of registered configurations */
-	setAdditionalGroups(groups: ISettingsGroup[]) {
-		this.additionalGroups = groups;
+		return groups;
 	}
 
 	protected update(): IFilterResult {

@@ -38,7 +38,6 @@ export enum SettingValueType {
 	Object = 'object',
 	BooleanObject = 'boolean-object',
 	LanguageTag = 'language-tag',
-	ExtensionToggle = 'extension-toggle',
 	ComplexObject = 'complex-object',
 }
 
