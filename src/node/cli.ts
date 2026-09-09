@@ -185,7 +185,7 @@ export const options: Options<Required<UserProvidedArgs>> = {
   },
   "disable-file-uploads": {
     type: "boolean",
-    description: "Disable file uploads.",
+    description: "No longer does anything. Kept so existing start-up arguments still work.",
   },
   "disable-workspace-trust": {
     type: "boolean",
