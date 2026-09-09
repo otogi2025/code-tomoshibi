@@ -10,7 +10,6 @@ import { SnippetController2 } from '../../../../editor/contrib/snippet/browser/s
 import { SuggestController } from '../../../../editor/contrib/suggest/browser/suggestController.js';
 import { MenuPreventer } from './menuPreventer.js';
 import { SelectionClipboardContributionID } from './selectionClipboard.js';
-import { TabCompletionController } from '../../snippets/browser/tabCompletion.js';
 import { EditorExtensionsRegistry } from '../../../../editor/browser/editorExtensions.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { registerThemingParticipant } from '../../../../platform/theme/common/themeService.js';
@@ -65,7 +64,6 @@ export function getSimpleCodeEditorWidgetOptions(): ICodeEditorWidgetOptions {
 			ContextMenuController.ID,
 			SuggestController.ID,
 			SnippetController2.ID,
-			TabCompletionController.ID,
 		])
 	};
 }

@@ -16,7 +16,6 @@ import { MenuPreventer } from '../../codeEditor/browser/menuPreventer.js';
 import { ContextMenuController } from '../../../../editor/contrib/contextmenu/browser/contextmenu.js';
 import { SuggestController } from '../../../../editor/contrib/suggest/browser/suggestController.js';
 import { SnippetController2 } from '../../../../editor/contrib/snippet/browser/snippetController2.js';
-import { TabCompletionController } from '../../snippets/browser/tabCompletion.js';
 import { IThemeService } from '../../../../platform/theme/common/themeService.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { IAccessibilityService } from '../../../../platform/accessibility/common/accessibility.js';
@@ -74,7 +73,6 @@ export class SimpleCommentEditor extends CodeEditorWidget {
 				{ id: ContextMenuController.ID, ctor: ContextMenuController, instantiation: EditorContributionInstantiation.BeforeFirstInteraction },
 				{ id: SuggestController.ID, ctor: SuggestController, instantiation: EditorContributionInstantiation.Eager },
 				{ id: SnippetController2.ID, ctor: SnippetController2, instantiation: EditorContributionInstantiation.Lazy },
-				{ id: TabCompletionController.ID, ctor: TabCompletionController, instantiation: EditorContributionInstantiation.Eager }, // eager because it needs to define a context key
 				...EditorExtensionsRegistry.getSomeEditorContributions([
 					CopyPasteController.ID,
 					DropIntoEditorController.ID,

@@ -265,9 +265,6 @@ import './contrib/markdown/browser/markdown.contribution.js';
 // Keybindings Contributions
 import './contrib/keybindings/browser/keybindings.contribution.js';
 
-// Snippets
-import './contrib/snippets/browser/snippets.contribution.js';
-
 // Formatter Help
 import './contrib/format/browser/format.contribution.js';
 
