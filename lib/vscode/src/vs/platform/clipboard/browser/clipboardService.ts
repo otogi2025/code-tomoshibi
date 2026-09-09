@@ -104,7 +104,11 @@ export class BrowserClipboardService extends Disposable implements IClipboardSer
 			getActiveWindow().navigator.clipboard.write([new ClipboardItem({
 				'text/plain': currentWritePromise.p,
 			})]).catch(async err => {
-				if (!(err instanceof Error) || err.name !== 'NotAllowedError' || !currentWritePromise.isRejected) {
+				// Code-Tomoshibi: we cancelled this write ourselves (a newer click superseded it) — that is expected, not an error to log.
+				if (currentWritePromise.isRejected) {
+					return;
+				}
+				if (!(err instanceof Error) || err.name !== 'NotAllowedError') {
 					this.logService.error(err);
 				}
 			});
