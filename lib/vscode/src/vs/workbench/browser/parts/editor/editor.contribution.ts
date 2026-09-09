@@ -23,7 +23,7 @@ import { UntitledTextEditorInput } from '../../../services/untitled/common/untit
 import { TextResourceEditorInput } from '../../../common/editor/textResourceEditorInput.js';
 import { TextDiffEditor } from './textDiffEditor.js';
 import { BinaryResourceDiffEditor } from './binaryDiffEditor.js';
-import { ChangeEncodingAction, ChangeEOLAction, ChangeLanguageAction, EditorStatusContribution } from './editorStatus.js';
+import { ChangeEncodingAction, ChangeEOLAction, ChangeLanguageAction } from './editorStatus.js';
 import { Categories } from '../../../../platform/action/common/actionCommonCategories.js';
 import { MenuRegistry, MenuId, IMenuItem, registerAction2 } from '../../../../platform/actions/common/actions.js';
 import { SyncDescriptor } from '../../../../platform/instantiation/common/descriptors.js';
@@ -132,7 +132,13 @@ Registry.as<IEditorFactoryRegistry>(EditorExtensions.EditorFactory).registerEdit
 //#region Workbench Contributions
 
 registerWorkbenchContribution2(EditorAutoSave.ID, EditorAutoSave, WorkbenchPhase.BlockRestore);
-registerWorkbenchContribution2(EditorStatusContribution.ID, EditorStatusContribution, WorkbenchPhase.BlockRestore);
+// Code-Tomoshibi：EditorStatusContribution 不再注册。它给每个编辑器部件挂一个 EditorStatus，
+// 算出来的九个条目 id 全是 `status.editor.*`，一个都过不了状态栏白名单
+// （statusbarPart.ts 的 isTomoshibiStatusbarEntry），addEntry 拿回来的永远是空壳；
+// 而计算链一点不省：光标每动一次都要把选区字符数完整数一遍、再排一帧 animation frame
+// 去更新九个根本不存在的 DOM 条目，全压在用户输入的关键路径上。
+// ChangeLanguageAction / ChangeEOLAction / ChangeEncodingAction 是独立注册的 Action2，
+// 命令面板那条路不受影响。
 registerWorkbenchContribution2(UntitledTextEditorWorkingCopyEditorHandler.ID, UntitledTextEditorWorkingCopyEditorHandler, WorkbenchPhase.BlockRestore);
 registerWorkbenchContribution2(DynamicEditorConfigurations.ID, DynamicEditorConfigurations, WorkbenchPhase.BlockRestore);
 
