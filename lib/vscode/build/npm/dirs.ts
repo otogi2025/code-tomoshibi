@@ -19,9 +19,6 @@ export const dirs = [
 	'extensions/mermaid-markdown-features',
 	'remote',
 	'remote/web',
-	'.vscode/extensions/vscode-selfhost-import-aid',
-	'.vscode/extensions/vscode-extras',
-	'.vscode/extensions/vscode-pr-pinger',
 ];
 
 if (existsSync(`${import.meta.dirname}/../../.build/distro/npm`)) {
