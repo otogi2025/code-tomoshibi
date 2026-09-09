@@ -1,6 +1,7 @@
 import { logger } from "@coder/logger"
-import type { ParsedQs } from "qs"
+import * as crypto from "crypto"
 import { promises as fs } from "fs"
+import type { ParsedQs } from "qs"
 
 export type Settings = { [key: string]: Settings | string | boolean | number }
 
@@ -29,12 +30,25 @@ export class SettingsProvider<T> {
   /**
    * Write settings combined with current settings. On failure log a warning.
    * Settings will be merged shallowly.
+   *
+   * The file is written next to its final location and moved into place, so an
+   * interrupted or concurrent write cannot leave truncated JSON behind.  Half a
+   * file is not a recoverable state here: `read` cannot parse it and silently
+   * falls back to empty settings, which loses the last opened folder.
    */
   public async write(settings: Partial<T>): Promise<void> {
     try {
       const oldSettings = await this.read()
       const nextSettings = { ...oldSettings, ...settings }
-      await fs.writeFile(this.settingsPath, JSON.stringify(nextSettings, null, 2))
+      const tempPath = `${this.settingsPath}.${crypto.randomBytes(6).toString("hex")}.tmp`
+      try {
+        await fs.writeFile(tempPath, JSON.stringify(nextSettings, null, 2))
+        await fs.rename(tempPath, this.settingsPath)
+      } catch (error) {
+        // Do not leave the scratch file behind if either step failed.
+        await fs.rm(tempPath, { force: true })
+        throw error
+      }
     } catch (error: any) {
       logger.warn(error.message)
     }
