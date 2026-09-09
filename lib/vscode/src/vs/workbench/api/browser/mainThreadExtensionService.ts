@@ -19,7 +19,7 @@ import { INotificationService } from '../../../platform/notification/common/noti
 import { IRemoteConnectionData, ManagedRemoteConnection, RemoteConnection, RemoteConnectionType, ResolvedAuthority, WebSocketRemoteConnection } from '../../../platform/remote/common/remoteAuthorityResolver.js';
 import { ExtHostContext, ExtHostExtensionServiceShape, MainContext, MainThreadExtensionServiceShape } from '../common/extHost.protocol.js';
 import { IWorkbenchEnvironmentService } from '../../services/environment/common/environmentService.js';
-import { EnablementState, IWorkbenchExtensionEnablementService } from '../../services/extensionManagement/common/extensionManagement.js';
+import { EnablementState, IWorkbenchExtensionEnablementService, IWorkbenchExtensionManagementService } from '../../services/extensionManagement/common/extensionManagement.js';
 import { ExtensionHostKind } from '../../services/extensions/common/extensionHostKind.js';
 import { IExtensionDescriptionDelta } from '../../services/extensions/common/extensionHostProtocol.js';
 import { IExtensionHostProxy, IResolveAuthorityResult } from '../../services/extensions/common/extensionHostProxy.js';
@@ -41,6 +41,7 @@ export class MainThreadExtensionService implements MainThreadExtensionServiceSha
 		@INotificationService private readonly _notificationService: INotificationService,
 		@IHostService private readonly _hostService: IHostService,
 		@IWorkbenchExtensionEnablementService private readonly _extensionEnablementService: IWorkbenchExtensionEnablementService,
+		@IWorkbenchExtensionManagementService private readonly _extensionManagementService: IWorkbenchExtensionManagementService,
 		@ITimerService private readonly _timerService: ITimerService,
 		@ICommandService private readonly _commandService: ICommandService,
 		@IWorkbenchEnvironmentService protected readonly _environmentService: IWorkbenchEnvironmentService,
@@ -85,10 +86,10 @@ export class MainThreadExtensionService implements MainThreadExtensionServiceSha
 		if (missingExtensionDependency) {
 			const extension = await this._extensionService.getExtension(extensionId.value);
 			if (extension) {
-				const local = await this._extensionsWorkbenchService.queryLocal();
-				const installedDependency = local.find(i => areSameExtensions(i.identifier, { id: missingExtensionDependency.dependency }));
-				if (installedDependency?.local) {
-					await this._handleMissingInstalledDependency(extension, installedDependency.local);
+				const installed = await this._extensionManagementService.getInstalled();
+				const installedDependency = installed.find(i => areSameExtensions(i.identifier, { id: missingExtensionDependency.dependency }));
+				if (installedDependency) {
+					await this._handleMissingInstalledDependency(extension, installedDependency);
 					return;
 				} else {
 					await this._handleMissingNotInstalledDependency(extension, missingExtensionDependency.dependency);
